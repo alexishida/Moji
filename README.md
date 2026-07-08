@@ -10,7 +10,7 @@ Clean desktop app for opening, reading, editing, and exporting Markdown files. B
 
 - **Open Markdown files**: supports `.md` and `.markdown` through file dialog, drag and drop, CLI/file association entry points, and single-instance forwarding.
 - **Multi-document workspace**: horizontal tabs, dirty markers, close buttons, duplicate-file detection, and unsaved-change confirmation.
-- **Preview mode**: sanitized Markdown rendering with headings anchors, outline navigation, tables, task lists, linkify, typographer, and syntax-highlighted code.
+- **Preview mode**: sanitized Markdown rendering with heading anchors, outline navigation, tables, task lists, footnotes, definition lists, subscript/superscript, highlight/insert marks, emoji shortcodes, LaTeX math via KaTeX (`$…$` and `$$…$$`), linkify, typographer, and syntax-highlighted code.
 - **Editor mode**: CodeMirror 6 Markdown editor with line numbers, history, wrapping, and save/save as flows.
 - **Export mode**: export the active document as HTML, PDF, or PNG. PDF supports A4, Letter, Legal, portrait, and landscape.
 - **Settings view**: centered in-workspace panel for language and preview typography controls.

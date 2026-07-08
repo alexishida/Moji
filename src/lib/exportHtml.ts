@@ -1,5 +1,6 @@
 import themeCss from '../styles/theme.css?inline'
 import markdownCss from '../styles/markdown.css?inline'
+import katexCss from 'virtual:katex-fonts-css'
 import type { Theme } from '../../electron/shared'
 
 const PRINT_CSS = `
@@ -32,7 +33,7 @@ export function buildStandaloneHtml(renderedBody: string, theme: Theme, title: s
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400&display=swap" rel="stylesheet" />
 <title>${escapeHtml(title)}</title>
-<style>${themeCss}\n${markdownCss}\n${PRINT_CSS}</style>
+<style>${katexCss}\n${themeCss}\n${markdownCss}\n${PRINT_CSS}</style>
 </head>
 <body>
 <article class="markdown-body">

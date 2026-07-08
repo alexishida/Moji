@@ -33,6 +33,10 @@ function fileFromArgv(argv: string[]): string | null {
   return null
 }
 
+function samplePath(sampleName: string): string {
+  return join(app.getAppPath(), 'samples', sampleName)
+}
+
 async function readDocument(filePath: string): Promise<OpenResult> {
   if (!isMarkdown(filePath)) return { ok: false, error: 'unsupported' }
   try {
@@ -140,6 +144,8 @@ function registerIpc(): void {
   })
 
   ipcMain.handle(IPC.readPath, (_e, filePath: string): Promise<OpenResult> => readDocument(filePath))
+
+  ipcMain.handle(IPC.readSample, (_e, name: string): Promise<OpenResult> => readDocument(samplePath(name)))
 
   ipcMain.handle(IPC.save, async (_e, filePath: string, content: string): Promise<WriteResult> => {
     try {

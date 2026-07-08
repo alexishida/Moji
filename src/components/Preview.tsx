@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, type MouseEvent } from 'react'
 import type { Settings, Theme } from '../../electron/shared'
+import { scrollPreviewHeadingIntoView } from '../lib/previewScroll'
 
 interface PreviewProps {
   html: string
@@ -22,7 +23,7 @@ export function Preview({ html, mdTheme, searchTerm, settings, className }: Prev
       const id = decodeURIComponent(href.slice(1))
       const target =
         bodyRef.current?.querySelector(`#${CSS.escape(id)}`) ?? document.getElementById(id)
-      target?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+      if (target instanceof HTMLElement) scrollPreviewHeadingIntoView(target)
     }
     // External http(s) links carry target="_blank"; the main process opens them
     // in the OS browser via the window-open handler.
