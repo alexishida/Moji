@@ -1,0 +1,53 @@
+{
+  "app": {
+    "name": "Markdown Viewer",
+    "untitled": "Untitled",
+    "modifiedMarker": "•"
+  },
+  "menu": {
+    "file": "File",
+    "open": "Open…",
+    "save": "Save",
+    "saveAs": "Save As…",
+    "export": "Export",
+    "exportHtml": "Export as HTML…",
+    "exportPdf": "Export as PDF…",
+    "quit": "Quit",
+    "view": "View",
+    "toggleEdit": "Toggle Edit",
+    "toggleTheme": "Toggle Theme",
+    "language": "Language"
+  },
+  "toolbar": {
+    "open": "Open",
+    "edit": "Edit",
+    "view": "View",
+    "export": "Export",
+    "exportHtml": "HTML",
+    "exportPdf": "PDF",
+    "theme": "Theme",
+    "language": "Language"
+  },
+  "welcome": {
+    "title": "Markdown Viewer",
+    "subtitle": "Open a Markdown file to read it cleanly.",
+    "openButton": "Open File",
+    "dropHint": "or drop a .md file anywhere in this window"
+  },
+  "dialog": {
+    "unsavedTitle": "Unsaved changes",
+    "unsavedBody": "This document has unsaved changes. Save them before continuing?",
+    "save": "Save",
+    "discard": "Discard",
+    "cancel": "Cancel"
+  },
+  "notice": {
+    "unsupported": "Unsupported file type. Only .md and .markdown files can be opened.",
+    "exportSuccess": "Exported to {{path}}",
+    "exportFailed": "Export failed: {{error}}",
+    "saveSuccess": "Saved",
+    "saveFailed": "Save failed: {{error}}",
+    "openFailed": "Could not open file: {{error}}",
+    "noDocument": "Open a document first."
+  }
+}
