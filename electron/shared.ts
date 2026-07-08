@@ -11,6 +11,9 @@ export const MARKDOWN_EXTENSIONS = ['.md', '.markdown'] as const
 export interface Settings {
   theme: Theme
   language: Language
+  previewFontFamily: string
+  previewFontSize: number
+  previewLineHeight: number
 }
 
 export interface DocumentPayload {
@@ -23,6 +26,11 @@ export type OpenResult =
   | { ok: true; path: string; content: string }
   | { ok: false; canceled?: boolean; error?: string }
 
+/** Result of an operation that opens one or more files. */
+export type OpenManyResult =
+  | { ok: true; documents: DocumentPayload[] }
+  | { ok: false; canceled?: boolean; error?: string }
+
 /** Result of a write-style operation (save / export). */
 export type WriteResult =
   | { ok: true; path: string }
@@ -31,6 +39,8 @@ export type WriteResult =
 export type ExportFormat = 'pdf' | 'html' | 'png'
 
 export type ExportPageSize = 'A4' | 'Letter' | 'Legal'
+
+export type ExportPageOrientation = 'portrait' | 'landscape'
 
 export const EXPORT_PAGE_SIZES: Array<{ value: ExportPageSize; label: string; width: number; height: number }> = [
   { value: 'A4', label: 'A4 (210 x 297 mm)', width: 794, height: 1123 },
@@ -41,6 +51,7 @@ export const EXPORT_PAGE_SIZES: Array<{ value: ExportPageSize; label: string; wi
 export interface ExportRequest {
   format: ExportFormat
   pageSize: ExportPageSize
+  pageOrientation: ExportPageOrientation
   /** Fully-rendered, standalone HTML document (with inlined CSS). */
   html: string
   /** Suggested base name (without extension) for the save dialog. */

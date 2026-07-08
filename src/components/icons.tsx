@@ -75,6 +75,12 @@ export const IconEye = (p: IconProps): JSX.Element => (
   </svg>
 )
 
+export const IconOpen = (p: IconProps): JSX.Element => (
+  <svg {...base} {...p}>
+    <path d="m6 14 1.45-2.9A2 2 0 0 1 9.24 10H20a2 2 0 0 1 1.94 2.5l-1.55 6a2 2 0 0 1-1.94 1.5H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h3.93a2 2 0 0 1 1.66.9l.82 1.2a2 2 0 0 0 1.66.9H18a2 2 0 0 1 2 2v2" />
+  </svg>
+)
+
 export const IconPencil = (p: IconProps): JSX.Element => (
   <svg {...base} {...p}>
     <path d="M12 20h9" />
@@ -119,5 +125,49 @@ export const IconImage = (p: IconProps): JSX.Element => (
     <rect x="4" y="5" width="16" height="14" rx="2" />
     <circle cx="9" cy="10" r="1.4" />
     <path d="m7 17 4-4 3 3 2-2 3 3" />
+  </svg>
+)
+
+export const IconSave = (p: IconProps): JSX.Element => (
+  <svg {...base} {...p}>
+    <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2Z" />
+    <path d="M17 21v-8H7v8M7 3v5h8" />
+  </svg>
+)
+
+/** Right chevron — rotates to point down when its outline node is expanded. */
+export const IconChevronRight = (p: IconProps): JSX.Element => (
+  <svg {...base} {...p}>
+    <path d="m9 6 6 6-6 6" />
+  </svg>
+)
+
+/** Block — marks a Requirement heading in the outline. */
+export const IconBlock = (p: IconProps): JSX.Element => (
+  <svg {...base} {...p}>
+    <rect x="4" y="4" width="16" height="16" rx="3" />
+    <path d="M4 10h16" />
+  </svg>
+)
+
+/** Flow / branch-into — marks a Scenario heading (subordinate step). */
+export const IconFlow = (p: IconProps): JSX.Element => (
+  <svg {...base} {...p}>
+    <path d="M8 4v7a3 3 0 0 0 3 3h6" />
+    <path d="m14 11 4 3-4 3" />
+  </svg>
+)
+
+/** Chevrons apart — "expand all" outline groups. */
+export const IconExpandAll = (p: IconProps): JSX.Element => (
+  <svg {...base} {...p}>
+    <path d="m7 5 5 5 5-5M7 14l5 5 5-5" />
+  </svg>
+)
+
+/** Chevrons together — "collapse all" outline groups. */
+export const IconCollapseAll = (p: IconProps): JSX.Element => (
+  <svg {...base} {...p}>
+    <path d="m7 10 5-5 5 5M7 19l5-5 5 5" />
   </svg>
 )

@@ -1,4 +1,4 @@
-# Markdown Viewer
+# Moji
 
 A clean, cross-platform **Markdown** viewer and editor.
 

@@ -1,8 +1,12 @@
 {
   "app": {
-    "name": "Visor de Markdown",
+    "name": "Moji",
     "untitled": "Sin título",
     "modifiedMarker": "•"
+  },
+  "tabs": {
+    "documents": "Documentos abiertos",
+    "close": "Cerrar pestana"
   },
   "menu": {
     "file": "Archivo",
@@ -25,7 +29,9 @@
     "preview": "Vista previa",
     "editor": "Editor",
     "viewMode": "Modo de vista",
-    "newDocument": "Nuevo documento",
+    "newDocument": "Nuevo",
+    "save": "Guardar",
+    "search": "Buscar...",
     "export": "Exportar",
     "exportHtml": "Exportar como HTML",
     "exportPdf": "Exportar como PDF",
@@ -42,11 +48,15 @@
     "documents": "Documentos",
     "outline": "Esquema",
     "help": "Ayuda",
+    "expand": "Expandir",
+    "collapse": "Contraer",
+    "expandAll": "Expandir todo",
+    "collapseAll": "Contraer todo",
     "noHeadings": "Aún no hay encabezados. Agrega un encabezado para crear el esquema.",
     "noDocument": "Abre o crea un documento para ver su esquema."
   },
   "statusbar": {
-    "brand": "Visor de Markdown v0.1",
+    "brand": "Moji v0.1",
     "guide": "Guía de Markdown",
     "exportPdf": "Exportar PDF",
     "wordCount": "Palabras: {{count}}"
@@ -55,9 +65,10 @@
     "hint": "Abre o suelta un archivo .md, cambia entre Vista previa/Editor en las pestañas superiores y usa el esquema para saltar entre encabezados."
   },
   "welcome": {
-    "title": "Visor de Markdown",
+    "title": "Moji",
     "subtitle": "Abre un archivo Markdown para leerlo de forma limpia.",
     "openButton": "Abrir archivo",
+    "newButton": "Nuevo archivo",
     "dropHint": "o suelta un archivo .md en cualquier parte de esta ventana"
   },
   "dialog": {
@@ -72,6 +83,9 @@
     "format": "Formato",
     "settings": "Ajustes",
     "pageSize": "Tama\u00f1o de p\u00e1gina",
+    "orientation": "Orientaci\u00f3n",
+    "portrait": "Vertical",
+    "landscape": "Horizontal",
     "pdfTitle": "Exportar como PDF",
     "pdfDescription": "Ideal para imprimir y compartir dise\u00f1os exactos.",
     "htmlTitle": "Exportar como HTML",
@@ -79,6 +93,14 @@
     "pngTitle": "Exportar como PNG",
     "pngDescription": "Imagen de alta resoluci\u00f3n del contenido del documento.",
     "export": "Exportar"
+  },
+  "settingsDialog": {
+    "title": "Ajustes",
+    "general": "General",
+    "preview": "Vista previa",
+    "fontFamily": "Fuente",
+    "fontSize": "Tamaño de fuente",
+    "lineHeight": "Altura de línea"
   },
   "notice": {
     "unsupported": "Tipo de archivo no compatible. Solo se pueden abrir archivos .md y .markdown.",

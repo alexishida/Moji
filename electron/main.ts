@@ -1,4 +1,4 @@
-import { app, BrowserWindow, dialog, ipcMain, shell } from 'electron'
+import { app, BrowserWindow, dialog, ipcMain, Menu, shell } from 'electron'
 import { readFile, writeFile } from 'node:fs/promises'
 import { existsSync } from 'node:fs'
 import { extname, join } from 'node:path'
@@ -8,12 +8,12 @@ import {
   type ExportRequest,
   type Language,
   type MenuAction,
+  type OpenManyResult,
   type OpenResult,
   type Settings,
   type WriteResult
 } from './shared'
 import { getSettings, updateSettings } from './settings'
-import { buildMenu } from './menu'
 import { exportDocument } from './export'
 
 let mainWindow: BrowserWindow | null = null
@@ -59,18 +59,8 @@ function sendMenuAction(action: MenuAction): void {
   mainWindow?.webContents.send(IPC.menuAction, action)
 }
 
-function refreshMenu(): void {
-  buildMenu({
-    language: getSettings().language,
-    send: sendMenuAction,
-    setLanguage: (lang) => applyLanguage(lang)
-  })
-}
-
 function applyLanguage(lang: Language): void {
   updateSettings({ language: lang })
-  refreshMenu()
-  // Renderer keeps its own i18n in sync via the pushed setting.
   mainWindow?.webContents.send(IPC.setLanguage, lang)
 }
 
@@ -82,7 +72,7 @@ function createWindow(): void {
     minHeight: 480,
     show: false,
     backgroundColor: getSettings().theme === 'dark' ? '#1e1e1e' : '#ffffff',
-    autoHideMenuBar: false,
+    autoHideMenuBar: true,
     webPreferences: {
       preload: join(__dirname, '../preload/preload.js'),
       nodeIntegration: false,
@@ -92,6 +82,7 @@ function createWindow(): void {
   })
 
   mainWindow.once('ready-to-show', () => {
+    mainWindow?.setMenuBarVisibility(false)
     mainWindow?.show()
     if (pendingOpenPath) {
       void openDocument(pendingOpenPath)
@@ -118,6 +109,7 @@ function createWindow(): void {
 
   if (process.env['ELECTRON_RENDERER_URL']) {
     void mainWindow.loadURL(process.env['ELECTRON_RENDERER_URL'])
+    mainWindow.webContents.openDevTools()
   } else {
     void mainWindow.loadFile(join(__dirname, '../renderer/index.html'))
   }
@@ -130,13 +122,21 @@ function registerIpc(): void {
 
   ipcMain.handle(IPC.setLanguage, (_e, lang: Language): void => applyLanguage(lang))
 
-  ipcMain.handle(IPC.openDialog, async (): Promise<OpenResult> => {
+  ipcMain.handle(IPC.openDialog, async (): Promise<OpenManyResult> => {
     const { canceled, filePaths } = await dialog.showOpenDialog(mainWindow!, {
-      properties: ['openFile'],
+      properties: ['openFile', 'multiSelections'],
       filters: [{ name: 'Markdown', extensions: ['md', 'markdown'] }]
     })
     if (canceled || filePaths.length === 0) return { ok: false, canceled: true }
-    return readDocument(filePaths[0])
+    const results = await Promise.all(filePaths.map((filePath) => readDocument(filePath)))
+    const failed = results.find((result) => !result.ok)
+    if (failed && !failed.ok) return { ok: false, error: failed.error ?? 'open failed' }
+    return {
+      ok: true,
+      documents: results
+        .filter((result): result is { ok: true; path: string; content: string } => result.ok)
+        .map(({ path, content }) => ({ path, content }))
+    }
   })
 
   ipcMain.handle(IPC.readPath, (_e, filePath: string): Promise<OpenResult> => readDocument(filePath))
@@ -198,7 +198,7 @@ if (!gotLock) {
   app.whenReady().then(() => {
     pendingOpenPath = fileFromArgv(process.argv)
     registerIpc()
-    refreshMenu()
+    Menu.setApplicationMenu(null)
     createWindow()
 
     app.on('activate', () => {

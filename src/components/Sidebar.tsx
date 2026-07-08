@@ -1,63 +1,87 @@
+import { useCallback, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { SettingsButton } from './SettingsButton'
-import { IconList, IconHelp } from './icons'
-import type { OutlineItem } from '../lib/outline'
-import type { Language, Theme } from '../../electron/shared'
+import { IconCollapseAll, IconExpandAll, IconList } from './icons'
+import { OutlineTree } from './OutlineTree'
+import { nestOutline, type OutlineItem, type OutlineNode } from '../lib/outline'
 
 interface SidebarProps {
   hasDoc: boolean
   outline: OutlineItem[]
   activeId: string | null
-  language: Language
-  theme: Theme
+  showOutline: boolean
   onSelectHeading: (id: string) => void
-  onHelp: () => void
-  onChangeLanguage: (lang: Language) => void
-  onToggleTheme: () => void
+}
+
+function collectCollapsible(nodes: OutlineNode[], acc: string[] = []): string[] {
+  for (const node of nodes) {
+    if (node.children.length > 0) {
+      acc.push(node.id)
+      collectCollapsible(node.children, acc)
+    }
+  }
+  return acc
 }
 
 export function Sidebar(props: SidebarProps): JSX.Element {
   const { t } = useTranslation()
 
+  const tree = useMemo(() => nestOutline(props.outline), [props.outline])
+  const collapsibleIds = useMemo(() => collectCollapsible(tree), [tree])
+  const [collapsed, setCollapsed] = useState<Set<string>>(new Set())
+
+  const allCollapsed = collapsibleIds.length > 0 && collapsibleIds.every((id) => collapsed.has(id))
+
+  const toggleNode = useCallback((id: string) => {
+    setCollapsed((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }, [])
+
+  const toggleAll = useCallback(() => {
+    setCollapsed(allCollapsed ? new Set() : new Set(collapsibleIds))
+  }, [allCollapsed, collapsibleIds])
+
   return (
     <aside className="sidebar">
       <div className="sidebar__body">
-        <div className="navitem navitem--active navitem--static">
-          <IconList />
-          <span className="navitem__label">{t('sidebar.outline')}</span>
-        </div>
+        {props.showOutline && (
+          <>
+            <div className="outline-head">
+              <div className="navitem navitem--active navitem--static outline-head__title">
+                <IconList />
+                <span className="navitem__label">{t('sidebar.outline')}</span>
+              </div>
+              {collapsibleIds.length > 0 && (
+                <button
+                  type="button"
+                  className="outline-head__toggle"
+                  onClick={toggleAll}
+                  title={allCollapsed ? t('sidebar.expandAll') : t('sidebar.collapseAll')}
+                  aria-label={allCollapsed ? t('sidebar.expandAll') : t('sidebar.collapseAll')}
+                >
+                  {allCollapsed ? <IconExpandAll width={16} height={16} /> : <IconCollapseAll width={16} height={16} />}
+                </button>
+              )}
+            </div>
 
-        {props.outline.length > 0 ? (
-          <nav className="outline" aria-label={t('sidebar.outline')}>
-            {props.outline.map((item, i) => (
-              <button
-                key={`${item.id}-${i}`}
-                className={`outline__item ${props.activeId === item.id ? 'outline__item--active' : ''}`}
-                style={{ paddingLeft: `${8 + (item.level - 1) * 14}px` }}
-                onClick={() => props.onSelectHeading(item.id)}
-                title={item.text}
-              >
-                {item.text}
-              </button>
-            ))}
-          </nav>
-        ) : (
-          <p className="outline__empty">{props.hasDoc ? t('sidebar.noHeadings') : t('sidebar.noDocument')}</p>
+            {tree.length > 0 ? (
+              <nav aria-label={t('sidebar.outline')}>
+                <OutlineTree
+                  nodes={tree}
+                  activeId={props.activeId}
+                  collapsed={collapsed}
+                  onSelect={props.onSelectHeading}
+                  onToggle={toggleNode}
+                />
+              </nav>
+            ) : (
+              <p className="outline__empty">{props.hasDoc ? t('sidebar.noHeadings') : t('sidebar.noDocument')}</p>
+            )}
+          </>
         )}
-      </div>
-
-      <div className="sidebar__footer">
-        <SettingsButton
-          variant="nav"
-          language={props.language}
-          theme={props.theme}
-          onChangeLanguage={props.onChangeLanguage}
-          onToggleTheme={props.onToggleTheme}
-        />
-        <button className="navitem" onClick={props.onHelp}>
-          <IconHelp width={16} height={16} />
-          <span className="navitem__label">{t('sidebar.help')}</span>
-        </button>
       </div>
     </aside>
   )

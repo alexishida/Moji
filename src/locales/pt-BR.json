@@ -1,8 +1,12 @@
 {
   "app": {
-    "name": "Visualizador de Markdown",
+    "name": "Moji",
     "untitled": "Sem título",
     "modifiedMarker": "•"
+  },
+  "tabs": {
+    "documents": "Documentos abertos",
+    "close": "Fechar aba"
   },
   "menu": {
     "file": "Arquivo",
@@ -23,9 +27,11 @@
     "edit": "Editar",
     "view": "Visualizar",
     "preview": "Visualizar",
-    "editor": "Editor",
+    "editor": "Editar",
     "viewMode": "Modo de exibição",
-    "newDocument": "Novo documento",
+    "newDocument": "Novo",
+    "save": "Salvar",
+    "search": "Buscar...",
     "export": "Exportar",
     "exportHtml": "Exportar como HTML",
     "exportPdf": "Exportar como PDF",
@@ -42,11 +48,15 @@
     "documents": "Documentos",
     "outline": "Sumário",
     "help": "Ajuda",
+    "expand": "Expandir",
+    "collapse": "Recolher",
+    "expandAll": "Expandir tudo",
+    "collapseAll": "Recolher tudo",
     "noHeadings": "Nenhum título ainda. Adicione um título para montar o sumário.",
     "noDocument": "Abra ou crie um documento para ver o sumário."
   },
   "statusbar": {
-    "brand": "Visualizador de Markdown v0.1",
+    "brand": "Moji v0.1",
     "guide": "Guia de Markdown",
     "exportPdf": "Exportar PDF",
     "wordCount": "Palavras: {{count}}"
@@ -55,9 +65,10 @@
     "hint": "Abra ou solte um arquivo .md, alterne entre Visualizar/Editor nas abas superiores e use o sumário para navegar entre os títulos."
   },
   "welcome": {
-    "title": "Visualizador de Markdown",
+    "title": "Moji",
     "subtitle": "Abra um arquivo Markdown para lê-lo de forma limpa.",
     "openButton": "Abrir arquivo",
+    "newButton": "Novo Arquivo",
     "dropHint": "ou solte um arquivo .md em qualquer lugar desta janela"
   },
   "dialog": {
@@ -72,6 +83,9 @@
     "format": "Formato",
     "settings": "Configura\u00e7\u00f5es",
     "pageSize": "Tamanho da p\u00e1gina",
+    "orientation": "Orienta\u00e7\u00e3o",
+    "portrait": "Retrato",
+    "landscape": "Paisagem",
     "pdfTitle": "Exportar como PDF",
     "pdfDescription": "Ideal para impress\u00e3o e compartilhamento com layout exato.",
     "htmlTitle": "Exportar como HTML",
@@ -79,6 +93,14 @@
     "pngTitle": "Exportar como PNG",
     "pngDescription": "Imagem em alta resolu\u00e7\u00e3o do conte\u00fado do documento.",
     "export": "Exportar"
+  },
+  "settingsDialog": {
+    "title": "Configurações",
+    "general": "Geral",
+    "preview": "Preview",
+    "fontFamily": "Fonte",
+    "fontSize": "Tamanho da fonte",
+    "lineHeight": "Altura da linha"
   },
   "notice": {
     "unsupported": "Tipo de arquivo não suportado. Apenas arquivos .md e .markdown podem ser abertos.",

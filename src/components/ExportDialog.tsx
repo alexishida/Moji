@@ -1,12 +1,13 @@
 import { useState } from 'react'
 import type { SVGProps } from 'react'
 import { useTranslation } from 'react-i18next'
-import { EXPORT_PAGE_SIZES, type ExportFormat, type ExportPageSize } from '../../electron/shared'
+import { EXPORT_PAGE_SIZES, type ExportFormat, type ExportPageOrientation, type ExportPageSize } from '../../electron/shared'
 import { IconCode, IconDownload, IconFilePdf, IconImage, IconX } from './icons'
 
 export interface ExportDialogOptions {
   format: ExportFormat
   pageSize: ExportPageSize
+  pageOrientation: ExportPageOrientation
 }
 
 interface ExportDialogProps {
@@ -45,6 +46,7 @@ export function ExportDialog({ initialFormat, onCancel, onExport }: ExportDialog
   const { t } = useTranslation()
   const [format, setFormat] = useState<ExportFormat>(initialFormat)
   const [pageSize, setPageSize] = useState<ExportPageSize>('A4')
+  const [pageOrientation, setPageOrientation] = useState<ExportPageOrientation>('portrait')
 
   return (
     <section className="export-dialog export-dialog--inline" aria-label={t('exportDialog.title')}>
@@ -87,28 +89,41 @@ export function ExportDialog({ initialFormat, onCancel, onExport }: ExportDialog
 
         <div className="export-dialog__panel">
           <h3 className="export-dialog__heading">{t('exportDialog.settings')}</h3>
-          <label className="export-field">
-            <span className="export-field__label">{t('exportDialog.pageSize')}</span>
-            <select
-              className="select export-field__control"
-              value={pageSize}
-              onChange={(e) => setPageSize(e.target.value as ExportPageSize)}
-            >
-              {EXPORT_PAGE_SIZES.map((size) => (
-                <option key={size.value} value={size.value}>
-                  {size.label}
-                </option>
-              ))}
-            </select>
-          </label>
+          {format === 'pdf' && (
+              <div className="export-field-list">
+                <label className="export-field">
+                  <span className="export-field__label">{t('exportDialog.pageSize')}</span>
+                  <select
+                    className="select export-field__control"
+                    value={pageSize}
+                    onChange={(e) => setPageSize(e.target.value as ExportPageSize)}
+                  >
+                    {EXPORT_PAGE_SIZES.map((size) => (
+                      <option key={size.value} value={size.value}>
+                        {size.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+
+                <label className="export-field">
+                  <span className="export-field__label">{t('exportDialog.orientation')}</span>
+                  <select
+                    className="select export-field__control"
+                    value={pageOrientation}
+                    onChange={(e) => setPageOrientation(e.target.value as ExportPageOrientation)}
+                  >
+                    <option value="portrait">{t('exportDialog.portrait')}</option>
+                    <option value="landscape">{t('exportDialog.landscape')}</option>
+                  </select>
+                </label>
+              </div>
+          )}
         </div>
       </div>
 
       <footer className="export-dialog__footer">
-        <button className="btn" onClick={onCancel}>
-          {t('dialog.cancel')}
-        </button>
-        <button className="btn btn--primary" onClick={() => onExport({ format, pageSize })}>
+        <button className="btn btn--primary" onClick={() => onExport({ format, pageSize, pageOrientation })}>
           <IconDownload width={15} height={15} />
           {t('exportDialog.export')}
         </button>

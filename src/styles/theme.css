@@ -1,7 +1,8 @@
 /* Design tokens — single source of truth for color, type, spacing.
-   Mirrored in .ai-framework/DESIGN.md. Theme switches via [data-theme] on <html>. */
+   Mirrored in .ai-framework/DESIGN.md.
+   App chrome is always dark. [data-md-theme] scopes the markdown preview. */
 :root {
-  --font-sans: system-ui, -apple-system, 'Segoe UI', Roboto, Ubuntu, Cantarell, sans-serif;
+  --font-sans: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, Ubuntu, Cantarell, sans-serif;
   --font-mono: 'JetBrains Mono', 'SFMono-Regular', Menlo, Consolas, 'Liberation Mono', monospace;
 
   --reading-width: 760px;
@@ -20,44 +21,8 @@
   --statusbar-h: 34px;
   --sidebar-w: 260px;
   --shadow: 0 1px 3px rgba(0, 0, 0, 0.08), 0 4px 16px rgba(0, 0, 0, 0.06);
-}
 
-:root,
-:root[data-theme='light'] {
-  --bg: #ffffff;
-  --bg-elevated: #f6f7f9;
-  --bg-inset: #eef0f3;
-  --text: #1f2328;
-  --text-muted: #656d76;
-  --border: #d5dae0;
-  --border-strong: #c2c9d1;
-  --accent: #2f6fed;
-  --accent-hover: #2a63d4;
-  --accent-contrast: #ffffff;
-  --code-bg: #f4f6f8;
-  --danger: #cf222e;
-
-  /* app chrome (light) */
-  --brand: #2f6fed;
-  --sidebar-bg: #f4f6fb;
-  --chrome-bg: #fbfcfe;
-  --nav-hover-bg: #e9edf7;
-  --nav-active-bg: #e3eafc;
-  --nav-active-text: #2f6fed;
-  --segment-track: #eaedf3;
-  --segment-active-bg: #ffffff;
-
-  /* highlight.js tokens (light) */
-  --hl-comment: #6a737d;
-  --hl-keyword: #d73a49;
-  --hl-string: #032f62;
-  --hl-number: #005cc5;
-  --hl-title: #6f42c1;
-  --hl-attr: #22863a;
-  --hl-symbol: #e36209;
-}
-
-:root[data-theme='dark'] {
+  /* dark theme — app chrome + markdown default */
   --bg: #1e1e1e;
   --bg-elevated: #252526;
   --bg-inset: #2b2b2b;
@@ -81,7 +46,7 @@
   --segment-track: #2a2a2c;
   --segment-active-bg: #38383a;
 
-  /* highlight.js tokens (dark) */
+  /* highlight.js tokens (dark default) */
   --hl-comment: #8b949e;
   --hl-keyword: #ff7b72;
   --hl-string: #a5d6ff;
@@ -89,4 +54,24 @@
   --hl-title: #d2a8ff;
   --hl-attr: #7ee787;
   --hl-symbol: #ffa657;
+}
+
+/* Light markdown preview overrides — only affects descendants */
+[data-md-theme='light'] {
+  --bg: #ffffff;
+  --bg-elevated: #f6f7f9;
+  --text: #1f2328;
+  --text-muted: #656d76;
+  --border: #d5dae0;
+  --border-strong: #c2c9d1;
+  --accent: #2f6fed;
+  --code-bg: #f4f6f8;
+
+  --hl-comment: #6a737d;
+  --hl-keyword: #d73a49;
+  --hl-string: #032f62;
+  --hl-number: #005cc5;
+  --hl-title: #6f42c1;
+  --hl-attr: #22863a;
+  --hl-symbol: #e36209;
 }

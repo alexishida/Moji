@@ -1,5 +1,5 @@
-appId: com.alexishida.markdownviewer
-productName: Markdown Viewer
+appId: com.alexishida.moji
+productName: Moji
 copyright: Copyright © 2026 Alex Ishida
 directories:
   output: release

@@ -1,35 +1,66 @@
 # Regras para IA
 
-Este arquivo define as diretrizes principais para a IA dentro do projeto.
-As instrucoes abaixo devem orientar analise, implementacao, alteracoes visuais e tomada de decisao.
+Este arquivo e a fonte oficial das regras do projeto.
 
-# Regras Gerais
+Projeto atual: Moji, aplicativo desktop Electron + React + TypeScript para abrir, visualizar, editar e exportar arquivos Markdown.
 
+## Regras Gerais
 
+- Responder e alterar com base no estado real do repositorio.
+- Antes de documentar feature, confirmar se esta integrada no fluxo principal, nao apenas presente em componente isolado.
+- Manter alteracoes pequenas e alinhadas ao pedido.
+- Preservar mudancas locais de usuario; nao reverter arquivos fora do escopo solicitado.
+- Preferir `rg` para localizar arquivos/texto.
+- Usar `npm run typecheck` para validar TypeScript quando houver alteracao em codigo.
 
-# Regras de Codigo
+## Stack e Arquitetura
+
+- Main process Electron em `electron/`.
+- Renderer React em `src/`.
+- Ponte segura via `electron/preload.ts` e `contextBridge`.
+- Tipos e contratos IPC compartilhados em `electron/shared.ts`.
+- Markdown renderizado por `markdown-it`, `markdown-it-anchor`, `markdown-it-task-lists`, `highlight.js` e sanitizado com `DOMPurify`.
+- Editor baseado em CodeMirror 6.
+- Internacionalizacao com `i18next` e arquivos em `src/locales/`.
+- Build/desenvolvimento com `electron-vite`.
+- Empacotamento com `electron-builder`.
+
+## Regras de Codigo
 
 - Escrever codigo claro, organizado e de facil manutencao.
-- Respeitar a arquitetura, convencoes e estrutura do projeto.
+- Respeitar a estrutura atual: `electron/` para main/preload/IPC/export/settings/menu; `src/` para renderer/componentes/libs/estilos/locales.
+- Manter `nodeIntegration: false`, `contextIsolation: true` e `sandbox: true` no renderer.
+- Sanitizar HTML renderizado antes de usar `dangerouslySetInnerHTML`.
+- Abrir links externos no navegador do sistema, nao dentro do app.
+- Tratar arquivos suportados como `.md` e `.markdown`.
+- Proteger fechamento de documento/app quando houver alteracoes nao salvas.
+- Ao adicionar formato de exportacao, atualizar `ExportFormat`, filtros, UI, traducoes e documentacao.
+- Ao adicionar idioma, atualizar `SUPPORTED_LANGUAGES`, locale JSON e menu nativo.
 
+## Regras de Layout e Design
 
-# Regras de Layout e Design
+O padrao visual esta documentado em `.ai-framework/DESIGN.md`.
 
-O padrao visual do projeto esta documentado em `.ai-framework/DESIGN.md`.
-Essas diretrizes devem ser seguidas sempre que houver criacao ou alteracao de telas, componentes visuais ou estilos.
+- Usar `src/styles/theme.css` como fonte de tokens.
+- Manter chrome do app escuro; alternancia de tema vale para preview/exportacao Markdown.
+- Reutilizar classes/componentes existentes antes de criar variacoes.
+- Manter layout compacto: top bar, abas de documentos, sidebar/outline, workspace e status bar.
+- Priorizar leitura, contraste, truncamento de textos longos e estados visuais previsiveis.
+- Nao usar cores, sombras, raios ou espacamentos soltos quando houver token existente.
+- Garantir que textos nao estourem botoes, abas, popovers ou dialogos.
+- Criar novas solucoes visuais somente quando houver necessidade real de produto, usabilidade ou escala.
 
-- Seguir o design system e os padroes visuais definidos no projeto antes de propor novas abordagens.
-- Manter consistencia entre telas e componentes em layout, tipografia, cores, espacamento, estados visuais e comportamento responsivo.
-- Priorizar legibilidade, hierarquia de informacao, contraste adequado e clareza de interacao.
-- Reutilizar componentes, estilos e padroes existentes antes de criar novas variacoes.
-- Criar novas solucoes visuais apenas quando houver necessidade real de produto, usabilidade ou escalabilidade.
-- Evitar interfaces desalinhadas com a identidade do projeto ou com a experiencia ja estabelecida para o usuario.
-- Considerar diferentes tamanhos de tela, acessibilidade basica e previsibilidade de uso em qualquer alteracao visual.
+## Documentacao
 
+- `README.md` deve descrever uso, recursos e comandos reais do projeto.
+- `.ai-framework/DESIGN.md` deve espelhar tokens e componentes implementados.
+- Nao prometer recursos incompletos como prontos; se necessario, marcar como em andamento.
+- Atualizar README, DESIGN e regras quando mudar arquitetura, exportacao, temas, idiomas ou fluxo principal.
 
-# Guard Rails
+## Guard Rails
 
-- Nao executar comandos diretamente em ambiente de producao. Quando necessario, informar o comando e orientar execucao manual pelo responsavel.
-- Nao fazer alteracoes destrutivas ou irreversiveis sem confirmacao explicita e sem deixar claro o impacto esperado.
+- Nao executar comandos diretamente em ambiente de producao.
+- Nao fazer alteracoes destrutivas ou irreversiveis sem confirmacao explicita e explicacao do impacto.
 - Nao introduzir dependencias, abstracoes, estilos ou estruturas apenas por preferencia pessoal.
 - Nao ignorar impacto em seguranca, desempenho, usabilidade, manutencao ou consistencia visual.
+- Nao editar arquivos gerados ou lockfiles sem necessidade ligada ao pedido.

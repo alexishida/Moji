@@ -1,12 +1,16 @@
-import { useCallback, useRef, type MouseEvent } from 'react'
+import { useCallback, useEffect, useRef, type MouseEvent } from 'react'
+import type { Settings, Theme } from '../../electron/shared'
 
 interface PreviewProps {
   html: string
+  mdTheme: Theme
+  searchTerm: string
+  settings: Settings
   className?: string
 }
 
 /** Renders sanitized Markdown HTML and resolves in-document heading anchors. */
-export function Preview({ html, className }: PreviewProps): JSX.Element {
+export function Preview({ html, mdTheme, searchTerm, settings, className }: PreviewProps): JSX.Element {
   const bodyRef = useRef<HTMLDivElement>(null)
 
   const handleClick = useCallback((e: MouseEvent<HTMLDivElement>) => {
@@ -24,11 +28,65 @@ export function Preview({ html, className }: PreviewProps): JSX.Element {
     // in the OS browser via the window-open handler.
   }, [])
 
+  useEffect(() => {
+    if (!bodyRef.current) return
+    const el = bodyRef.current
+    // Remove previous highlight spans
+    el.querySelectorAll('.search-highlight').forEach((s) => {
+      const parent = s.parentNode
+      if (parent) {
+        parent.replaceChild(document.createTextNode(s.textContent ?? ''), s)
+        parent.normalize()
+      }
+    })
+    if (!searchTerm.trim()) return
+
+    const term = searchTerm.toLowerCase()
+    const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT, {
+      acceptNode: (node) =>
+        node.textContent && node.textContent.toLowerCase().includes(term)
+          ? NodeFilter.FILTER_ACCEPT
+          : NodeFilter.FILTER_REJECT
+    })
+    const nodes: Text[] = []
+    while (walker.nextNode()) {
+      if (!(walker.currentNode.parentElement?.closest('style,script,svg,mark'))) {
+        nodes.push(walker.currentNode as Text)
+      }
+    }
+
+    for (const node of nodes) {
+      const text = node.textContent ?? ''
+      const lower = text.toLowerCase()
+      const parts: (string | Node)[] = []
+      let lastIndex = 0
+      for (let i = lower.indexOf(term, lastIndex); i !== -1; i = lower.indexOf(term, lastIndex)) {
+        if (i > lastIndex) parts.push(text.slice(lastIndex, i))
+        const mark = document.createElement('mark')
+        mark.className = 'search-highlight'
+        mark.textContent = text.slice(i, i + term.length)
+        parts.push(mark)
+        lastIndex = i + term.length
+      }
+      if (lastIndex < text.length) parts.push(text.slice(lastIndex))
+      if (parts.length > 1) {
+        const frag = document.createDocumentFragment()
+        for (const part of parts) frag.append(part)
+        node.parentNode?.replaceChild(frag, node)
+      }
+    }
+  }, [html, searchTerm])
+
   return (
-    <div className={`pane ${className ?? ''}`}>
+    <div className={`pane ${className ?? ''}`} data-md-theme={mdTheme}>
       <div
         ref={bodyRef}
         className="markdown-body"
+        style={{
+          fontFamily: settings.previewFontFamily,
+          fontSize: `${settings.previewFontSize}px`,
+          lineHeight: settings.previewLineHeight
+        }}
         onClick={handleClick}
         dangerouslySetInnerHTML={{ __html: html }}
       />

@@ -3,7 +3,7 @@
   max-width: var(--reading-width);
   margin: 0 auto;
   padding: var(--space-6) var(--space-5);
-  font-size: 16px;
+  font-size: 15px;
   line-height: 1.7;
   color: var(--text);
   word-wrap: break-word;
@@ -174,4 +174,11 @@
 }
 .hljs-strong {
   font-weight: 700;
+}
+
+.search-highlight {
+  background: var(--accent);
+  color: #fff;
+  border-radius: 2px;
+  padding: 0 1px;
 }

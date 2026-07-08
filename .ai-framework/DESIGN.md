@@ -1,59 +1,65 @@
 # Design System
 
-Este arquivo define o padrão visual do projeto.
-Use estas diretrizes como referência ao criar ou alterar CSS, componentes e telas, mantendo consistência de layout, tipografia, cores, espaçamento e comportamento responsivo.
+Este arquivo descreve o padrao visual atual do Moji.
 
-A fonte de verdade dos tokens é [`src/styles/theme.css`](../src/styles/theme.css). Este documento espelha esses valores.
+Fonte de verdade dos tokens: [`src/styles/theme.css`](../src/styles/theme.css). Componentes e telas devem usar esses tokens antes de criar novas cores, medidas ou variantes.
 
-## Princípios
+## Principios
 
-- Leitura em primeiro lugar: coluna centrada, largura confortável, cromo mínimo.
-- Consistência via tokens (variáveis CSS). Não usar cores/medidas soltas.
-- Dois temas de igual qualidade: claro e escuro, ambos com contraste adequado.
-- Reutilizar componentes e classes existentes antes de criar variações.
+- Leitura primeiro: preview limpo, coluna centralizada e cromo escuro discreto.
+- Consistencia por tokens CSS; evitar valores soltos em componentes.
+- App chrome sempre escuro; tema claro/escuro se aplica ao conteudo Markdown renderizado e aos arquivos exportados.
+- Controles compactos, previsiveis e feitos para uso repetido.
+- Reutilizar componentes/classes existentes antes de criar novas variacoes.
 
-## Estrutura (shell)
+## Estrutura
 
-Layout em três zonas fixas ao redor da área de leitura:
+O app Electron usa um shell em camadas:
 
-- **Top bar** (`--topbar-h` = 52px): marca à esquerda + nome do arquivo; abas segmentadas *Preview/Editor* ao centro; tema, configurações e menu (⋮) à direita.
-- **Sidebar** (`--sidebar-w` = 260px): cabeçalho de biblioteca, botão primário *Novo documento*, navegação (Documentos), *Outline* derivado dos títulos, e rodapé (Configurações, Ajuda).
-- **Status bar** (`--statusbar-h` = 34px): marca/versão à esquerda; *Guia*, *Exportar PDF* e contagem de palavras à direita.
-- **Main**: preview (ou editor + preview em modo edição), coluna de leitura centrada em `--reading-width`.
+- **Top bar** (`.topbar`): duas linhas sobre `--chrome-bg`. Primeira linha contem acoes de arquivo (*Novo*, *Abrir*, *Salvar*) e campo de busca quando habilitado. Segunda linha contem o seletor segmentado *Preview / Editor / Exportar* e acoes de tema/configuracoes.
+- **Document tabs** (`.document-tabs`): barra horizontal abaixo da top bar, visivel quando ha documentos abertos. Cada aba tem largura estavel, marcador de alteracao e botao de fechar.
+- **Body** (`.body`): sidebar + area principal.
+- **Sidebar** (`.sidebar`): coluna de `--sidebar-w`, visivel com documento aberto. No modo preview mostra a arvore de outline gerada dos headings (aninhada por nivel) e destaca o heading ativo.
+- **Main/workspace** (`.main`, `.workspace`): renderiza welcome, preview, editor, dialogo inline de exportacao ou painel inline de configuracoes.
+- **Status bar** (`.statusbar`): rodape de `--statusbar-h`, com marca, guia Markdown e contagem de palavras.
 
-## Tipografia
+## Temas
 
-| Token | Valor |
-|-------|-------|
-| `--font-sans` | system-ui, -apple-system, 'Segoe UI', Roboto, Ubuntu, Cantarell, sans-serif |
-| `--font-mono` | 'JetBrains Mono', 'SFMono-Regular', Menlo, Consolas, monospace |
-| Corpo do preview | 16px / linha 1.7 |
-| Editor | 14px, monoespaçada |
-| Largura de leitura | `--reading-width` = 760px |
+O chrome do aplicativo usa o tema escuro definido em `:root`.
 
-## Cores — Tema Claro
+O preview/export usa `data-md-theme="light|dark"` no container do Markdown. O tema claro sobrescreve apenas tokens de leitura:
 
-| Token | Valor |
-|-------|-------|
-| `--bg` | `#ffffff` |
-| `--bg-elevated` | `#f6f7f9` |
-| `--bg-inset` | `#eef0f3` |
-| `--text` | `#1f2328` |
-| `--text-muted` | `#656d76` |
-| `--border` | `#d5dae0` |
-| `--accent` | `#2f6fed` |
-| `--code-bg` | `#f4f6f8` |
-| `--danger` | `#cf222e` |
-| `--brand` | `#2f6fed` |
-| `--sidebar-bg` | `#f4f6fb` |
-| `--chrome-bg` | `#fbfcfe` |
-| `--nav-hover-bg` | `#e9edf7` |
-| `--nav-active-bg` | `#e3eafc` |
-| `--nav-active-text` | `#2f6fed` |
-| `--segment-track` | `#eaedf3` |
-| `--segment-active-bg` | `#ffffff` |
+- `--bg`
+- `--bg-elevated`
+- `--text`
+- `--text-muted`
+- `--border`
+- `--border-strong`
+- `--accent`
+- `--code-bg`
+- `--hl-*`
 
-## Cores — Tema Escuro
+Nao usar `data-theme` no `<html>` para alternar a UI inteira; o estado atual alterna apenas a leitura/exportacao.
+
+## Tokens
+
+| Token | Valor atual |
+|-------|-------------|
+| `--font-sans` | `'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, Ubuntu, Cantarell, sans-serif` |
+| `--font-mono` | `'JetBrains Mono', 'SFMono-Regular', Menlo, Consolas, 'Liberation Mono', monospace` |
+| `--reading-width` | `760px` |
+| `--radius` | `8px` |
+| `--radius-sm` | `5px` |
+| `--space-1..6` | `4, 8, 12, 16, 24, 32px` |
+| `--toolbar-h` | `44px` |
+| `--topbar-h` | `52px` |
+| `--statusbar-h` | `34px` |
+| `--sidebar-w` | `260px` |
+| `--shadow` | sombra leve para popovers/dialogos |
+
+## Cores
+
+### Chrome escuro / Markdown escuro
 
 | Token | Valor |
 |-------|-------|
@@ -63,7 +69,10 @@ Layout em três zonas fixas ao redor da área de leitura:
 | `--text` | `#e7e7e7` |
 | `--text-muted` | `#9aa0a6` |
 | `--border` | `#3a3a3a` |
+| `--border-strong` | `#4a4a4a` |
 | `--accent` | `#4c9aff` |
+| `--accent-hover` | `#63a9ff` |
+| `--accent-contrast` | `#0b1a33` |
 | `--code-bg` | `#161616` |
 | `--danger` | `#ff6b6b` |
 | `--brand` | `#6ea8ff` |
@@ -75,33 +84,61 @@ Layout em três zonas fixas ao redor da área de leitura:
 | `--segment-track` | `#2a2a2c` |
 | `--segment-active-bg` | `#38383a` |
 
-O tema é aplicado via atributo `data-theme="light|dark"` no elemento `<html>`. Todo componente e o preview devem herdar cores dos tokens, nunca de valores fixos.
-
-## Espaçamento e Raio
+### Markdown claro
 
 | Token | Valor |
 |-------|-------|
-| `--space-1..6` | 4, 8, 12, 16, 24, 32 px |
-| `--radius` | 8px |
-| `--radius-sm` | 5px |
-| `--topbar-h` | 52px |
-| `--statusbar-h` | 34px |
-| `--sidebar-w` | 260px |
+| `--bg` | `#ffffff` |
+| `--bg-elevated` | `#f6f7f9` |
+| `--text` | `#1f2328` |
+| `--text-muted` | `#656d76` |
+| `--border` | `#d5dae0` |
+| `--border-strong` | `#c2c9d1` |
+| `--accent` | `#2f6fed` |
+| `--code-bg` | `#f4f6f8` |
 
-## Componentes base
+## Componentes
 
-- **Top bar** (`.topbar`): barra superior de `--topbar-h`, fundo `--chrome-bg`, borda inferior `--border`. Grid de três zonas: marca + arquivo à esquerda, abas segmentadas ao centro, ações à direita.
-- **Abas segmentadas** (`.segment`): trilho `--segment-track` com pílula ativa em `--segment-active-bg`. Alterna *Preview* (leitura) e *Editor* (edição).
-- **Sidebar** (`.sidebar`): coluna de `--sidebar-w`, fundo `--sidebar-bg`. Itens `.navitem` (hover `--nav-hover-bg`, ativo `--nav-active-bg`/`--nav-active-text`) e árvore `.outline` com indentação por nível de título e realce do título visível.
-- **Status bar** (`.statusbar`): rodapé de `--statusbar-h`, fundo `--chrome-bg`; links discretos e contagem de palavras em `--accent`.
-- **Botão de ícone** (`.iconbtn`): 34px, sem borda, hover `--bg-inset`; `--active` usa `--accent`.
-- **Botão** (`.btn`): 30px de altura, borda `--border`, hover em `--bg-inset`. Variante `--primary` usa `--accent`; `--block` ocupa a largura total; `--active` indica estado ligado.
-- **Preview** (`.markdown-body`): coluna de leitura centrada, hierarquia clara de headings, blocos de código com `--code-bg` e realce de sintaxe via tokens `--hl-*`.
-- **Diálogo** (`.dialog`): modal centrado para confirmações (ex.: alterações não salvas), com backdrop escurecido.
-- **Notice** (`.notice`): toast inferior temporário; variante de erro usa `--danger`.
+- **Top bar** (`.topbar`): flex column, `--chrome-bg`, area arrastavel via `-webkit-app-region: drag`; botoes e inputs internos devem usar `no-drag`.
+- **Botoes de arquivo** (`.topbar__open-btn`): altura 30px, icone + texto, borda `--border`, hover em `--bg-inset`.
+- **Busca** (`.topbar__search`): quando usada, deve seguir altura de 30px, fundo `--bg`, borda `--border` e tipografia de 13px.
+- **Segment** (`.segment`, `.segment__btn`): trilho `--segment-track`, botoes de 30px, ativo em `--segment-active-bg`.
+- **Icon button** (`.iconbtn`): 34x34px, sem borda visivel por padrao, hover em `--bg-inset`, ativo com `--accent`.
+- **Document tabs** (`.document-tabs`, `.document-tab`): altura 35px; aba ativa usa `--bg` e filete superior `--accent`; marcador de dirty usa `--accent`.
+- **Sidebar / outline** (`.sidebar`, `.outline-tree`, `.outline-item`): outline aparece no modo preview como arvore aninhada por nivel de heading. Cada grupo (`.outline-tree__children`) tem linha-guia vertical `--border`. Headings com filhos sao colapsaveis por chevron; botao no topo do painel (`.outline-head__toggle`) expande/colapsa tudo. Prefixos `Requirement:`/`Scenario:` viram icones (`IconBlock`/`IconFlow`) e saem do texto; Requirement usa peso maior e `--text`, Scenario recua com `--text-muted`. Titulos longos quebram em ate 2 linhas com `title` completo no hover. Item ativo usa `--nav-active-text`, fundo tenue `--nav-active-bg` e barra `inset 2px --accent`.
+- **Preview** (`.markdown-body`): largura maxima `--reading-width`, padding `--space-6 --space-5`, tipografia configuravel pelo painel de configuracoes (padrao 16px, linha 1.7), headings com hierarquia clara e codigo em `--code-bg`.
+- **Editor** (`.editor-pane`, `.cm-editor`): ocupa toda a area principal, fonte mono 14px, line wrapping e tema escuro CodeMirror no estado atual.
+- **Export dialog** (`.export-dialog`): dialogo inline centralizado, largura `min(760px, calc(100vw - 32px))`, lista de formatos PDF/HTML/PNG, configuracoes de pagina para PDF.
+- **Settings dialog** (`.settings-dialog`): painel inline centralizado no mesmo padrao do export; contem idioma e configuracoes de preview como familia de fonte, tamanho e altura de linha.
+- **Popover/menu** (`.popover`, `.menu__list`): usar `--bg-elevated`, `--border`, `--shadow`, raio de ate `--radius`.
+- **Confirm dialog** (`.dialog`): modal com backdrop, largura `min(420px, 90vw)`, usado para alteracoes nao salvas.
+- **Notice** (`.notice`): toast inferior sobre a status bar; erro usa `--danger`.
+- **Welcome** (`.welcome`): tela vazia centralizada com acoes principais de abrir/criar documento.
+
+## Markdown Renderizado
+
+O preview deve manter suporte visual para:
+
+- headings com anchors
+- links
+- listas e task lists
+- tabelas com overflow horizontal
+- blockquotes
+- codigo inline e blocos com highlight.js
+- imagens responsivas
+- destaque de busca via `.search-highlight` quando a busca estiver conectada
+
+## Responsividade
+
+- Janela minima atual: 640x480.
+- Export dialog vira uma coluna abaixo de 720px.
+- Texto em abas e nome de arquivo deve truncar com ellipsis; no outline, headings longos quebram em ate 2 linhas.
+- Controles fixos nao devem mudar dimensao com hover, foco, dirty marker ou labels longos.
 
 ## Acessibilidade
 
-- Contraste mínimo AA para texto sobre `--bg` em ambos os temas.
-- Áreas clicáveis com no mínimo 28–30px de altura.
-- Estados de foco/hover visíveis; ações de menu com atalhos de teclado.
+- Contraste minimo AA para texto principal em temas claro e escuro.
+- Alvos clicaveis principais com 30px ou mais.
+- Estados hover/foco devem ser visiveis.
+- Botoes iconicos precisam de `title` ou `aria-label`.
+- Menus nativos mantem atalhos de teclado para abrir, salvar, salvar como, alternar editor e alternar tema.

@@ -1,6 +1,13 @@
 import { BrowserWindow, dialog } from 'electron'
 import { writeFile } from 'node:fs/promises'
-import { EXPORT_PAGE_SIZES, type ExportFormat, type ExportPageSize, type ExportRequest, type WriteResult } from './shared'
+import {
+  EXPORT_PAGE_SIZES,
+  type ExportFormat,
+  type ExportPageOrientation,
+  type ExportPageSize,
+  type ExportRequest,
+  type WriteResult
+} from './shared'
 
 const FILTERS: Record<ExportFormat, Electron.FileFilter> = {
   html: { name: 'HTML', extensions: ['html'] },
@@ -16,8 +23,14 @@ function isPageSize(pageSize: unknown): pageSize is ExportPageSize {
   return EXPORT_PAGE_SIZES.some((size) => size.value === pageSize)
 }
 
-function pagePixels(pageSize: ExportPageSize): { width: number; height: number } {
-  return EXPORT_PAGE_SIZES.find((size) => size.value === pageSize) ?? EXPORT_PAGE_SIZES[0]
+function isPageOrientation(pageOrientation: unknown): pageOrientation is ExportPageOrientation {
+  return pageOrientation === 'portrait' || pageOrientation === 'landscape'
+}
+
+function pagePixels(pageSize: ExportPageSize, pageOrientation: ExportPageOrientation): { width: number; height: number } {
+  const size = EXPORT_PAGE_SIZES.find((item) => item.value === pageSize) ?? EXPORT_PAGE_SIZES[0]
+  if (pageOrientation === 'portrait') return size
+  return { width: size.height, height: size.width }
 }
 
 /**
@@ -28,8 +41,10 @@ function pagePixels(pageSize: ExportPageSize): { width: number; height: number }
  * - PNG: render the HTML at the selected page width and capture it as an image.
  */
 export async function exportDocument(request: ExportRequest): Promise<WriteResult> {
-  const { format, pageSize, html, baseName } = request
-  if (!isExportFormat(format) || !isPageSize(pageSize)) return { ok: false, error: 'Invalid export options.' }
+  const { format, pageSize, pageOrientation, html, baseName } = request
+  if (!isExportFormat(format) || !isPageSize(pageSize) || !isPageOrientation(pageOrientation)) {
+    return { ok: false, error: 'Invalid export options.' }
+  }
   if (typeof html !== 'string' || typeof baseName !== 'string') return { ok: false, error: 'Invalid export content.' }
 
   const { canceled, filePath } = await dialog.showSaveDialog({
@@ -42,10 +57,10 @@ export async function exportDocument(request: ExportRequest): Promise<WriteResul
     if (format === 'html') {
       await writeFile(filePath, html, 'utf-8')
     } else if (format === 'pdf') {
-      const pdf = await htmlToPdf(html, pageSize)
+      const pdf = await htmlToPdf(html, pageSize, pageOrientation)
       await writeFile(filePath, pdf)
     } else {
-      const png = await htmlToPng(html, pageSize)
+      const png = await htmlToPng(html, pageSize, pageOrientation)
       await writeFile(filePath, png)
     }
     return { ok: true, path: filePath }
@@ -54,8 +69,19 @@ export async function exportDocument(request: ExportRequest): Promise<WriteResul
   }
 }
 
-async function createExportWindow(html: string, pageSize: ExportPageSize): Promise<BrowserWindow> {
-  const size = pagePixels(pageSize)
+async function waitForFonts(win: BrowserWindow): Promise<void> {
+  await Promise.race([
+    win.webContents.executeJavaScript('document.fonts.ready'),
+    new Promise((r) => setTimeout(r, 5000))
+  ])
+}
+
+async function createExportWindow(
+  html: string,
+  pageSize: ExportPageSize,
+  pageOrientation: ExportPageOrientation
+): Promise<BrowserWindow> {
+  const size = pagePixels(pageSize, pageOrientation)
   const win = new BrowserWindow({
     show: false,
     width: size.width,
@@ -68,27 +94,35 @@ async function createExportWindow(html: string, pageSize: ExportPageSize): Promi
     }
   })
   await win.loadURL('data:text/html;charset=utf-8,' + encodeURIComponent(html))
-  // Give web fonts / highlight styles a tick to settle.
-  await new Promise((r) => setTimeout(r, 150))
+  await waitForFonts(win)
   return win
 }
 
-async function htmlToPdf(html: string, pageSize: ExportPageSize): Promise<Buffer> {
-  const win = await createExportWindow(html, pageSize)
+async function htmlToPdf(
+  html: string,
+  pageSize: ExportPageSize,
+  pageOrientation: ExportPageOrientation
+): Promise<Buffer> {
+  const win = await createExportWindow(html, pageSize, pageOrientation)
   try {
     return await win.webContents.printToPDF({
       printBackground: true,
       margins: { marginType: 'default' },
-      pageSize
+      pageSize,
+      landscape: pageOrientation === 'landscape'
     })
   } finally {
     win.destroy()
   }
 }
 
-async function htmlToPng(html: string, pageSize: ExportPageSize): Promise<Buffer> {
-  const size = pagePixels(pageSize)
-  const win = await createExportWindow(html, pageSize)
+async function htmlToPng(
+  html: string,
+  pageSize: ExportPageSize,
+  pageOrientation: ExportPageOrientation
+): Promise<Buffer> {
+  const size = pagePixels(pageSize, pageOrientation)
+  const win = await createExportWindow(html, pageSize, pageOrientation)
   try {
     const documentHeight = (await win.webContents.executeJavaScript(
       'Math.ceil(Math.max(document.body.scrollHeight, document.documentElement.scrollHeight))'

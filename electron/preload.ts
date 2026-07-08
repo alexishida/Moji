@@ -5,6 +5,7 @@ import {
   type ExportRequest,
   type Language,
   type MenuAction,
+  type OpenManyResult,
   type OpenResult,
   type Settings,
   type WriteResult
@@ -15,7 +16,7 @@ const api = {
   setSettings: (patch: Partial<Settings>): Promise<Settings> => ipcRenderer.invoke(IPC.setSettings, patch),
   setLanguage: (lang: Language): Promise<void> => ipcRenderer.invoke(IPC.setLanguage, lang),
 
-  openDialog: (): Promise<OpenResult> => ipcRenderer.invoke(IPC.openDialog),
+  openDialog: (): Promise<OpenManyResult> => ipcRenderer.invoke(IPC.openDialog),
   readPath: (filePath: string): Promise<OpenResult> => ipcRenderer.invoke(IPC.readPath, filePath),
   save: (filePath: string, content: string): Promise<WriteResult> => ipcRenderer.invoke(IPC.save, filePath, content),
   saveAs: (content: string, suggestedName?: string): Promise<WriteResult> =>

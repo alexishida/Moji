@@ -1,8 +1,12 @@
 {
   "app": {
-    "name": "Markdown Viewer",
+    "name": "Moji",
     "untitled": "Untitled",
     "modifiedMarker": "•"
+  },
+  "tabs": {
+    "documents": "Open documents",
+    "close": "Close tab"
   },
   "menu": {
     "file": "File",
@@ -25,7 +29,9 @@
     "preview": "Preview",
     "editor": "Editor",
     "viewMode": "View mode",
-    "newDocument": "New Document",
+    "newDocument": "New",
+    "save": "Save",
+    "search": "Search...",
     "export": "Export",
     "exportHtml": "Export as HTML",
     "exportPdf": "Export as PDF",
@@ -42,11 +48,15 @@
     "documents": "Documents",
     "outline": "Outline",
     "help": "Help",
+    "expand": "Expand",
+    "collapse": "Collapse",
+    "expandAll": "Expand all",
+    "collapseAll": "Collapse all",
     "noHeadings": "No headings yet. Add a heading to build the outline.",
     "noDocument": "Open or create a document to see its outline."
   },
   "statusbar": {
-    "brand": "Markdown Viewer v0.1",
+    "brand": "Moji v0.1",
     "guide": "Markdown Guide",
     "exportPdf": "Export PDF",
     "wordCount": "Words: {{count}}"
@@ -55,9 +65,10 @@
     "hint": "Open or drop a .md file, switch Preview/Editor from the top tabs, and use the outline to jump between headings."
   },
   "welcome": {
-    "title": "Markdown Viewer",
+    "title": "Moji",
     "subtitle": "Open a Markdown file to read it cleanly.",
     "openButton": "Open File",
+    "newButton": "New File",
     "dropHint": "or drop a .md file anywhere in this window"
   },
   "dialog": {
@@ -72,6 +83,9 @@
     "format": "Format",
     "settings": "Settings",
     "pageSize": "Page Size",
+    "orientation": "Orientation",
+    "portrait": "Portrait",
+    "landscape": "Landscape",
     "pdfTitle": "Export as PDF",
     "pdfDescription": "Ideal for printing and sharing exact layouts.",
     "htmlTitle": "Export as HTML",
@@ -79,6 +93,14 @@
     "pngTitle": "Export as PNG",
     "pngDescription": "High-resolution image of the document content.",
     "export": "Export"
+  },
+  "settingsDialog": {
+    "title": "Settings",
+    "general": "General",
+    "preview": "Preview",
+    "fontFamily": "Font Family",
+    "fontSize": "Font Size",
+    "lineHeight": "Line Height"
   },
   "notice": {
     "unsupported": "Unsupported file type. Only .md and .markdown files can be opened.",

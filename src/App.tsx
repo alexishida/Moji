@@ -6,14 +6,30 @@ import { StatusBar } from './components/StatusBar'
 import { Preview } from './components/Preview'
 import { Editor } from './components/Editor'
 import { Welcome } from './components/Welcome'
+import { DocumentTabs, type DocumentTabItem } from './components/DocumentTabs'
 import { ConfirmDialog, type ConfirmChoice } from './components/ConfirmDialog'
 import { ExportDialog, type ExportDialogOptions } from './components/ExportDialog'
+import { SettingsDialog } from './components/SettingsDialog'
 import { renderMarkdown } from './lib/markdown'
 import { buildOutline } from './lib/outline'
-import { GUIDE_MARKDOWN } from './lib/guide'
+import { getGuideMarkdown } from './lib/guide'
 import { useDebounced } from './lib/useDebounced'
 import { buildStandaloneHtml } from './lib/exportHtml'
-import type { ExportFormat, Language, MenuAction, Theme } from '../electron/shared'
+import type { ExportFormat, Language, MenuAction, Settings, Theme } from '../electron/shared'
+
+interface DocumentState {
+  id: string
+  path: string | null
+  title: string | null
+  content: string
+  savedContent: string
+}
+
+interface DocumentInput {
+  path: string | null
+  title?: string | null
+  content: string
+}
 
 function countWords(text: string): number {
   const trimmed = text.trim()
@@ -25,48 +41,143 @@ function baseName(path: string | null): string | null {
   return path.split(/[\\/]/).pop() ?? path
 }
 
+function documentName(doc: Pick<DocumentState, 'path' | 'title'>, fallback: string): string {
+  return baseName(doc.path) ?? doc.title ?? fallback
+}
+
+function markdownFileName(name: string): string {
+  return /\.(md|markdown)$/i.test(name) ? name : `${name}.md`
+}
+
 export function App(): JSX.Element {
   const { t, i18n } = useTranslation()
 
-  const [content, setContent] = useState('')
-  const [savedContent, setSavedContent] = useState('')
-  const [filePath, setFilePath] = useState<string | null>(null)
-  const [hasDoc, setHasDoc] = useState(false)
+  const [settings, setSettings] = useState<Settings>({
+    theme: 'dark',
+    language: 'en',
+    previewFontFamily: 'Inter',
+    previewFontSize: 16,
+    previewLineHeight: 1.7
+  })
+  const [documents, setDocuments] = useState<DocumentState[]>([])
+  const [activeDocId, setActiveDocId] = useState<string | null>(null)
   const [mode, setMode] = useState<'view' | 'edit'>('view')
-  const [theme, setTheme] = useState<Theme>('light')
+  const [mdTheme, setMdTheme] = useState<Theme>('dark')
   const [language, setLanguage] = useState<Language>('en')
+  const [searchTerm, setSearchTerm] = useState('')
   const [dragging, setDragging] = useState(false)
   const [notice, setNotice] = useState<{ text: string; error?: boolean } | null>(null)
-  const [activeId, setActiveId] = useState<string | null>(null)
+  const [activeHeadingId, setActiveHeadingId] = useState<string | null>(null)
 
   const [dialogOpen, setDialogOpen] = useState(false)
   const [exportDialogFormat, setExportDialogFormat] = useState<ExportFormat | null>(null)
+  const [settingsOpen, setSettingsOpen] = useState(false)
   const dialogResolver = useRef<((c: ConfirmChoice) => void) | null>(null)
+  const nextDocSeq = useRef(1)
 
+  const activeDoc = useMemo(
+    () => documents.find((doc) => doc.id === activeDocId) ?? null,
+    [documents, activeDocId]
+  )
+  const hasDoc = activeDoc !== null
+  const content = activeDoc?.content ?? ''
+  const savedContent = activeDoc?.savedContent ?? ''
   const dirty = hasDoc && content !== savedContent
+  const hasDirtyDocs = documents.some((doc) => doc.content !== doc.savedContent)
+
   const debouncedContent = useDebounced(content, 150)
   const html = useMemo(() => renderMarkdown(debouncedContent), [debouncedContent])
   const outline = useMemo(() => buildOutline(html), [html])
   const words = useMemo(() => countWords(content), [content])
+  const tabs = useMemo<DocumentTabItem[]>(
+    () =>
+      documents.map((doc) => ({
+        id: doc.id,
+        title: documentName(doc, t('app.untitled')),
+        dirty: doc.content !== doc.savedContent
+      })),
+    [documents, t]
+  )
 
   // Keep a live snapshot for stable menu/IPC handlers.
-  const stateRef = useRef({ content, filePath, hasDoc, mode, theme, dirty })
-  stateRef.current = { content, filePath, hasDoc, mode, theme, dirty }
+  const stateRef = useRef({
+    documents,
+    activeDocId,
+    activeDoc,
+    hasDoc,
+    mode,
+    mdTheme,
+    dirty,
+    hasDirtyDocs
+  })
+  stateRef.current = { documents, activeDocId, activeDoc, hasDoc, mode, mdTheme, dirty, hasDirtyDocs }
 
   const flash = useCallback((text: string, error = false) => {
     setNotice({ text, error })
     window.setTimeout(() => setNotice(null), 2600)
   }, [])
 
-  // --- Theme -------------------------------------------------------------
+  const newDocumentId = useCallback(() => {
+    const id = `doc-${Date.now()}-${nextDocSeq.current}`
+    nextDocSeq.current += 1
+    return id
+  }, [])
+
+  const addDocuments = useCallback(
+    (items: DocumentInput[], nextMode: 'view' | 'edit' = 'view') => {
+      if (items.length === 0) return
+
+      const currentDocs = stateRef.current.documents
+      const nextDocs = [...currentDocs]
+      let nextActiveId: string | null = null
+
+      for (const item of items) {
+        const existingIndex = item.path ? nextDocs.findIndex((doc) => doc.path === item.path) : -1
+
+        if (existingIndex >= 0) {
+          const existing = nextDocs[existingIndex]
+          nextActiveId ??= existing.id
+          if (existing.content === existing.savedContent) {
+            nextDocs[existingIndex] = { ...existing, content: item.content, savedContent: item.content }
+          }
+          continue
+        }
+
+        const doc: DocumentState = {
+          id: newDocumentId(),
+          path: item.path,
+          title: item.title ?? null,
+          content: item.content,
+          savedContent: item.content
+        }
+        nextDocs.push(doc)
+        nextActiveId ??= doc.id
+      }
+
+      setDocuments(nextDocs)
+      setActiveDocId(nextActiveId)
+      setMode(nextMode)
+      setExportDialogFormat(null)
+      setSettingsOpen(false)
+    },
+    [newDocumentId]
+  )
+
+  const updateActiveContent = useCallback((nextContent: string) => {
+    const id = stateRef.current.activeDocId
+    if (!id) return
+    setDocuments((prev) => prev.map((doc) => (doc.id === id ? { ...doc, content: nextContent } : doc)))
+  }, [])
+
+  // Keep active tab valid when the last active document is removed.
   useEffect(() => {
-    document.documentElement.dataset.theme = theme
-  }, [theme])
+    if (documents.length > 0 && !activeDoc) setActiveDocId(documents[0].id)
+  }, [documents, activeDoc])
 
   // --- Outline scroll-spy: highlight the heading nearest the viewport top --
   useEffect(() => {
     if (!hasDoc) {
-      setActiveId(null)
+      setActiveHeadingId(null)
       return
     }
     const body = document.querySelector('.markdown-body')
@@ -74,7 +185,7 @@ export function App(): JSX.Element {
     if (!body || !scroller) return
     const heads = Array.from(body.querySelectorAll('h1, h2, h3, h4, h5, h6')) as HTMLElement[]
     if (heads.length === 0) {
-      setActiveId(null)
+      setActiveHeadingId(null)
       return
     }
     const update = (): void => {
@@ -84,17 +195,17 @@ export function App(): JSX.Element {
         if (h.getBoundingClientRect().top - top <= 88) current = h.id
         else break
       }
-      setActiveId(current)
+      setActiveHeadingId(current)
     }
     update()
     scroller.addEventListener('scroll', update, { passive: true })
     return () => scroller.removeEventListener('scroll', update)
-  }, [hasDoc, html, mode])
+  }, [hasDoc, html, mode, activeDocId])
 
   // --- Initial settings --------------------------------------------------
   useEffect(() => {
     void window.api.getSettings().then((s) => {
-      setTheme(s.theme)
+      setSettings(s)
       setLanguage(s.language)
       void i18n.changeLanguage(s.language)
     })
@@ -102,10 +213,10 @@ export function App(): JSX.Element {
 
   // --- Document title ----------------------------------------------------
   useEffect(() => {
-    const name = baseName(filePath) ?? t('app.untitled')
+    const name = activeDoc ? documentName(activeDoc, t('app.untitled')) : t('app.untitled')
     const marker = dirty ? `${t('app.modifiedMarker')} ` : ''
-    document.title = hasDoc ? `${marker}${name} — ${t('app.name')}` : t('app.name')
-  }, [filePath, dirty, hasDoc, t])
+    document.title = hasDoc ? `${marker}${name} - ${t('app.name')}` : t('app.name')
+  }, [activeDoc, dirty, hasDoc, t])
 
   // --- Unsaved-changes guard --------------------------------------------
   const askUnsaved = useCallback((): Promise<ConfirmChoice> => {
@@ -121,96 +232,142 @@ export function App(): JSX.Element {
     dialogResolver.current = null
   }, [])
 
-  const loadDocument = useCallback((path: string | null, text: string) => {
-    setFilePath(path)
-    setContent(text)
-    setSavedContent(text)
-    setHasDoc(true)
-    setMode('view')
-    setExportDialogFormat(null)
-  }, [])
+  const saveDocumentAs = useCallback(
+    async (docId: string): Promise<boolean> => {
+      const doc = stateRef.current.documents.find((item) => item.id === docId)
+      if (!doc) return false
+
+      const suggested = markdownFileName(documentName(doc, 'untitled'))
+      const savedText = doc.content
+      const res = await window.api.saveAs(savedText, suggested)
+      if (res.ok) {
+        setDocuments((prev) =>
+          prev.map((item) => (item.id === docId ? { ...item, path: res.path, savedContent: savedText } : item))
+        )
+        flash(t('notice.saveSuccess'))
+        return true
+      }
+      if (!res.canceled) flash(t('notice.saveFailed', { error: res.error }), true)
+      return false
+    },
+    [flash, t]
+  )
+
+  const saveDocument = useCallback(
+    async (docId: string): Promise<boolean> => {
+      const doc = stateRef.current.documents.find((item) => item.id === docId)
+      if (!doc) {
+        flash(t('notice.noDocument'), true)
+        return false
+      }
+      if (!doc.path) return saveDocumentAs(docId)
+
+      const savedText = doc.content
+      const res = await window.api.save(doc.path, savedText)
+      if (res.ok) {
+        setDocuments((prev) => prev.map((item) => (item.id === docId ? { ...item, savedContent: savedText } : item)))
+        flash(t('notice.saveSuccess'))
+        return true
+      }
+      flash(t('notice.saveFailed', { error: res.error }), true)
+      return false
+    },
+    [flash, saveDocumentAs, t]
+  )
 
   const doSave = useCallback(async (): Promise<boolean> => {
-    const s = stateRef.current
-    if (!s.hasDoc) {
+    const doc = stateRef.current.activeDoc
+    if (!doc) {
       flash(t('notice.noDocument'), true)
       return false
     }
-    if (!s.filePath) return doSaveAs()
-    const res = await window.api.save(s.filePath, s.content)
-    if (res.ok) {
-      setSavedContent(s.content)
-      flash(t('notice.saveSuccess'))
-      return true
-    }
-    flash(t('notice.saveFailed', { error: res.error }), true)
-    return false
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [flash, t])
+    return saveDocument(doc.id)
+  }, [flash, saveDocument, t])
 
   const doSaveAs = useCallback(async (): Promise<boolean> => {
-    const s = stateRef.current
-    const suggested = baseName(s.filePath) ?? 'untitled.md'
-    const res = await window.api.saveAs(s.content, suggested)
-    if (res.ok) {
-      setFilePath(res.path)
-      setSavedContent(s.content)
-      flash(t('notice.saveSuccess'))
-      return true
+    const doc = stateRef.current.activeDoc
+    if (!doc) {
+      flash(t('notice.noDocument'), true)
+      return false
     }
-    if (!res.canceled) flash(t('notice.saveFailed', { error: res.error }), true)
-    return false
-  }, [flash, t])
+    return saveDocumentAs(doc.id)
+  }, [flash, saveDocumentAs, t])
 
-  const confirmUnsaved = useCallback(async (): Promise<'proceed' | 'cancel'> => {
-    if (!stateRef.current.dirty) return 'proceed'
+  const confirmUnsavedDocument = useCallback(
+    async (docId: string): Promise<'proceed' | 'cancel'> => {
+      const doc = stateRef.current.documents.find((item) => item.id === docId)
+      if (!doc || doc.content === doc.savedContent) return 'proceed'
+
+      setActiveDocId(docId)
+      const choice = await askUnsaved()
+      if (choice === 'discard') return 'proceed'
+      if (choice === 'save') return (await saveDocument(docId)) ? 'proceed' : 'cancel'
+      return 'cancel'
+    },
+    [askUnsaved, saveDocument]
+  )
+
+  const confirmAnyUnsaved = useCallback(async (): Promise<'proceed' | 'cancel'> => {
+    const dirtyDocs = stateRef.current.documents.filter((doc) => doc.content !== doc.savedContent)
+    if (dirtyDocs.length === 0) return 'proceed'
+
+    setActiveDocId(dirtyDocs[0].id)
     const choice = await askUnsaved()
     if (choice === 'discard') return 'proceed'
-    if (choice === 'save') return (await doSave()) ? 'proceed' : 'cancel'
-    return 'cancel'
-  }, [askUnsaved, doSave])
+    if (choice !== 'save') return 'cancel'
+
+    for (const doc of dirtyDocs) {
+      setActiveDocId(doc.id)
+      if (!(await saveDocument(doc.id))) return 'cancel'
+    }
+    return 'proceed'
+  }, [askUnsaved, saveDocument])
 
   const doOpen = useCallback(async () => {
-    if ((await confirmUnsaved()) === 'cancel') return
     const res = await window.api.openDialog()
-    if (res.ok) loadDocument(res.path, res.content)
+    if (res.ok) addDocuments(res.documents)
     else if (!res.canceled) flash(t('notice.openFailed', { error: res.error }), true)
-  }, [confirmUnsaved, loadDocument, flash, t])
+  }, [addDocuments, flash, t])
 
-  const openPath = useCallback(
-    async (path: string) => {
-      if ((await confirmUnsaved()) === 'cancel') return
-      const res = await window.api.readPath(path)
-      if (res.ok) loadDocument(res.path, res.content)
-      else if (res.error === 'unsupported') flash(t('notice.unsupported'), true)
-      else flash(t('notice.openFailed', { error: res.error }), true)
+  const openPaths = useCallback(
+    async (paths: string[]) => {
+      const opened: DocumentInput[] = []
+      for (const path of paths) {
+        const res = await window.api.readPath(path)
+        if (res.ok) opened.push({ path: res.path, content: res.content })
+        else if (res.error === 'unsupported') flash(t('notice.unsupported'), true)
+        else flash(t('notice.openFailed', { error: res.error }), true)
+      }
+      addDocuments(opened)
     },
-    [confirmUnsaved, loadDocument, flash, t]
+    [addDocuments, flash, t]
   )
 
   const openExportDialog = useCallback(
     (format: ExportFormat = 'pdf') => {
       const s = stateRef.current
-      if (!s.hasDoc) {
+      if (!s.hasDoc || !s.activeDoc) {
         flash(t('notice.noDocument'), true)
         return
       }
+      setSettingsOpen(false)
       setExportDialogFormat(format)
     },
     [flash, t]
   )
 
   const doExport = useCallback(
-    async ({ format, pageSize }: ExportDialogOptions) => {
+    async ({ format, pageSize, pageOrientation }: ExportDialogOptions) => {
       const s = stateRef.current
-      if (!s.hasDoc) {
+      if (!s.hasDoc || !s.activeDoc) {
         flash(t('notice.noDocument'), true)
         return
       }
-      const rendered = renderMarkdown(s.content)
-      const doc = buildStandaloneHtml(rendered, s.theme, baseName(s.filePath) ?? t('app.untitled'))
-      const base = (baseName(s.filePath) ?? 'document').replace(/\.[^.]+$/, '')
-      const res = await window.api.exportAs({ format, pageSize, html: doc, baseName: base })
+      const rendered = renderMarkdown(s.activeDoc.content)
+      const name = documentName(s.activeDoc, t('app.untitled'))
+      const doc = buildStandaloneHtml(rendered, s.mdTheme, name)
+      const base = name.replace(/\.[^.]+$/, '')
+      const res = await window.api.exportAs({ format, pageSize, pageOrientation, html: doc, baseName: base })
       if (res.ok) flash(t('notice.exportSuccess', { path: res.path }))
       else if (!res.canceled) flash(t('notice.exportFailed', { error: res.error }), true)
     },
@@ -228,51 +385,93 @@ export function App(): JSX.Element {
   const toggleEdit = useCallback(() => {
     if (!stateRef.current.hasDoc) return
     setExportDialogFormat(null)
+    setSettingsOpen(false)
     setMode((m) => (m === 'view' ? 'edit' : 'view'))
   }, [])
 
   const setModeSafe = useCallback((next: 'view' | 'edit') => {
     if (!stateRef.current.hasDoc) return
     setExportDialogFormat(null)
+    setSettingsOpen(false)
     setMode(next)
   }, [])
 
-  const doNew = useCallback(async () => {
-    if ((await confirmUnsaved()) === 'cancel') return
-    setFilePath(null)
-    setContent('')
-    setSavedContent('')
-    setHasDoc(true)
-    setMode('edit')
-    setExportDialogFormat(null)
-  }, [confirmUnsaved])
+  const doNew = useCallback(() => {
+    addDocuments([{ path: null, content: '' }], 'edit')
+  }, [addDocuments])
 
-  const doGuide = useCallback(async () => {
-    if ((await confirmUnsaved()) === 'cancel') return
-    loadDocument(null, GUIDE_MARKDOWN)
-  }, [confirmUnsaved, loadDocument])
+  const doSearch = useCallback((term: string) => {
+    setSearchTerm(term)
+  }, [])
+
+  const doGuide = useCallback(() => {
+    addDocuments([{ path: null, title: t('statusbar.guide'), content: getGuideMarkdown(language) }])
+  }, [addDocuments, language, t])
+
+  const selectDocument = useCallback((docId: string) => {
+    setActiveDocId(docId)
+    setExportDialogFormat(null)
+    setSettingsOpen(false)
+  }, [])
+
+  const closeDocument = useCallback(
+    async (docId: string) => {
+      if ((await confirmUnsavedDocument(docId)) === 'cancel') return
+
+      const currentDocs = stateRef.current.documents
+      const index = currentDocs.findIndex((doc) => doc.id === docId)
+      if (index < 0) return
+
+      const nextDocs = currentDocs.filter((doc) => doc.id !== docId)
+      const nextActive =
+        stateRef.current.activeDocId === docId
+          ? nextDocs[Math.min(index, nextDocs.length - 1)]?.id ?? null
+          : stateRef.current.activeDocId
+
+      setDocuments(nextDocs)
+      setActiveDocId(nextActive)
+      if (nextDocs.length === 0) setMode('view')
+      setExportDialogFormat(null)
+      setSettingsOpen(false)
+    },
+    [confirmUnsavedDocument]
+  )
 
   const scrollToHeading = useCallback((id: string) => {
     document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
-    setActiveId(id)
+    setActiveHeadingId(id)
   }, [])
 
-  const toggleTheme = useCallback(() => {
-    setTheme((prev) => {
-      const next: Theme = prev === 'dark' ? 'light' : 'dark'
-      void window.api.setSettings({ theme: next })
-      return next
-    })
+  const toggleMdTheme = useCallback(() => {
+    setMdTheme((prev) => (prev === 'dark' ? 'light' : 'dark'))
   }, [])
 
   const changeLanguage = useCallback(
     (lang: Language) => {
       setLanguage(lang)
+      setSettings((prev) => ({ ...prev, language: lang }))
       void i18n.changeLanguage(lang)
       void window.api.setLanguage(lang)
     },
     [i18n]
   )
+
+  const changeSettings = useCallback(
+    (patch: Partial<Settings>) => {
+      setSettings((prev) => ({ ...prev, ...patch, theme: 'dark' }))
+      if (patch.language) {
+        changeLanguage(patch.language)
+        return
+      }
+      void window.api.setSettings(patch).then((next) => setSettings(next))
+    },
+    [changeLanguage]
+  )
+
+  const openSettings = useCallback(() => {
+    setExportDialogFormat(null)
+    setSettingsOpen(true)
+  }, [])
 
   // --- Wire menu actions + pushed documents -----------------------------
   useEffect(() => {
@@ -296,18 +495,16 @@ export function App(): JSX.Element {
         case 'toggle-edit':
           toggleEdit()
           break
-        case 'toggle-theme':
-          toggleTheme()
+         case 'toggle-theme':
+          toggleMdTheme()
           break
         case 'request-close':
-          void confirmUnsaved().then((r) => window.api.confirmClose(r === 'proceed'))
+          void confirmAnyUnsaved().then((r) => window.api.confirmClose(r === 'proceed'))
           break
       }
     })
     const offDoc = window.api.onOpenDocument((doc) => {
-      void confirmUnsaved().then((r) => {
-        if (r === 'proceed') loadDocument(doc.path, doc.content)
-      })
+      addDocuments([{ path: doc.path, content: doc.content }])
     })
     const offLang = window.api.onLanguageChanged((lang) => {
       setLanguage(lang)
@@ -318,22 +515,34 @@ export function App(): JSX.Element {
       offDoc()
       offLang()
     }
-  }, [doOpen, doSave, doSaveAs, openExportDialog, toggleEdit, toggleTheme, confirmUnsaved, loadDocument, i18n])
+  }, [
+    doOpen,
+    doSave,
+    doSaveAs,
+    openExportDialog,
+    toggleEdit,
+    toggleMdTheme,
+    confirmAnyUnsaved,
+    addDocuments,
+    i18n
+  ])
 
   // --- Drag & drop -------------------------------------------------------
   const onDrop = useCallback(
     (e: React.DragEvent) => {
       e.preventDefault()
       setDragging(false)
-      const file = e.dataTransfer.files[0]
-      if (!file) return
-      const path = window.api.getDroppedPath(file)
-      if (path) void openPath(path)
+      const paths = Array.from(e.dataTransfer.files)
+        .map((file) => window.api.getDroppedPath(file))
+        .filter((path): path is string => Boolean(path))
+      if (paths.length > 0) void openPaths(paths)
     },
-    [openPath]
+    [openPaths]
   )
 
-  const title = hasDoc ? `${dirty ? `${t('app.modifiedMarker')} ` : ''}${baseName(filePath) ?? t('app.untitled')}` : ''
+  const title = hasDoc
+    ? `${dirty ? `${t('app.modifiedMarker')} ` : ''}${activeDoc ? documentName(activeDoc, t('app.untitled')) : ''}`
+    : ''
 
   return (
     <div
@@ -352,33 +561,51 @@ export function App(): JSX.Element {
         hasDoc={hasDoc}
         mode={mode}
         exportOpen={exportDialogFormat !== null}
-        theme={theme}
-        language={language}
+        settingsOpen={settingsOpen}
+        theme={mdTheme}
         onSetMode={setModeSafe}
-        onToggleTheme={toggleTheme}
-        onNew={() => void doNew()}
-        onOpen={() => void doOpen()}
+        onOpen={doOpen}
+        onNew={doNew}
+        onSave={doSave}
+        onSearch={doSearch}
+        onToggleTheme={toggleMdTheme}
         onExport={openExportDialog}
-        onChangeLanguage={changeLanguage}
+        onOpenSettings={openSettings}
       />
 
-      <div className="body">
-        <Sidebar
-          hasDoc={hasDoc}
-          outline={outline}
-          activeId={activeId}
-          language={language}
-          theme={theme}
-          onSelectHeading={scrollToHeading}
-          onHelp={() => flash(t('help.hint'))}
-          onChangeLanguage={changeLanguage}
-          onToggleTheme={toggleTheme}
+      {hasDoc && (
+        <DocumentTabs
+          variant="bar"
+          tabs={tabs}
+          activeId={activeDocId}
+          onSelect={selectDocument}
+          onClose={(id) => void closeDocument(id)}
         />
+      )}
+
+      <div className="body">
+        {hasDoc && mode === 'view' && !exportDialogFormat && !settingsOpen && (
+          <Sidebar
+            hasDoc={hasDoc}
+            outline={outline}
+            activeId={activeHeadingId}
+            showOutline={mode === 'view' && !exportDialogFormat}
+            onSelectHeading={scrollToHeading}
+          />
+        )}
 
         <main className="main">
           <div className="workspace">
-            {!hasDoc ? (
-              <Welcome onOpen={() => void doOpen()} onNew={() => void doNew()} />
+            {settingsOpen ? (
+              <div className="export-workspace">
+                <SettingsDialog
+                  settings={settings}
+                  onClose={() => setSettingsOpen(false)}
+                  onChange={changeSettings}
+                />
+              </div>
+            ) : !hasDoc ? (
+              <Welcome onOpen={() => void doOpen()} onNew={doNew} />
             ) : exportDialogFormat ? (
               <div className="export-workspace">
                 <ExportDialog
@@ -388,15 +615,15 @@ export function App(): JSX.Element {
                 />
               </div>
             ) : mode === 'edit' ? (
-              <Editor value={content} theme={theme} onChange={setContent} />
+              <Editor value={content} theme={'dark'} searchTerm={searchTerm} onChange={updateActiveContent} />
             ) : (
-              <Preview html={html} />
+              <Preview html={html} mdTheme={mdTheme} searchTerm={searchTerm} settings={settings} />
             )}
           </div>
         </main>
       </div>
 
-      <StatusBar hasDoc={hasDoc} words={words} onGuide={() => void doGuide()} />
+      <StatusBar hasDoc={hasDoc} words={words} onGuide={doGuide} />
 
       {dragging && <div className="drop-overlay">{t('welcome.dropHint')}</div>}
       {notice && <div className={`notice ${notice.error ? 'notice--error' : ''}`}>{notice.text}</div>}
