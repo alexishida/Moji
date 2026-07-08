@@ -3,9 +3,9 @@ import { Decoration, type DecorationSet, EditorView, keymap, lineNumbers } from 
 import { EditorState, Compartment, RangeSetBuilder, StateEffect, StateField } from '@codemirror/state'
 import { defaultKeymap, history, historyKeymap } from '@codemirror/commands'
 import { markdown } from '@codemirror/lang-markdown'
-import { syntaxHighlighting, defaultHighlightStyle } from '@codemirror/language'
-import { oneDark } from '@codemirror/theme-one-dark'
+import { HighlightStyle, syntaxHighlighting, defaultHighlightStyle } from '@codemirror/language'
 import { search, searchKeymap, SearchQuery } from '@codemirror/search'
+import { tags } from '@lezer/highlight'
 import type { Theme } from '../../electron/shared'
 
 interface EditorProps {
@@ -17,6 +17,50 @@ interface EditorProps {
 
 const externalSearchTerm = StateEffect.define<string>()
 const externalSearchMark = Decoration.mark({ class: 'cm-external-searchMatch' })
+
+const oneDarkProEditorTheme = EditorView.theme({
+  '&': {
+    color: '#abb2bf',
+    backgroundColor: '#282c34'
+  },
+  '.cm-content': {
+    caretColor: '#abb2bf'
+  },
+  '.cm-cursor, .cm-dropCursor': {
+    borderLeftColor: '#528bff'
+  },
+  '.cm-selectionBackground, ::selection': {
+    backgroundColor: '#3e4451'
+  },
+  '.cm-panels': {
+    color: '#abb2bf',
+    backgroundColor: '#282c34'
+  },
+  '.cm-gutters': {
+    color: '#5c6370',
+    backgroundColor: '#282c34',
+    border: 'none'
+  },
+  '.cm-activeLine, .cm-activeLineGutter': {
+    backgroundColor: '#2c313a'
+  }
+}, { dark: true })
+
+const oneDarkProHighlightStyle = HighlightStyle.define([
+  { tag: [tags.heading, tags.keyword, tags.modifier], color: '#c678dd' },
+  { tag: [tags.atom, tags.number, tags.bool], color: '#d19a66' },
+  { tag: [tags.string, tags.special(tags.string)], color: '#98c379' },
+  { tag: [tags.comment, tags.quote], color: '#5c6370', fontStyle: 'italic' },
+  { tag: [tags.variableName, tags.propertyName], color: '#abb2bf' },
+  { tag: [tags.typeName, tags.className, tags.labelName], color: '#e5c07b' },
+  { tag: [tags.definition(tags.name), tags.function(tags.variableName)], color: '#61afef' },
+  { tag: [tags.operator, tags.punctuation, tags.separator], color: '#56b6c2' },
+  { tag: [tags.link, tags.url, tags.escape], color: '#e06c75' },
+  { tag: [tags.emphasis], fontStyle: 'italic' },
+  { tag: [tags.strong], fontWeight: '700' }
+])
+
+const oneDarkProExtensions = [oneDarkProEditorTheme, syntaxHighlighting(oneDarkProHighlightStyle)]
 
 function buildSearchDecorations(state: EditorState, rawTerm: string): DecorationSet {
   const term = rawTerm.trim()
@@ -71,7 +115,7 @@ export function Editor({ value, theme, searchTerm, onChange }: EditorProps): JSX
         externalSearchHighlight,
         syntaxHighlighting(defaultHighlightStyle, { fallback: true }),
         EditorView.lineWrapping,
-        themeCompartment.current.of(theme === 'dark' ? oneDark : []),
+        themeCompartment.current.of(theme === 'dark' ? oneDarkProExtensions : []),
         EditorView.updateListener.of((update) => {
           if (update.docChanged) onChangeRef.current(update.state.doc.toString())
         })
@@ -99,7 +143,7 @@ export function Editor({ value, theme, searchTerm, onChange }: EditorProps): JSX
   // Reconfigure only the theme when it changes.
   useEffect(() => {
     viewRef.current?.dispatch({
-      effects: themeCompartment.current.reconfigure(theme === 'dark' ? oneDark : [])
+      effects: themeCompartment.current.reconfigure(theme === 'dark' ? oneDarkProExtensions : [])
     })
   }, [theme])
 

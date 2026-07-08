@@ -12,7 +12,7 @@ import { ExportDialog, type ExportDialogOptions } from './components/ExportDialo
 import { SettingsDialog } from './components/SettingsDialog'
 import { renderMarkdown } from './lib/markdown'
 import { buildOutline } from './lib/outline'
-import { getGuideMarkdown } from './lib/guide'
+import { getActivePreviewHeadingId, scrollPreviewHeadingIntoView } from './lib/previewScroll'
 import { useDebounced } from './lib/useDebounced'
 import { buildStandaloneHtml } from './lib/exportHtml'
 import type { ExportFormat, Language, MenuAction, Settings, Theme } from '../electron/shared'
@@ -63,7 +63,7 @@ export function App(): JSX.Element {
   const [activeDocId, setActiveDocId] = useState<string | null>(null)
   const [mode, setMode] = useState<'view' | 'edit'>('view')
   const [mdTheme, setMdTheme] = useState<Theme>('dark')
-  const [language, setLanguage] = useState<Language>('en')
+  const [, setLanguage] = useState<Language>('en')
   const [searchTerm, setSearchTerm] = useState('')
   const [dragging, setDragging] = useState(false)
   const [notice, setNotice] = useState<{ text: string; error?: boolean } | null>(null)
@@ -189,13 +189,7 @@ export function App(): JSX.Element {
       return
     }
     const update = (): void => {
-      const top = scroller.getBoundingClientRect().top
-      let current = heads[0].id
-      for (const h of heads) {
-        if (h.getBoundingClientRect().top - top <= 88) current = h.id
-        else break
-      }
-      setActiveHeadingId(current)
+      setActiveHeadingId(getActivePreviewHeadingId(scroller, heads))
     }
     update()
     scroller.addEventListener('scroll', update, { passive: true })
@@ -365,7 +359,8 @@ export function App(): JSX.Element {
       }
       const rendered = renderMarkdown(s.activeDoc.content)
       const name = documentName(s.activeDoc, t('app.untitled'))
-      const doc = buildStandaloneHtml(rendered, s.mdTheme, name)
+      // Exports (HTML/PDF/PNG) always use the light theme, regardless of the preview theme.
+      const doc = buildStandaloneHtml(rendered, 'light', name)
       const base = name.replace(/\.[^.]+$/, '')
       const res = await window.api.exportAs({ format, pageSize, pageOrientation, html: doc, baseName: base })
       if (res.ok) flash(t('notice.exportSuccess', { path: res.path }))
@@ -404,9 +399,11 @@ export function App(): JSX.Element {
     setSearchTerm(term)
   }, [])
 
-  const doGuide = useCallback(() => {
-    addDocuments([{ path: null, title: t('statusbar.guide'), content: getGuideMarkdown(language) }])
-  }, [addDocuments, language, t])
+  const doGuide = useCallback(async () => {
+    const res = await window.api.readSample('guia-markdown-completo.md')
+    if (res.ok) addDocuments([{ path: res.path, content: res.content }])
+    else flash(t('notice.openFailed', { error: res.error }), true)
+  }, [addDocuments, flash, t])
 
   const selectDocument = useCallback((docId: string) => {
     setActiveDocId(docId)
@@ -438,7 +435,9 @@ export function App(): JSX.Element {
   )
 
   const scrollToHeading = useCallback((id: string) => {
-    document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    const target = document.getElementById(id)
+    if (!target) return
+    scrollPreviewHeadingIntoView(target)
     setActiveHeadingId(id)
   }, [])
 

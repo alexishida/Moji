@@ -33,7 +33,9 @@
   --accent: #4c9aff;
   --accent-hover: #63a9ff;
   --accent-contrast: #0b1a33;
-  --code-bg: #161616;
+  --code-bg: #282c34;
+  --code-text: #abb2bf;
+  --code-border: #3a404b;
   --danger: #ff6b6b;
 
   /* app chrome (dark) */
@@ -46,14 +48,14 @@
   --segment-track: #2a2a2c;
   --segment-active-bg: #38383a;
 
-  /* highlight.js tokens (dark default) */
-  --hl-comment: #8b949e;
-  --hl-keyword: #ff7b72;
-  --hl-string: #a5d6ff;
-  --hl-number: #79c0ff;
-  --hl-title: #d2a8ff;
-  --hl-attr: #7ee787;
-  --hl-symbol: #ffa657;
+  /* highlight.js tokens (One Dark Pro) */
+  --hl-comment: #5c6370;
+  --hl-keyword: #c678dd;
+  --hl-string: #98c379;
+  --hl-number: #d19a66;
+  --hl-title: #61afef;
+  --hl-attr: #e06c75;
+  --hl-symbol: #56b6c2;
 }
 
 /* Light markdown preview overrides — only affects descendants */
@@ -65,13 +67,15 @@
   --border: #d5dae0;
   --border-strong: #c2c9d1;
   --accent: #2f6fed;
-  --code-bg: #f4f6f8;
+  --code-bg: #282c34;
+  --code-text: #abb2bf;
+  --code-border: #3a404b;
 
-  --hl-comment: #6a737d;
-  --hl-keyword: #d73a49;
-  --hl-string: #032f62;
-  --hl-number: #005cc5;
-  --hl-title: #6f42c1;
-  --hl-attr: #22863a;
-  --hl-symbol: #e36209;
+  --hl-comment: #5c6370;
+  --hl-keyword: #c678dd;
+  --hl-string: #98c379;
+  --hl-number: #d19a66;
+  --hl-title: #61afef;
+  --hl-attr: #e06c75;
+  --hl-symbol: #56b6c2;
 }

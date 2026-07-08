@@ -68,6 +68,7 @@
   padding: 0.15em 0.4em;
   font-family: var(--font-mono);
   font-size: 0.88em;
+  color: var(--code-text);
   background: var(--code-bg);
   border-radius: var(--radius-sm);
 }
@@ -76,7 +77,9 @@
   padding: var(--space-4);
   overflow: auto;
   background: var(--code-bg);
+  border: 1px solid var(--code-border);
   border-radius: var(--radius);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
 }
 
 .markdown-body pre code {
@@ -126,8 +129,10 @@
 }
 
 /* highlight.js token mapping to theme variables */
+.markdown-body pre.hljs,
+.markdown-body pre code.hljs,
 .hljs {
-  color: var(--text);
+  color: var(--code-text);
   background: var(--code-bg);
 }
 .hljs-comment,
@@ -181,4 +186,63 @@
   color: #fff;
   border-radius: 2px;
   padding: 0 1px;
+}
+
+/* Extended Markdown inline marks: ==highlight==, ++insert++, ~sub~, ^sup^ */
+.markdown-body mark:not(.search-highlight) {
+  padding: 0.05em 0.25em;
+  color: var(--text);
+  background: color-mix(in srgb, var(--accent) 28%, transparent);
+  border-radius: var(--radius-sm);
+}
+
+.markdown-body ins {
+  text-decoration: underline;
+  text-decoration-thickness: 2px;
+}
+
+.markdown-body sub,
+.markdown-body sup {
+  font-size: 0.75em;
+  line-height: 0;
+}
+
+.markdown-body abbr[title] {
+  cursor: help;
+  text-decoration: underline dotted;
+}
+
+/* Definition lists */
+.markdown-body dt {
+  margin-top: 0.6em;
+  font-weight: 600;
+}
+
+.markdown-body dd {
+  margin: 0 0 0.4em 1.5em;
+  color: var(--text-muted);
+}
+
+/* Footnotes */
+.markdown-body .footnotes {
+  margin-top: 2em;
+  padding-top: 1em;
+  font-size: 0.9em;
+  color: var(--text-muted);
+  border-top: 1px solid var(--border);
+}
+
+.markdown-body .footnotes ol {
+  margin-bottom: 0;
+}
+
+.markdown-body .footnote-backref {
+  text-decoration: none;
+}
+
+/* Math (KaTeX): let wide display equations scroll instead of overflowing */
+.markdown-body .katex-display {
+  padding: 0.4em 0;
+  overflow-x: auto;
+  overflow-y: hidden;
 }

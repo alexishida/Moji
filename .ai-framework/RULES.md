@@ -19,7 +19,7 @@ Projeto atual: Moji, aplicativo desktop Electron + React + TypeScript para abrir
 - Renderer React em `src/`.
 - Ponte segura via `electron/preload.ts` e `contextBridge`.
 - Tipos e contratos IPC compartilhados em `electron/shared.ts`.
-- Markdown renderizado por `markdown-it`, `markdown-it-anchor`, `markdown-it-task-lists`, `highlight.js` e sanitizado com `DOMPurify`.
+- Markdown renderizado por `markdown-it` com plugins (`markdown-it-anchor`, `markdown-it-task-lists`, `markdown-it-footnote`, `markdown-it-deflist`, `markdown-it-sub`, `markdown-it-sup`, `markdown-it-mark`, `markdown-it-ins`, `markdown-it-abbr`, `markdown-it-emoji`, `markdown-it-texmath`), fórmulas LaTeX via `katex`, código destacado com `highlight.js` e HTML sanitizado com `DOMPurify`.
 - Editor baseado em CodeMirror 6.
 - Internacionalizacao com `i18next` e arquivos em `src/locales/`.
 - Build/desenvolvimento com `electron-vite`.
@@ -42,7 +42,7 @@ Projeto atual: Moji, aplicativo desktop Electron + React + TypeScript para abrir
 O padrao visual esta documentado em `.ai-framework/DESIGN.md`.
 
 - Usar `src/styles/theme.css` como fonte de tokens.
-- Manter chrome do app escuro; alternancia de tema vale para preview/exportacao Markdown.
+- Manter chrome do app escuro; alternancia de tema vale para o preview Markdown. Exportacao (HTML/PDF/PNG) sempre usa o tema claro.
 - Reutilizar classes/componentes existentes antes de criar variacoes.
 - Manter layout compacto: top bar, abas de documentos, sidebar/outline, workspace e status bar.
 - Priorizar leitura, contraste, truncamento de textos longos e estados visuais previsiveis.

@@ -75,6 +75,7 @@ export type MenuAction = (typeof MENU_ACTIONS)[number]
 export const IPC = {
   openDialog: 'file:open-dialog',
   readPath: 'file:read-path',
+  readSample: 'file:read-sample',
   save: 'file:save',
   saveAs: 'file:save-as',
   export: 'doc:export',
