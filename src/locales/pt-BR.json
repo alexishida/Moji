@@ -1,0 +1,53 @@
+{
+  "app": {
+    "name": "Visualizador de Markdown",
+    "untitled": "Sem título",
+    "modifiedMarker": "•"
+  },
+  "menu": {
+    "file": "Arquivo",
+    "open": "Abrir…",
+    "save": "Salvar",
+    "saveAs": "Salvar como…",
+    "export": "Exportar",
+    "exportHtml": "Exportar como HTML…",
+    "exportPdf": "Exportar como PDF…",
+    "quit": "Sair",
+    "view": "Exibir",
+    "toggleEdit": "Alternar edição",
+    "toggleTheme": "Alternar tema",
+    "language": "Idioma"
+  },
+  "toolbar": {
+    "open": "Abrir",
+    "edit": "Editar",
+    "view": "Visualizar",
+    "export": "Exportar",
+    "exportHtml": "HTML",
+    "exportPdf": "PDF",
+    "theme": "Tema",
+    "language": "Idioma"
+  },
+  "welcome": {
+    "title": "Visualizador de Markdown",
+    "subtitle": "Abra um arquivo Markdown para lê-lo de forma limpa.",
+    "openButton": "Abrir arquivo",
+    "dropHint": "ou solte um arquivo .md em qualquer lugar desta janela"
+  },
+  "dialog": {
+    "unsavedTitle": "Alterações não salvas",
+    "unsavedBody": "Este documento tem alterações não salvas. Deseja salvá-las antes de continuar?",
+    "save": "Salvar",
+    "discard": "Descartar",
+    "cancel": "Cancelar"
+  },
+  "notice": {
+    "unsupported": "Tipo de arquivo não suportado. Apenas arquivos .md e .markdown podem ser abertos.",
+    "exportSuccess": "Exportado para {{path}}",
+    "exportFailed": "Falha ao exportar: {{error}}",
+    "saveSuccess": "Salvo",
+    "saveFailed": "Falha ao salvar: {{error}}",
+    "openFailed": "Não foi possível abrir o arquivo: {{error}}",
+    "noDocument": "Abra um documento primeiro."
+  }
+}

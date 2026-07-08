@@ -1,0 +1,39 @@
+appId: com.alexishida.markdownviewer
+productName: Markdown Viewer
+copyright: Copyright © 2026 Alex Ishida
+directories:
+  output: release
+  buildResources: build
+files:
+  - out/**/*
+  - package.json
+fileAssociations:
+  - ext: md
+    name: Markdown Document
+    description: Markdown Document
+    role: Editor
+    mimeType: text/markdown
+  - ext: markdown
+    name: Markdown Document
+    description: Markdown Document
+    role: Editor
+    mimeType: text/markdown
+win:
+  target:
+    - target: nsis
+      arch:
+        - x64
+nsis:
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+linux:
+  maintainer: Alex Ishida <alexishida@gmail.com>
+  target:
+    - AppImage
+    - deb
+  category: Office
+  mimeTypes:
+    - text/markdown

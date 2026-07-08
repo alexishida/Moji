@@ -1,0 +1,53 @@
+{
+  "app": {
+    "name": "Visor de Markdown",
+    "untitled": "Sin título",
+    "modifiedMarker": "•"
+  },
+  "menu": {
+    "file": "Archivo",
+    "open": "Abrir…",
+    "save": "Guardar",
+    "saveAs": "Guardar como…",
+    "export": "Exportar",
+    "exportHtml": "Exportar como HTML…",
+    "exportPdf": "Exportar como PDF…",
+    "quit": "Salir",
+    "view": "Ver",
+    "toggleEdit": "Alternar edición",
+    "toggleTheme": "Alternar tema",
+    "language": "Idioma"
+  },
+  "toolbar": {
+    "open": "Abrir",
+    "edit": "Editar",
+    "view": "Ver",
+    "export": "Exportar",
+    "exportHtml": "HTML",
+    "exportPdf": "PDF",
+    "theme": "Tema",
+    "language": "Idioma"
+  },
+  "welcome": {
+    "title": "Visor de Markdown",
+    "subtitle": "Abre un archivo Markdown para leerlo de forma limpia.",
+    "openButton": "Abrir archivo",
+    "dropHint": "o suelta un archivo .md en cualquier parte de esta ventana"
+  },
+  "dialog": {
+    "unsavedTitle": "Cambios sin guardar",
+    "unsavedBody": "Este documento tiene cambios sin guardar. ¿Deseas guardarlos antes de continuar?",
+    "save": "Guardar",
+    "discard": "Descartar",
+    "cancel": "Cancelar"
+  },
+  "notice": {
+    "unsupported": "Tipo de archivo no compatible. Solo se pueden abrir archivos .md y .markdown.",
+    "exportSuccess": "Exportado a {{path}}",
+    "exportFailed": "Error al exportar: {{error}}",
+    "saveSuccess": "Guardado",
+    "saveFailed": "Error al guardar: {{error}}",
+    "openFailed": "No se pudo abrir el archivo: {{error}}",
+    "noDocument": "Abre un documento primero."
+  }
+}
