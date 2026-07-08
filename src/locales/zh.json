@@ -1,0 +1,125 @@
+{
+  "app": {
+    "name": "Moji v0.1",
+    "untitled": "无标题",
+    "modifiedMarker": "•"
+  },
+  "tabs": {
+    "documents": "打开的文档",
+    "close": "关闭标签页"
+  },
+  "menu": {
+    "file": "文件",
+    "open": "打开…",
+    "save": "保存",
+    "saveAs": "另存为…",
+    "export": "导出",
+    "exportHtml": "导出为 HTML…",
+    "exportPdf": "导出为 PDF…",
+    "quit": "退出",
+    "view": "视图",
+    "toggleEdit": "切换编辑",
+    "toggleTheme": "切换主题",
+    "language": "语言"
+  },
+  "toolbar": {
+    "open": "打开",
+    "edit": "编辑",
+    "view": "视图",
+    "preview": "预览",
+    "editor": "编辑器",
+    "viewMode": "查看模式",
+    "newDocument": "新建",
+    "save": "保存",
+    "search": "搜索...",
+    "export": "导出",
+    "exportHtml": "导出为 HTML",
+    "exportPdf": "导出为 PDF",
+    "theme": "主题",
+    "themeLight": "浅色模式",
+    "themeDark": "深色模式",
+    "settings": "设置",
+    "about": "关于",
+    "more": "更多操作",
+    "language": "语言"
+  },
+  "sidebar": {
+    "library": "库",
+    "localStorage": "本地存储",
+    "documents": "文档",
+    "outline": "大纲",
+    "help": "帮助",
+    "expand": "展开",
+    "collapse": "折叠",
+    "expandAll": "全部展开",
+    "collapseAll": "全部折叠",
+    "noHeadings": "还没有标题。添加标题以构建大纲。",
+    "noDocument": "打开或创建一个文档以查看其大纲。"
+  },
+  "statusbar": {
+    "brand": "Moji v0.1",
+    "guide": "Markdown 指南",
+    "exportPdf": "导出 PDF",
+    "wordCount": "字数：{{count}}"
+  },
+  "help": {
+    "hint": "打开或拖入 .md 文件，从顶部标签切换预览／编辑器，并使用大纲在标题间跳转。"
+  },
+  "welcome": {
+    "title": "Moji v0.1",
+    "subtitle": "打开 Markdown 文件以清晰地阅读。",
+    "openButton": "打开文件",
+    "newButton": "新建文件",
+    "dropHint": "或将 .md 文件拖入此窗口任意位置"
+  },
+  "dialog": {
+    "unsavedTitle": "未保存的更改",
+    "unsavedBody": "此文档有未保存的更改。是否在继续前保存？",
+    "save": "保存",
+    "discard": "放弃",
+    "cancel": "取消"
+  },
+  "exportDialog": {
+    "title": "导出文档",
+    "format": "格式",
+    "settings": "设置",
+    "pageSize": "页面尺寸",
+    "orientation": "方向",
+    "portrait": "纵向",
+    "landscape": "横向",
+    "pdfTitle": "导出为 PDF",
+    "pdfDescription": "适合打印和共享精确的排版。",
+    "htmlTitle": "导出为 HTML",
+    "htmlDescription": "最适合网页发布和嵌入。",
+    "pngTitle": "导出为 PNG",
+    "pngDescription": "文档内容的高分辨率图像。",
+    "export": "导出"
+  },
+  "settingsDialog": {
+    "title": "设置",
+    "general": "常规",
+    "preview": "预览",
+    "fontFamily": "字体",
+    "fontSize": "字号",
+    "lineHeight": "行高"
+  },
+  "aboutDialog": {
+    "title": "关于",
+    "application": "应用程序",
+    "version": "版本 {{version}}",
+    "authorLabel": "名称",
+    "emailLabel": "电子邮件",
+    "repositoryLabel": "代码仓库",
+    "whyNameTitle": "为什么叫 Moji？",
+    "whyNameBody": "Moji 被选为一个简短、易记且以文本为先的名称。它让人联想到文字与书写，正契合这款专注于以最小阻力打开、编辑和导出 Markdown 的应用。"
+  },
+  "notice": {
+    "unsupported": "不支持的文件类型。只能打开 .md 和 .markdown 文件。",
+    "exportSuccess": "已导出到 {{path}}",
+    "exportFailed": "导出失败：{{error}}",
+    "saveSuccess": "已保存",
+    "saveFailed": "保存失败：{{error}}",
+    "openFailed": "无法打开文件：{{error}}",
+    "noDocument": "请先打开一个文档。"
+  }
+}

@@ -16,11 +16,11 @@ Fonte de verdade dos tokens: [`src/styles/theme.css`](../src/styles/theme.css). 
 
 O app Electron usa um shell em camadas:
 
-- **Top bar** (`.topbar`): duas linhas sobre `--chrome-bg`. Primeira linha contem acoes de arquivo (*Novo*, *Abrir*, *Salvar*) e campo de busca quando habilitado. Segunda linha contem o seletor segmentado *Preview / Editor / Exportar* e acoes de tema/configuracoes.
+- **Top bar** (`.topbar`): duas linhas sobre `--chrome-bg`. Primeira linha contem acoes de arquivo (*Novo*, *Abrir*, *Salvar*) e campo de busca. Segunda linha contem o seletor segmentado *Preview / Editor / Exportar* e acoes de tema, configuracoes e sobre (icone de informacao).
 - **Document tabs** (`.document-tabs`): barra horizontal abaixo da top bar, visivel quando ha documentos abertos. Cada aba tem largura estavel, marcador de alteracao e botao de fechar.
 - **Body** (`.body`): sidebar + area principal.
 - **Sidebar** (`.sidebar`): coluna de `--sidebar-w`, visivel com documento aberto. No modo preview mostra a arvore de outline gerada dos headings (aninhada por nivel) e destaca o heading ativo.
-- **Main/workspace** (`.main`, `.workspace`): renderiza welcome, preview, editor, dialogo inline de exportacao ou painel inline de configuracoes.
+- **Main/workspace** (`.main`, `.workspace`): renderiza welcome, preview, editor, dialogo inline de exportacao, painel inline de configuracoes ou painel inline de sobre.
 - **Status bar** (`.statusbar`): rodape de `--statusbar-h`, com marca, guia Markdown e contagem de palavras.
 
 ## Temas
@@ -105,11 +105,12 @@ Nao usar `data-theme` no `<html>` para alternar a UI inteira; o estado atual alt
 - **Segment** (`.segment`, `.segment__btn`): trilho `--segment-track`, botoes de 30px, ativo em `--segment-active-bg`.
 - **Icon button** (`.iconbtn`): 34x34px, sem borda visivel por padrao, hover em `--bg-inset`, ativo com `--accent`.
 - **Document tabs** (`.document-tabs`, `.document-tab`): altura 35px; aba ativa usa `--bg` e filete superior `--accent`; marcador de dirty usa `--accent`.
-- **Sidebar / outline** (`.sidebar`, `.outline-tree`, `.outline-item`): outline aparece no modo preview como arvore aninhada por nivel de heading. Cada grupo (`.outline-tree__children`) tem linha-guia vertical `--border`. Headings com filhos sao colapsaveis por chevron; botao no topo do painel (`.outline-head__toggle`) expande/colapsa tudo. Prefixos `Requirement:`/`Scenario:` viram icones (`IconBlock`/`IconFlow`) e saem do texto; Requirement usa peso maior e `--text`, Scenario recua com `--text-muted`. Titulos longos quebram em ate 2 linhas com `title` completo no hover. Item ativo usa `--nav-active-text`, fundo tenue `--nav-active-bg` e barra `inset 2px --accent`.
+- **Sidebar / outline** (`.sidebar`, `.outline-tree`, `.outline-item`): outline aparece no modo preview como arvore aninhada por nivel de heading. Cada grupo (`.outline-tree__children`) tem linha-guia vertical `--border`. Headings com filhos sao colapsaveis por chevron; botao no topo do painel (`.outline-head__toggle`) expande/colapsa tudo. Prefixos `Requirement:`/`Scenario:` viram icones (`IconBlock`/`IconFlow`) e saem do texto; Requirement usa peso maior e `--text`, Scenario recua com `--text-muted`. Titulos longos quebram em ate 2 linhas com `title` completo no hover. Item ativo usa `--nav-active-text`, fundo tenue `--nav-active-bg` e barra `inset 2px --accent`. O item ativo acompanha a rolagem do preview via scroll-spy (`getActivePreviewHeadingId` em `src/lib/previewScroll.ts`); clicar rola suavemente ate o heading.
 - **Preview** (`.markdown-body`): largura maxima `--reading-width`, padding `--space-6 --space-5`, tipografia configuravel pelo painel de configuracoes (padrao 16px, linha 1.7), headings com hierarquia clara e codigo em `--code-bg`.
 - **Editor** (`.editor-pane`, `.cm-editor`): ocupa toda a area principal, fonte mono 14px, line wrapping e tema escuro CodeMirror no estado atual.
 - **Export dialog** (`.export-dialog`): dialogo inline centralizado, largura `min(760px, calc(100vw - 32px))`, lista de formatos PDF/HTML/PNG, configuracoes de pagina para PDF.
-- **Settings dialog** (`.settings-dialog`): painel inline centralizado no mesmo padrao do export; contem idioma e configuracoes de preview como familia de fonte, tamanho e altura de linha.
+- **Settings dialog** (`.settings-dialog`): painel inline centralizado no mesmo padrao do export; contem idioma e configuracoes de preview como familia de fonte, tamanho e altura de linha. Idiomas embarcados atuais: English, Portugues (Brasil), Espanol e Japones.
+- **About dialog** (`.about-dialog`): painel inline centralizado que reutiliza a estrutura de `.export-dialog`; mostra nome do app, versao (de `package.json`), autor, e-mail, link do repositorio e a explicacao do nome. Aberto pelo botao de informacao na top bar.
 - **Popover/menu** (`.popover`, `.menu__list`): usar `--bg-elevated`, `--border`, `--shadow`, raio de ate `--radius`.
 - **Confirm dialog** (`.dialog`): modal com backdrop, largura `min(420px, 90vw)`, usado para alteracoes nao salvas.
 - **Notice** (`.notice`): toast inferior sobre a status bar; erro usa `--danger`.

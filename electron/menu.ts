@@ -11,7 +11,9 @@ interface MenuDeps {
 const LANGUAGE_LABELS: Record<Language, string> = {
   en: 'English',
   'pt-BR': 'Português (Brasil)',
-  es: 'Español'
+  es: 'Español',
+  ja: '日本語',
+  zh: '中文（简体）'
 }
 
 export function buildMenu({ language, send, setLanguage }: MenuDeps): void {

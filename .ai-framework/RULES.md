@@ -36,6 +36,8 @@ Projeto atual: Moji, aplicativo desktop Electron + React + TypeScript para abrir
 - Proteger fechamento de documento/app quando houver alteracoes nao salvas.
 - Ao adicionar formato de exportacao, atualizar `ExportFormat`, filtros, UI, traducoes e documentacao.
 - Ao adicionar idioma, atualizar `SUPPORTED_LANGUAGES`, locale JSON e menu nativo.
+- Paineis inline do workspace (exportacao, configuracoes, sobre) compartilham a estrutura de `.export-dialog`; reutilizar esse padrao ao criar novos.
+- Exibir a versao do app a partir de `package.json`, nao com string fixa.
 
 ## Regras de Layout e Design
 

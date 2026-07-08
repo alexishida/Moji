@@ -11,11 +11,15 @@ Clean desktop app for opening, reading, editing, and exporting Markdown files. B
 - **Open Markdown files**: supports `.md` and `.markdown` through file dialog, drag and drop, CLI/file association entry points, and single-instance forwarding.
 - **Multi-document workspace**: horizontal tabs, dirty markers, close buttons, duplicate-file detection, and unsaved-change confirmation.
 - **Preview mode**: sanitized Markdown rendering with heading anchors, outline navigation, tables, task lists, footnotes, definition lists, subscript/superscript, highlight/insert marks, emoji shortcodes, LaTeX math via KaTeX (`$…$` and `$$…$$`), linkify, typographer, and syntax-highlighted code.
+- **Outline navigation**: collapsible heading tree with scroll-spy that highlights the heading nearest the viewport top, plus smooth scroll-to-heading on click and anchor links.
+- **Search**: top-bar search field highlights matching text in the preview.
 - **Editor mode**: CodeMirror 6 Markdown editor with line numbers, history, wrapping, and save/save as flows.
 - **Export mode**: export the active document as HTML, PDF, or PNG. PDF supports A4, Letter, Legal, portrait, and landscape.
 - **Settings view**: centered in-workspace panel for language and preview typography controls.
+- **About view**: in-workspace panel showing app name, version (from `package.json`), author, repository link, and the story behind the name.
+- **Markdown guide**: bundled reference document (`samples/guia-markdown-completo.md`) opened from the status bar.
 - **Markdown themes**: dark/light toggle for rendered Markdown and exported output. App chrome remains dark.
-- **Internationalization**: English, Portuguese (Brazil), and Spanish. Initial language follows the OS when possible and user choice is persisted.
+- **Internationalization**: English, Portuguese (Brazil), Spanish, and Japanese. Initial language follows the OS when possible and user choice is persisted.
 - **Security**: sandboxed renderer, context isolation, `nodeIntegration: false`, DOMPurify sanitization, and external links opened in the OS browser.
 
 ## Requirements
@@ -70,10 +74,12 @@ electron/
 
 src/
   App.tsx        Renderer state, document actions, menu wiring, mode switching
-  components/    Top bar, tabs, sidebar, preview, editor, export dialog, dialogs, welcome view
-  lib/           Markdown rendering, outline extraction, export HTML, guide content, hooks
-  locales/       en, pt-BR, es translation files
+  components/    Top bar, tabs, sidebar, outline tree, preview, editor, export/settings/about dialogs, confirm dialog, welcome view
+  lib/           Markdown rendering, outline extraction, preview scroll-spy, export HTML, guide content, hooks
+  locales/       en, pt-BR, es, ja translation files
   styles/        Theme tokens, app shell CSS, Markdown preview CSS
+
+samples/         Bundled Markdown documents (welcome, full Markdown guide)
 ```
 
 ## Documentation

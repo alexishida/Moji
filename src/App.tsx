@@ -10,12 +10,14 @@ import { DocumentTabs, type DocumentTabItem } from './components/DocumentTabs'
 import { ConfirmDialog, type ConfirmChoice } from './components/ConfirmDialog'
 import { ExportDialog, type ExportDialogOptions } from './components/ExportDialog'
 import { SettingsDialog } from './components/SettingsDialog'
+import { AboutDialog } from './components/AboutDialog'
 import { renderMarkdown } from './lib/markdown'
 import { buildOutline } from './lib/outline'
 import { getActivePreviewHeadingId, scrollPreviewHeadingIntoView } from './lib/previewScroll'
 import { useDebounced } from './lib/useDebounced'
 import { buildStandaloneHtml } from './lib/exportHtml'
 import type { ExportFormat, Language, MenuAction, Settings, Theme } from '../electron/shared'
+import packageJson from '../package.json'
 
 interface DocumentState {
   id: string
@@ -72,6 +74,7 @@ export function App(): JSX.Element {
   const [dialogOpen, setDialogOpen] = useState(false)
   const [exportDialogFormat, setExportDialogFormat] = useState<ExportFormat | null>(null)
   const [settingsOpen, setSettingsOpen] = useState(false)
+  const [aboutOpen, setAboutOpen] = useState(false)
   const dialogResolver = useRef<((c: ConfirmChoice) => void) | null>(null)
   const nextDocSeq = useRef(1)
 
@@ -159,6 +162,7 @@ export function App(): JSX.Element {
       setMode(nextMode)
       setExportDialogFormat(null)
       setSettingsOpen(false)
+      setAboutOpen(false)
     },
     [newDocumentId]
   )
@@ -345,6 +349,7 @@ export function App(): JSX.Element {
         return
       }
       setSettingsOpen(false)
+      setAboutOpen(false)
       setExportDialogFormat(format)
     },
     [flash, t]
@@ -381,6 +386,7 @@ export function App(): JSX.Element {
     if (!stateRef.current.hasDoc) return
     setExportDialogFormat(null)
     setSettingsOpen(false)
+    setAboutOpen(false)
     setMode((m) => (m === 'view' ? 'edit' : 'view'))
   }, [])
 
@@ -388,6 +394,7 @@ export function App(): JSX.Element {
     if (!stateRef.current.hasDoc) return
     setExportDialogFormat(null)
     setSettingsOpen(false)
+    setAboutOpen(false)
     setMode(next)
   }, [])
 
@@ -409,6 +416,7 @@ export function App(): JSX.Element {
     setActiveDocId(docId)
     setExportDialogFormat(null)
     setSettingsOpen(false)
+    setAboutOpen(false)
   }, [])
 
   const closeDocument = useCallback(
@@ -430,6 +438,7 @@ export function App(): JSX.Element {
       if (nextDocs.length === 0) setMode('view')
       setExportDialogFormat(null)
       setSettingsOpen(false)
+      setAboutOpen(false)
     },
     [confirmUnsavedDocument]
   )
@@ -469,7 +478,14 @@ export function App(): JSX.Element {
 
   const openSettings = useCallback(() => {
     setExportDialogFormat(null)
+    setAboutOpen(false)
     setSettingsOpen(true)
+  }, [])
+
+  const openAbout = useCallback(() => {
+    setExportDialogFormat(null)
+    setSettingsOpen(false)
+    setAboutOpen(true)
   }, [])
 
   // --- Wire menu actions + pushed documents -----------------------------
@@ -561,6 +577,7 @@ export function App(): JSX.Element {
         mode={mode}
         exportOpen={exportDialogFormat !== null}
         settingsOpen={settingsOpen}
+        aboutOpen={aboutOpen}
         theme={mdTheme}
         onSetMode={setModeSafe}
         onOpen={doOpen}
@@ -570,6 +587,7 @@ export function App(): JSX.Element {
         onToggleTheme={toggleMdTheme}
         onExport={openExportDialog}
         onOpenSettings={openSettings}
+        onOpenAbout={openAbout}
       />
 
       {hasDoc && (
@@ -583,7 +601,7 @@ export function App(): JSX.Element {
       )}
 
       <div className="body">
-        {hasDoc && mode === 'view' && !exportDialogFormat && !settingsOpen && (
+        {hasDoc && mode === 'view' && !exportDialogFormat && !settingsOpen && !aboutOpen && (
           <Sidebar
             hasDoc={hasDoc}
             outline={outline}
@@ -602,6 +620,10 @@ export function App(): JSX.Element {
                   onClose={() => setSettingsOpen(false)}
                   onChange={changeSettings}
                 />
+              </div>
+            ) : aboutOpen ? (
+              <div className="export-workspace">
+                <AboutDialog version={packageJson.version} onClose={() => setAboutOpen(false)} />
               </div>
             ) : !hasDoc ? (
               <Welcome onOpen={() => void doOpen()} onNew={doNew} />

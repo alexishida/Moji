@@ -1,0 +1,125 @@
+{
+  "app": {
+    "name": "Moji v0.1",
+    "untitled": "無題",
+    "modifiedMarker": "•"
+  },
+  "tabs": {
+    "documents": "開いているドキュメント",
+    "close": "タブを閉じる"
+  },
+  "menu": {
+    "file": "ファイル",
+    "open": "開く…",
+    "save": "保存",
+    "saveAs": "名前を付けて保存…",
+    "export": "エクスポート",
+    "exportHtml": "HTML としてエクスポート…",
+    "exportPdf": "PDF としてエクスポート…",
+    "quit": "終了",
+    "view": "表示",
+    "toggleEdit": "編集を切り替え",
+    "toggleTheme": "テーマを切り替え",
+    "language": "言語"
+  },
+  "toolbar": {
+    "open": "開く",
+    "edit": "編集",
+    "view": "表示",
+    "preview": "プレビュー",
+    "editor": "エディター",
+    "viewMode": "表示モード",
+    "newDocument": "新規",
+    "save": "保存",
+    "search": "検索...",
+    "export": "エクスポート",
+    "exportHtml": "HTML としてエクスポート",
+    "exportPdf": "PDF としてエクスポート",
+    "theme": "テーマ",
+    "themeLight": "ライトモード",
+    "themeDark": "ダークモード",
+    "settings": "設定",
+    "about": "このアプリについて",
+    "more": "その他の操作",
+    "language": "言語"
+  },
+  "sidebar": {
+    "library": "ライブラリ",
+    "localStorage": "ローカルストレージ",
+    "documents": "ドキュメント",
+    "outline": "アウトライン",
+    "help": "ヘルプ",
+    "expand": "展開",
+    "collapse": "折りたたむ",
+    "expandAll": "すべて展開",
+    "collapseAll": "すべて折りたたむ",
+    "noHeadings": "見出しがまだありません。見出しを追加するとアウトラインが作成されます。",
+    "noDocument": "ドキュメントを開くか新規作成するとアウトラインが表示されます。"
+  },
+  "statusbar": {
+    "brand": "Moji v0.1",
+    "guide": "Markdown ガイド",
+    "exportPdf": "PDF をエクスポート",
+    "wordCount": "単語数: {{count}}"
+  },
+  "help": {
+    "hint": ".md ファイルを開くかドロップし、上部タブでプレビューとエディターを切り替え、アウトラインで見出し間を移動できます。"
+  },
+  "welcome": {
+    "title": "Moji v0.1",
+    "subtitle": "Markdown ファイルを開いて、すっきり読めます。",
+    "openButton": "ファイルを開く",
+    "newButton": "新規ファイル",
+    "dropHint": "または、このウィンドウのどこかに .md ファイルをドロップ"
+  },
+  "dialog": {
+    "unsavedTitle": "未保存の変更",
+    "unsavedBody": "このドキュメントには未保存の変更があります。続行する前に保存しますか？",
+    "save": "保存",
+    "discard": "破棄",
+    "cancel": "キャンセル"
+  },
+  "exportDialog": {
+    "title": "ドキュメントをエクスポート",
+    "format": "形式",
+    "settings": "設定",
+    "pageSize": "ページサイズ",
+    "orientation": "向き",
+    "portrait": "縦向き",
+    "landscape": "横向き",
+    "pdfTitle": "PDF としてエクスポート",
+    "pdfDescription": "印刷やレイアウトを保った共有に適しています。",
+    "htmlTitle": "HTML としてエクスポート",
+    "htmlDescription": "Web 公開や埋め込みに最適です。",
+    "pngTitle": "PNG としてエクスポート",
+    "pngDescription": "ドキュメント内容を高解像度画像で出力します。",
+    "export": "エクスポート"
+  },
+  "settingsDialog": {
+    "title": "設定",
+    "general": "一般",
+    "preview": "プレビュー",
+    "fontFamily": "フォント",
+    "fontSize": "フォントサイズ",
+    "lineHeight": "行の高さ"
+  },
+  "aboutDialog": {
+    "title": "このアプリについて",
+    "application": "アプリケーション",
+    "version": "バージョン {{version}}",
+    "authorLabel": "名前",
+    "emailLabel": "メール",
+    "repositoryLabel": "リポジトリ",
+    "whyNameTitle": "なぜ Moji？",
+    "whyNameBody": "Moji は、短くて覚えやすく、文字や文章を連想させる名前として選ばれました。Markdown を開く、編集する、エクスポートするという体験を、できるだけ軽く自然に感じてもらうためのアプリの方向性にも合っています。"
+  },
+  "notice": {
+    "unsupported": "未対応のファイル形式です。.md と .markdown ファイルのみ開けます。",
+    "exportSuccess": "{{path}} にエクスポートしました",
+    "exportFailed": "エクスポートに失敗しました: {{error}}",
+    "saveSuccess": "保存しました",
+    "saveFailed": "保存に失敗しました: {{error}}",
+    "openFailed": "ファイルを開けませんでした: {{error}}",
+    "noDocument": "まずドキュメントを開いてください。"
+  }
+}
