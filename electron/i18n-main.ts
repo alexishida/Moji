@@ -4,12 +4,16 @@
 import en from '../src/locales/en.json'
 import ptBR from '../src/locales/pt-BR.json'
 import es from '../src/locales/es.json'
+import zh from '../src/locales/zh.json'
+import ja from '../src/locales/ja.json'
 import { DEFAULT_LANGUAGE, type Language } from './shared'
 
 const resources: Record<Language, Record<string, unknown>> = {
   en,
   'pt-BR': ptBR,
-  es
+  es,
+  ja,
+  zh
 }
 
 function lookup(obj: Record<string, unknown>, key: string): string | undefined {

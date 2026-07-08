@@ -34,6 +34,14 @@ export const IconSettings = (p: IconProps): JSX.Element => (
   </svg>
 )
 
+export const IconInfo = (p: IconProps): JSX.Element => (
+  <svg {...base} {...p}>
+    <circle cx="12" cy="12" r="9" />
+    <path d="M12 10v6" />
+    <path d="M12 7h.01" />
+  </svg>
+)
+
 export const IconKebab = (p: IconProps): JSX.Element => (
   <svg {...base} {...p}>
     <circle cx="12" cy="5" r="1.4" />

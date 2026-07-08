@@ -1,6 +1,6 @@
 {
   "app": {
-    "name": "Moji",
+    "name": "Moji v0.1",
     "untitled": "Sin título",
     "modifiedMarker": "•"
   },
@@ -39,6 +39,7 @@
     "themeLight": "Modo claro",
     "themeDark": "Modo oscuro",
     "settings": "Ajustes",
+    "about": "Acerca de",
     "more": "Más acciones",
     "language": "Idioma"
   },
@@ -65,7 +66,7 @@
     "hint": "Abre o suelta un archivo .md, cambia entre Vista previa/Editor en las pestañas superiores y usa el esquema para saltar entre encabezados."
   },
   "welcome": {
-    "title": "Moji",
+    "title": "Moji v0.1",
     "subtitle": "Abre un archivo Markdown para leerlo de forma limpia.",
     "openButton": "Abrir archivo",
     "newButton": "Nuevo archivo",
@@ -101,6 +102,16 @@
     "fontFamily": "Fuente",
     "fontSize": "Tamaño de fuente",
     "lineHeight": "Altura de línea"
+  },
+  "aboutDialog": {
+    "title": "Acerca de",
+    "application": "Aplicación",
+    "version": "Versión {{version}}",
+    "authorLabel": "Nombre",
+    "emailLabel": "Correo",
+    "repositoryLabel": "Repositorio",
+    "whyNameTitle": "¿Por qué Moji?",
+    "whyNameBody": "Moji se eligió como un nombre corto, fácil de recordar y con aire de texto. Evoca caracteres y escritura, algo que encaja con una app pensada para abrir, editar y exportar Markdown con la menor fricción posible."
   },
   "notice": {
     "unsupported": "Tipo de archivo no compatible. Solo se pueden abrir archivos .md y .markdown.",

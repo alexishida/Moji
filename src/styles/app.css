@@ -934,6 +934,79 @@ body {
   padding: var(--space-4) var(--space-5) var(--space-5);
 }
 
+.about-dialog {
+  width: min(640px, calc(100vw - 32px));
+}
+
+.about-dialog__body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+  padding: var(--space-4) var(--space-5) var(--space-5);
+}
+
+.about-dialog__hero {
+  padding: var(--space-4);
+  background: linear-gradient(135deg, color-mix(in srgb, var(--accent) 22%, var(--bg)) 0%, var(--bg-elevated) 100%);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+
+.about-dialog__eyebrow {
+  margin: 0 0 var(--space-2);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.about-dialog__name {
+  margin: 0;
+  font-size: 30px;
+  line-height: 1;
+}
+
+.about-dialog__version {
+  margin: var(--space-2) 0 0;
+  font-size: 14px;
+  color: var(--text-muted);
+}
+
+.about-dialog__meta {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.about-dialog__row {
+  display: grid;
+  grid-template-columns: minmax(120px, 140px) minmax(0, 1fr);
+  gap: var(--space-4);
+  align-items: start;
+  font-size: 14px;
+}
+
+.about-dialog__label {
+  color: var(--text-muted);
+}
+
+.about-dialog__link {
+  color: var(--accent);
+  text-decoration: none;
+}
+
+.about-dialog__link:hover {
+  text-decoration: underline;
+}
+
+.about-dialog__text {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.65;
+  color: var(--text-muted);
+}
+
 .settings-section {
   min-width: 0;
 }
@@ -1213,6 +1286,11 @@ body {
   .settings-field {
     grid-template-columns: 1fr;
     gap: var(--space-2);
+  }
+
+  .about-dialog__row {
+    grid-template-columns: 1fr;
+    gap: var(--space-1);
   }
 
   .export-dialog__divider {

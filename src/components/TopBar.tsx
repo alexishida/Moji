@@ -1,7 +1,7 @@
 import { useState, useCallback, type ChangeEvent } from 'react'
 import { useTranslation } from 'react-i18next'
 import { SettingsButton } from './SettingsButton'
-import { IconMoon, IconSun, IconEye, IconPencil, IconDownload, IconOpen, IconFilePlus, IconSave } from './icons'
+import { IconMoon, IconSun, IconEye, IconPencil, IconDownload, IconOpen, IconFilePlus, IconSave, IconInfo } from './icons'
 import type { ExportFormat, Theme } from '../../electron/shared'
 
 interface TopBarProps {
@@ -10,6 +10,7 @@ interface TopBarProps {
   mode: 'view' | 'edit'
   exportOpen: boolean
   settingsOpen: boolean
+  aboutOpen: boolean
   theme: Theme
   onSetMode: (mode: 'view' | 'edit') => void
   onOpen: () => void
@@ -18,6 +19,7 @@ interface TopBarProps {
   onToggleTheme: () => void
   onExport: (format: ExportFormat) => void
   onOpenSettings: () => void
+  onOpenAbout: () => void
   onSearch: (term: string) => void
 }
 
@@ -72,24 +74,28 @@ export function TopBar(props: TopBarProps): JSX.Element {
           <div className="segment" role="tablist" aria-label={t('toolbar.viewMode')}>
             <button
               className={`segment__btn ${
-                !props.exportOpen && !props.settingsOpen && props.mode === 'view' ? 'segment__btn--active' : ''
+                !props.exportOpen && !props.settingsOpen && !props.aboutOpen && props.mode === 'view'
+                  ? 'segment__btn--active'
+                  : ''
               }`}
               onClick={() => props.onSetMode('view')}
               disabled={!props.hasDoc}
               role="tab"
-              aria-selected={!props.exportOpen && !props.settingsOpen && props.mode === 'view'}
+              aria-selected={!props.exportOpen && !props.settingsOpen && !props.aboutOpen && props.mode === 'view'}
             >
               <IconEye width={15} height={15} />
               {t('toolbar.preview')}
             </button>
             <button
               className={`segment__btn ${
-                !props.exportOpen && !props.settingsOpen && props.mode === 'edit' ? 'segment__btn--active' : ''
+                !props.exportOpen && !props.settingsOpen && !props.aboutOpen && props.mode === 'edit'
+                  ? 'segment__btn--active'
+                  : ''
               }`}
               onClick={() => props.onSetMode('edit')}
               disabled={!props.hasDoc}
               role="tab"
-              aria-selected={!props.exportOpen && !props.settingsOpen && props.mode === 'edit'}
+              aria-selected={!props.exportOpen && !props.settingsOpen && !props.aboutOpen && props.mode === 'edit'}
             >
               <IconPencil width={15} height={15} />
               {t('toolbar.editor')}
@@ -121,6 +127,15 @@ export function TopBar(props: TopBarProps): JSX.Element {
             active={props.settingsOpen}
             onClick={props.onOpenSettings}
           />
+
+          <button
+            className={`iconbtn ${props.aboutOpen ? 'iconbtn--active' : ''}`}
+            onClick={props.onOpenAbout}
+            title={t('toolbar.about')}
+            aria-label={t('toolbar.about')}
+          >
+            <IconInfo />
+          </button>
         </div>
       </div>
     </header>
