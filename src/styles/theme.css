@@ -16,6 +16,9 @@
   --space-6: 32px;
 
   --toolbar-h: 44px;
+  --topbar-h: 52px;
+  --statusbar-h: 34px;
+  --sidebar-w: 260px;
   --shadow: 0 1px 3px rgba(0, 0, 0, 0.08), 0 4px 16px rgba(0, 0, 0, 0.06);
 }
 
@@ -33,6 +36,16 @@
   --accent-contrast: #ffffff;
   --code-bg: #f4f6f8;
   --danger: #cf222e;
+
+  /* app chrome (light) */
+  --brand: #2f6fed;
+  --sidebar-bg: #f4f6fb;
+  --chrome-bg: #fbfcfe;
+  --nav-hover-bg: #e9edf7;
+  --nav-active-bg: #e3eafc;
+  --nav-active-text: #2f6fed;
+  --segment-track: #eaedf3;
+  --segment-active-bg: #ffffff;
 
   /* highlight.js tokens (light) */
   --hl-comment: #6a737d;
@@ -57,6 +70,16 @@
   --accent-contrast: #0b1a33;
   --code-bg: #161616;
   --danger: #ff6b6b;
+
+  /* app chrome (dark) */
+  --brand: #6ea8ff;
+  --sidebar-bg: #1a1a1b;
+  --chrome-bg: #202021;
+  --nav-hover-bg: #2a2a2c;
+  --nav-active-bg: #24314a;
+  --nav-active-text: #7cb0ff;
+  --segment-track: #2a2a2c;
+  --segment-active-bg: #38383a;
 
   /* highlight.js tokens (dark) */
   --hl-comment: #8b949e;

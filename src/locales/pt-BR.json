@@ -22,11 +22,37 @@
     "open": "Abrir",
     "edit": "Editar",
     "view": "Visualizar",
+    "preview": "Visualizar",
+    "editor": "Editor",
+    "viewMode": "Modo de exibição",
+    "newDocument": "Novo documento",
     "export": "Exportar",
-    "exportHtml": "HTML",
-    "exportPdf": "PDF",
+    "exportHtml": "Exportar como HTML",
+    "exportPdf": "Exportar como PDF",
     "theme": "Tema",
+    "themeLight": "Modo claro",
+    "themeDark": "Modo escuro",
+    "settings": "Configurações",
+    "more": "Mais ações",
     "language": "Idioma"
+  },
+  "sidebar": {
+    "library": "Biblioteca",
+    "localStorage": "Armazenamento local",
+    "documents": "Documentos",
+    "outline": "Sumário",
+    "help": "Ajuda",
+    "noHeadings": "Nenhum título ainda. Adicione um título para montar o sumário.",
+    "noDocument": "Abra ou crie um documento para ver o sumário."
+  },
+  "statusbar": {
+    "brand": "Visualizador de Markdown v0.1",
+    "guide": "Guia de Markdown",
+    "exportPdf": "Exportar PDF",
+    "wordCount": "Palavras: {{count}}"
+  },
+  "help": {
+    "hint": "Abra ou solte um arquivo .md, alterne entre Visualizar/Editor nas abas superiores e use o sumário para navegar entre os títulos."
   },
   "welcome": {
     "title": "Visualizador de Markdown",
@@ -40,6 +66,19 @@
     "save": "Salvar",
     "discard": "Descartar",
     "cancel": "Cancelar"
+  },
+  "exportDialog": {
+    "title": "Exportar documento",
+    "format": "Formato",
+    "settings": "Configura\u00e7\u00f5es",
+    "pageSize": "Tamanho da p\u00e1gina",
+    "pdfTitle": "Exportar como PDF",
+    "pdfDescription": "Ideal para impress\u00e3o e compartilhamento com layout exato.",
+    "htmlTitle": "Exportar como HTML",
+    "htmlDescription": "Melhor para publica\u00e7\u00e3o na web e incorpora\u00e7\u00e3o.",
+    "pngTitle": "Exportar como PNG",
+    "pngDescription": "Imagem em alta resolu\u00e7\u00e3o do conte\u00fado do documento.",
+    "export": "Exportar"
   },
   "notice": {
     "unsupported": "Tipo de arquivo não suportado. Apenas arquivos .md e .markdown podem ser abertos.",

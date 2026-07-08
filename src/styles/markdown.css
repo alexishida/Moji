@@ -2,7 +2,7 @@
 .markdown-body {
   max-width: var(--reading-width);
   margin: 0 auto;
-  padding: var(--space-6) var(--space-5) 96px;
+  padding: var(--space-6) var(--space-5);
   font-size: 16px;
   line-height: 1.7;
   color: var(--text);

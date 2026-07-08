@@ -22,11 +22,37 @@
     "open": "Abrir",
     "edit": "Editar",
     "view": "Ver",
+    "preview": "Vista previa",
+    "editor": "Editor",
+    "viewMode": "Modo de vista",
+    "newDocument": "Nuevo documento",
     "export": "Exportar",
-    "exportHtml": "HTML",
-    "exportPdf": "PDF",
+    "exportHtml": "Exportar como HTML",
+    "exportPdf": "Exportar como PDF",
     "theme": "Tema",
+    "themeLight": "Modo claro",
+    "themeDark": "Modo oscuro",
+    "settings": "Ajustes",
+    "more": "Más acciones",
     "language": "Idioma"
+  },
+  "sidebar": {
+    "library": "Biblioteca",
+    "localStorage": "Almacenamiento local",
+    "documents": "Documentos",
+    "outline": "Esquema",
+    "help": "Ayuda",
+    "noHeadings": "Aún no hay encabezados. Agrega un encabezado para crear el esquema.",
+    "noDocument": "Abre o crea un documento para ver su esquema."
+  },
+  "statusbar": {
+    "brand": "Visor de Markdown v0.1",
+    "guide": "Guía de Markdown",
+    "exportPdf": "Exportar PDF",
+    "wordCount": "Palabras: {{count}}"
+  },
+  "help": {
+    "hint": "Abre o suelta un archivo .md, cambia entre Vista previa/Editor en las pestañas superiores y usa el esquema para saltar entre encabezados."
   },
   "welcome": {
     "title": "Visor de Markdown",
@@ -40,6 +66,19 @@
     "save": "Guardar",
     "discard": "Descartar",
     "cancel": "Cancelar"
+  },
+  "exportDialog": {
+    "title": "Exportar documento",
+    "format": "Formato",
+    "settings": "Ajustes",
+    "pageSize": "Tama\u00f1o de p\u00e1gina",
+    "pdfTitle": "Exportar como PDF",
+    "pdfDescription": "Ideal para imprimir y compartir dise\u00f1os exactos.",
+    "htmlTitle": "Exportar como HTML",
+    "htmlDescription": "Mejor para publicaci\u00f3n web e incrustaci\u00f3n.",
+    "pngTitle": "Exportar como PNG",
+    "pngDescription": "Imagen de alta resoluci\u00f3n del contenido del documento.",
+    "export": "Exportar"
   },
   "notice": {
     "unsupported": "Tipo de archivo no compatible. Solo se pueden abrir archivos .md y .markdown.",

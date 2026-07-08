@@ -28,10 +28,19 @@ export type WriteResult =
   | { ok: true; path: string }
   | { ok: false; canceled?: boolean; error?: string }
 
-export type ExportFormat = 'html' | 'pdf'
+export type ExportFormat = 'pdf' | 'html' | 'png'
+
+export type ExportPageSize = 'A4' | 'Letter' | 'Legal'
+
+export const EXPORT_PAGE_SIZES: Array<{ value: ExportPageSize; label: string; width: number; height: number }> = [
+  { value: 'A4', label: 'A4 (210 x 297 mm)', width: 794, height: 1123 },
+  { value: 'Letter', label: 'Letter (8.5 x 11 in)', width: 816, height: 1056 },
+  { value: 'Legal', label: 'Legal (8.5 x 14 in)', width: 816, height: 1344 }
+]
 
 export interface ExportRequest {
   format: ExportFormat
+  pageSize: ExportPageSize
   /** Fully-rendered, standalone HTML document (with inlined CSS). */
   html: string
   /** Suggested base name (without extension) for the save dialog. */

@@ -22,11 +22,37 @@
     "open": "Open",
     "edit": "Edit",
     "view": "View",
+    "preview": "Preview",
+    "editor": "Editor",
+    "viewMode": "View mode",
+    "newDocument": "New Document",
     "export": "Export",
-    "exportHtml": "HTML",
-    "exportPdf": "PDF",
+    "exportHtml": "Export as HTML",
+    "exportPdf": "Export as PDF",
     "theme": "Theme",
+    "themeLight": "Light mode",
+    "themeDark": "Dark mode",
+    "settings": "Settings",
+    "more": "More actions",
     "language": "Language"
+  },
+  "sidebar": {
+    "library": "Library",
+    "localStorage": "Local Storage",
+    "documents": "Documents",
+    "outline": "Outline",
+    "help": "Help",
+    "noHeadings": "No headings yet. Add a heading to build the outline.",
+    "noDocument": "Open or create a document to see its outline."
+  },
+  "statusbar": {
+    "brand": "Markdown Viewer v0.1",
+    "guide": "Markdown Guide",
+    "exportPdf": "Export PDF",
+    "wordCount": "Words: {{count}}"
+  },
+  "help": {
+    "hint": "Open or drop a .md file, switch Preview/Editor from the top tabs, and use the outline to jump between headings."
   },
   "welcome": {
     "title": "Markdown Viewer",
@@ -40,6 +66,19 @@
     "save": "Save",
     "discard": "Discard",
     "cancel": "Cancel"
+  },
+  "exportDialog": {
+    "title": "Export Document",
+    "format": "Format",
+    "settings": "Settings",
+    "pageSize": "Page Size",
+    "pdfTitle": "Export as PDF",
+    "pdfDescription": "Ideal for printing and sharing exact layouts.",
+    "htmlTitle": "Export as HTML",
+    "htmlDescription": "Best for web publishing and embedding.",
+    "pngTitle": "Export as PNG",
+    "pngDescription": "High-resolution image of the document content.",
+    "export": "Export"
   },
   "notice": {
     "unsupported": "Unsupported file type. Only .md and .markdown files can be opened.",

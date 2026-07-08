@@ -1,14 +1,24 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Toolbar } from './components/Toolbar'
+import { TopBar } from './components/TopBar'
+import { Sidebar } from './components/Sidebar'
+import { StatusBar } from './components/StatusBar'
 import { Preview } from './components/Preview'
 import { Editor } from './components/Editor'
 import { Welcome } from './components/Welcome'
 import { ConfirmDialog, type ConfirmChoice } from './components/ConfirmDialog'
+import { ExportDialog, type ExportDialogOptions } from './components/ExportDialog'
 import { renderMarkdown } from './lib/markdown'
+import { buildOutline } from './lib/outline'
+import { GUIDE_MARKDOWN } from './lib/guide'
 import { useDebounced } from './lib/useDebounced'
 import { buildStandaloneHtml } from './lib/exportHtml'
 import type { ExportFormat, Language, MenuAction, Theme } from '../electron/shared'
+
+function countWords(text: string): number {
+  const trimmed = text.trim()
+  return trimmed ? trimmed.split(/\s+/).length : 0
+}
 
 function baseName(path: string | null): string | null {
   if (!path) return null
@@ -27,13 +37,17 @@ export function App(): JSX.Element {
   const [language, setLanguage] = useState<Language>('en')
   const [dragging, setDragging] = useState(false)
   const [notice, setNotice] = useState<{ text: string; error?: boolean } | null>(null)
+  const [activeId, setActiveId] = useState<string | null>(null)
 
   const [dialogOpen, setDialogOpen] = useState(false)
+  const [exportDialogFormat, setExportDialogFormat] = useState<ExportFormat | null>(null)
   const dialogResolver = useRef<((c: ConfirmChoice) => void) | null>(null)
 
   const dirty = hasDoc && content !== savedContent
   const debouncedContent = useDebounced(content, 150)
   const html = useMemo(() => renderMarkdown(debouncedContent), [debouncedContent])
+  const outline = useMemo(() => buildOutline(html), [html])
+  const words = useMemo(() => countWords(content), [content])
 
   // Keep a live snapshot for stable menu/IPC handlers.
   const stateRef = useRef({ content, filePath, hasDoc, mode, theme, dirty })
@@ -48,6 +62,34 @@ export function App(): JSX.Element {
   useEffect(() => {
     document.documentElement.dataset.theme = theme
   }, [theme])
+
+  // --- Outline scroll-spy: highlight the heading nearest the viewport top --
+  useEffect(() => {
+    if (!hasDoc) {
+      setActiveId(null)
+      return
+    }
+    const body = document.querySelector('.markdown-body')
+    const scroller = body?.closest('.pane') as HTMLElement | null
+    if (!body || !scroller) return
+    const heads = Array.from(body.querySelectorAll('h1, h2, h3, h4, h5, h6')) as HTMLElement[]
+    if (heads.length === 0) {
+      setActiveId(null)
+      return
+    }
+    const update = (): void => {
+      const top = scroller.getBoundingClientRect().top
+      let current = heads[0].id
+      for (const h of heads) {
+        if (h.getBoundingClientRect().top - top <= 88) current = h.id
+        else break
+      }
+      setActiveId(current)
+    }
+    update()
+    scroller.addEventListener('scroll', update, { passive: true })
+    return () => scroller.removeEventListener('scroll', update)
+  }, [hasDoc, html, mode])
 
   // --- Initial settings --------------------------------------------------
   useEffect(() => {
@@ -85,6 +127,7 @@ export function App(): JSX.Element {
     setSavedContent(text)
     setHasDoc(true)
     setMode('view')
+    setExportDialogFormat(null)
   }, [])
 
   const doSave = useCallback(async (): Promise<boolean> => {
@@ -145,8 +188,20 @@ export function App(): JSX.Element {
     [confirmUnsaved, loadDocument, flash, t]
   )
 
+  const openExportDialog = useCallback(
+    (format: ExportFormat = 'pdf') => {
+      const s = stateRef.current
+      if (!s.hasDoc) {
+        flash(t('notice.noDocument'), true)
+        return
+      }
+      setExportDialogFormat(format)
+    },
+    [flash, t]
+  )
+
   const doExport = useCallback(
-    async (format: ExportFormat) => {
+    async ({ format, pageSize }: ExportDialogOptions) => {
       const s = stateRef.current
       if (!s.hasDoc) {
         flash(t('notice.noDocument'), true)
@@ -155,16 +210,51 @@ export function App(): JSX.Element {
       const rendered = renderMarkdown(s.content)
       const doc = buildStandaloneHtml(rendered, s.theme, baseName(s.filePath) ?? t('app.untitled'))
       const base = (baseName(s.filePath) ?? 'document').replace(/\.[^.]+$/, '')
-      const res = await window.api.exportAs({ format, html: doc, baseName: base })
+      const res = await window.api.exportAs({ format, pageSize, html: doc, baseName: base })
       if (res.ok) flash(t('notice.exportSuccess', { path: res.path }))
       else if (!res.canceled) flash(t('notice.exportFailed', { error: res.error }), true)
     },
     [flash, t]
   )
 
+  const confirmExport = useCallback(
+    (options: ExportDialogOptions) => {
+      setExportDialogFormat(null)
+      void doExport(options)
+    },
+    [doExport]
+  )
+
   const toggleEdit = useCallback(() => {
     if (!stateRef.current.hasDoc) return
+    setExportDialogFormat(null)
     setMode((m) => (m === 'view' ? 'edit' : 'view'))
+  }, [])
+
+  const setModeSafe = useCallback((next: 'view' | 'edit') => {
+    if (!stateRef.current.hasDoc) return
+    setExportDialogFormat(null)
+    setMode(next)
+  }, [])
+
+  const doNew = useCallback(async () => {
+    if ((await confirmUnsaved()) === 'cancel') return
+    setFilePath(null)
+    setContent('')
+    setSavedContent('')
+    setHasDoc(true)
+    setMode('edit')
+    setExportDialogFormat(null)
+  }, [confirmUnsaved])
+
+  const doGuide = useCallback(async () => {
+    if ((await confirmUnsaved()) === 'cancel') return
+    loadDocument(null, GUIDE_MARKDOWN)
+  }, [confirmUnsaved, loadDocument])
+
+  const scrollToHeading = useCallback((id: string) => {
+    document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    setActiveId(id)
   }, [])
 
   const toggleTheme = useCallback(() => {
@@ -198,10 +288,10 @@ export function App(): JSX.Element {
           void doSaveAs()
           break
         case 'export:html':
-          void doExport('html')
+          openExportDialog('html')
           break
         case 'export:pdf':
-          void doExport('pdf')
+          openExportDialog('pdf')
           break
         case 'toggle-edit':
           toggleEdit()
@@ -228,7 +318,7 @@ export function App(): JSX.Element {
       offDoc()
       offLang()
     }
-  }, [doOpen, doSave, doSaveAs, doExport, toggleEdit, toggleTheme, confirmUnsaved, loadDocument, i18n])
+  }, [doOpen, doSave, doSaveAs, openExportDialog, toggleEdit, toggleTheme, confirmUnsaved, loadDocument, i18n])
 
   // --- Drag & drop -------------------------------------------------------
   const onDrop = useCallback(
@@ -257,31 +347,56 @@ export function App(): JSX.Element {
       }}
       onDrop={onDrop}
     >
-      <Toolbar
+      <TopBar
         title={title}
         hasDoc={hasDoc}
         mode={mode}
+        exportOpen={exportDialogFormat !== null}
         theme={theme}
         language={language}
-        onOpen={() => void doOpen()}
-        onToggleEdit={toggleEdit}
+        onSetMode={setModeSafe}
         onToggleTheme={toggleTheme}
-        onExport={(f) => void doExport(f)}
+        onNew={() => void doNew()}
+        onOpen={() => void doOpen()}
+        onExport={openExportDialog}
         onChangeLanguage={changeLanguage}
       />
 
-      <div className="workspace">
-        {!hasDoc ? (
-          <Welcome onOpen={() => void doOpen()} />
-        ) : mode === 'edit' ? (
-          <>
-            <Editor value={content} theme={theme} onChange={setContent} />
-            <Preview html={html} className="pane--split" />
-          </>
-        ) : (
-          <Preview html={html} />
-        )}
+      <div className="body">
+        <Sidebar
+          hasDoc={hasDoc}
+          outline={outline}
+          activeId={activeId}
+          language={language}
+          theme={theme}
+          onSelectHeading={scrollToHeading}
+          onHelp={() => flash(t('help.hint'))}
+          onChangeLanguage={changeLanguage}
+          onToggleTheme={toggleTheme}
+        />
+
+        <main className="main">
+          <div className="workspace">
+            {!hasDoc ? (
+              <Welcome onOpen={() => void doOpen()} onNew={() => void doNew()} />
+            ) : exportDialogFormat ? (
+              <div className="export-workspace">
+                <ExportDialog
+                  initialFormat={exportDialogFormat}
+                  onCancel={() => setExportDialogFormat(null)}
+                  onExport={confirmExport}
+                />
+              </div>
+            ) : mode === 'edit' ? (
+              <Editor value={content} theme={theme} onChange={setContent} />
+            ) : (
+              <Preview html={html} />
+            )}
+          </div>
+        </main>
       </div>
+
+      <StatusBar hasDoc={hasDoc} words={words} onGuide={() => void doGuide()} />
 
       {dragging && <div className="drop-overlay">{t('welcome.dropHint')}</div>}
       {notice && <div className={`notice ${notice.error ? 'notice--error' : ''}`}>{notice.text}</div>}

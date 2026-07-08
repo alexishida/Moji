@@ -12,6 +12,15 @@ A fonte de verdade dos tokens é [`src/styles/theme.css`](../src/styles/theme.cs
 - Dois temas de igual qualidade: claro e escuro, ambos com contraste adequado.
 - Reutilizar componentes e classes existentes antes de criar variações.
 
+## Estrutura (shell)
+
+Layout em três zonas fixas ao redor da área de leitura:
+
+- **Top bar** (`--topbar-h` = 52px): marca à esquerda + nome do arquivo; abas segmentadas *Preview/Editor* ao centro; tema, configurações e menu (⋮) à direita.
+- **Sidebar** (`--sidebar-w` = 260px): cabeçalho de biblioteca, botão primário *Novo documento*, navegação (Documentos), *Outline* derivado dos títulos, e rodapé (Configurações, Ajuda).
+- **Status bar** (`--statusbar-h` = 34px): marca/versão à esquerda; *Guia*, *Exportar PDF* e contagem de palavras à direita.
+- **Main**: preview (ou editor + preview em modo edição), coluna de leitura centrada em `--reading-width`.
+
 ## Tipografia
 
 | Token | Valor |
@@ -35,6 +44,14 @@ A fonte de verdade dos tokens é [`src/styles/theme.css`](../src/styles/theme.cs
 | `--accent` | `#2f6fed` |
 | `--code-bg` | `#f4f6f8` |
 | `--danger` | `#cf222e` |
+| `--brand` | `#2f6fed` |
+| `--sidebar-bg` | `#f4f6fb` |
+| `--chrome-bg` | `#fbfcfe` |
+| `--nav-hover-bg` | `#e9edf7` |
+| `--nav-active-bg` | `#e3eafc` |
+| `--nav-active-text` | `#2f6fed` |
+| `--segment-track` | `#eaedf3` |
+| `--segment-active-bg` | `#ffffff` |
 
 ## Cores — Tema Escuro
 
@@ -49,6 +66,14 @@ A fonte de verdade dos tokens é [`src/styles/theme.css`](../src/styles/theme.cs
 | `--accent` | `#4c9aff` |
 | `--code-bg` | `#161616` |
 | `--danger` | `#ff6b6b` |
+| `--brand` | `#6ea8ff` |
+| `--sidebar-bg` | `#1a1a1b` |
+| `--chrome-bg` | `#202021` |
+| `--nav-hover-bg` | `#2a2a2c` |
+| `--nav-active-bg` | `#24314a` |
+| `--nav-active-text` | `#7cb0ff` |
+| `--segment-track` | `#2a2a2c` |
+| `--segment-active-bg` | `#38383a` |
 
 O tema é aplicado via atributo `data-theme="light|dark"` no elemento `<html>`. Todo componente e o preview devem herdar cores dos tokens, nunca de valores fixos.
 
@@ -59,12 +84,18 @@ O tema é aplicado via atributo `data-theme="light|dark"` no elemento `<html>`. 
 | `--space-1..6` | 4, 8, 12, 16, 24, 32 px |
 | `--radius` | 8px |
 | `--radius-sm` | 5px |
-| `--toolbar-h` | 44px |
+| `--topbar-h` | 52px |
+| `--statusbar-h` | 34px |
+| `--sidebar-w` | 260px |
 
 ## Componentes base
 
-- **Toolbar**: barra superior de 44px, fundo `--bg-elevated`, borda inferior `--border`. Título centralizado, ações à esquerda (Abrir, Editar, Exportar) e à direita (idioma, tema).
-- **Botão** (`.btn`): 30px de altura, borda `--border`, hover em `--bg-inset`. Variante `--primary` usa `--accent`; `--active` indica estado ligado (ex.: modo edição).
+- **Top bar** (`.topbar`): barra superior de `--topbar-h`, fundo `--chrome-bg`, borda inferior `--border`. Grid de três zonas: marca + arquivo à esquerda, abas segmentadas ao centro, ações à direita.
+- **Abas segmentadas** (`.segment`): trilho `--segment-track` com pílula ativa em `--segment-active-bg`. Alterna *Preview* (leitura) e *Editor* (edição).
+- **Sidebar** (`.sidebar`): coluna de `--sidebar-w`, fundo `--sidebar-bg`. Itens `.navitem` (hover `--nav-hover-bg`, ativo `--nav-active-bg`/`--nav-active-text`) e árvore `.outline` com indentação por nível de título e realce do título visível.
+- **Status bar** (`.statusbar`): rodapé de `--statusbar-h`, fundo `--chrome-bg`; links discretos e contagem de palavras em `--accent`.
+- **Botão de ícone** (`.iconbtn`): 34px, sem borda, hover `--bg-inset`; `--active` usa `--accent`.
+- **Botão** (`.btn`): 30px de altura, borda `--border`, hover em `--bg-inset`. Variante `--primary` usa `--accent`; `--block` ocupa a largura total; `--active` indica estado ligado.
 - **Preview** (`.markdown-body`): coluna de leitura centrada, hierarquia clara de headings, blocos de código com `--code-bg` e realce de sintaxe via tokens `--hl-*`.
 - **Diálogo** (`.dialog`): modal centrado para confirmações (ex.: alterações não salvas), com backdrop escurecido.
 - **Notice** (`.notice`): toast inferior temporário; variante de erro usa `--danger`.
