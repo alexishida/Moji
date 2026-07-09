@@ -8,6 +8,8 @@
 
 <p align="center">Built with Electron, React, TypeScript, and electron-vite.</p>
 
+<p align="center"><strong>Current version:</strong> v0.1.1</p>
+
 ## Screenshots
 
 <p align="center">
@@ -28,6 +30,7 @@
 
 - **Open Markdown files**: supports `.md` and `.markdown` through file dialog, drag and drop, CLI/file association entry points, and single-instance forwarding.
 - **Multi-document workspace**: horizontal tabs, dirty markers, close buttons, duplicate-file detection, and unsaved-change confirmation.
+- **Tab management**: close other tabs, tabs to the right, saved tabs, or all tabs from the document tab menu.
 - **Preview mode**: sanitized Markdown rendering with heading anchors, outline navigation, tables, task lists, footnotes, definition lists, subscript/superscript, highlight/insert marks, emoji shortcodes, LaTeX math via KaTeX (`$…$` and `$$…$$`), linkify, typographer, and syntax-highlighted code.
 - **Outline navigation**: collapsible heading tree with scroll-spy that highlights the heading nearest the viewport top, plus smooth scroll-to-heading on click and anchor links.
 - **Search and replace**: top-bar search highlights matches in preview/editor, shows occurrence count, jumps to the next match, and replaces one match or all matches in the active document.
@@ -36,6 +39,8 @@
 - **Settings view**: centered in-workspace panel for language and preview typography controls.
 - **About view**: in-workspace panel showing app name, version (from `package.json`), author, repository link, and the story behind the name.
 - **Markdown guide**: bundled reference document (`samples/guia-markdown-completo.md`) opened from the status bar.
+- **Recent files**: Welcome screen shows recently opened Markdown files and lets you reopen or remove entries.
+- **Remembered folders**: open, save as, and export dialogs start from the last used directory.
 - **Markdown themes**: dark/light toggle for rendered Markdown and exported output. App chrome remains dark; exports always use the light theme.
 - **Internationalization**: English, Portuguese (Brazil), Spanish, Japanese, Chinese, and Russian. Initial language follows the OS when possible and user choice is persisted.
 - **Security**: sandboxed renderer, context isolation, `nodeIntegration: false`, DOMPurify sanitization, and external links opened in the OS browser.
@@ -84,9 +89,9 @@ File associations for `.md` and `.markdown` are declared in `electron-builder.ym
 electron/
   main.ts        Window lifecycle, file opening, single-instance flow, close guard, IPC registration
   preload.ts     Safe renderer API exposed through contextBridge
-  shared.ts      Shared IPC names, settings, export types, languages, supported extensions
-  settings.ts    User settings persistence
-  export.ts      HTML/PDF/PNG export implementation
+  shared.ts      Shared IPC names, settings, export types, languages, recent-file limits, supported extensions
+  settings.ts    User settings persistence, recent files, and last dialog directory
+  export.ts      HTML/PDF/PNG export implementation with remembered output directory
 
 src/
   App.tsx        Renderer state, document actions, close guard wiring, mode switching

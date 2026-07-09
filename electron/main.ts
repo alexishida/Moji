@@ -1,7 +1,7 @@
 import { app, BrowserWindow, dialog, ipcMain, Menu, shell } from 'electron'
 import { readFile, writeFile } from 'node:fs/promises'
 import { existsSync } from 'node:fs'
-import { extname, isAbsolute, join } from 'node:path'
+import { dirname, extname, isAbsolute, join } from 'node:path'
 import {
   IPC,
   MARKDOWN_EXTENSIONS,
@@ -51,6 +51,7 @@ function sanitizeSettingsPatch(value: unknown): Partial<Settings> {
   if (typeof raw['previewFontFamily'] === 'string') patch.previewFontFamily = raw['previewFontFamily']
   if (typeof raw['previewFontSize'] === 'number') patch.previewFontSize = raw['previewFontSize']
   if (typeof raw['previewLineHeight'] === 'number') patch.previewLineHeight = raw['previewLineHeight']
+  if (Array.isArray(raw['recentFiles'])) patch.recentFiles = raw['recentFiles'].filter((p): p is string => typeof p === 'string')
 
   return patch
 }
@@ -60,6 +61,20 @@ function suggestedMarkdownName(value: unknown): string {
   const name = value.replace(/[\\/]/g, '').trim()
   if (!name) return 'untitled.md'
   return isMarkdown(name) ? name : `${name}.md`
+}
+
+function lastDialogDirectory(): string | undefined {
+  const directory = getSettings().lastDialogDirectory
+  return typeof directory === 'string' && directory.length > 0 ? directory : undefined
+}
+
+function rememberDialogDirectory(filePath: string): void {
+  updateSettings({ lastDialogDirectory: dirname(filePath) })
+}
+
+function dialogDefaultPath(fileName: string): string {
+  const directory = lastDialogDirectory()
+  return directory ? join(directory, fileName) : fileName
 }
 
 function stripLeadingBom(content: string): string {
@@ -219,12 +234,14 @@ function registerIpc(): void {
   ipcMain.handle(IPC.openDialog, async (): Promise<OpenManyResult> => {
     const options: Electron.OpenDialogOptions = {
       properties: ['openFile', 'multiSelections'],
-      filters: [{ name: 'Markdown', extensions: ['md', 'markdown'] }]
+      filters: [{ name: 'Markdown', extensions: ['md', 'markdown'] }],
+      defaultPath: lastDialogDirectory()
     }
     const { canceled, filePaths } = mainWindow
       ? await dialog.showOpenDialog(mainWindow, options)
       : await dialog.showOpenDialog(options)
     if (canceled || filePaths.length === 0) return { ok: false, canceled: true }
+    rememberDialogDirectory(filePaths[0])
     const results = await Promise.all(filePaths.map((filePath) => readDocument(filePath)))
     const failed = results.find((result) => !result.ok)
     if (failed && !failed.ok) return { ok: false, error: failed.error ?? 'open failed' }
@@ -250,6 +267,7 @@ function registerIpc(): void {
     if (!path || !isMarkdown(path) || typeof content !== 'string') return { ok: false, error: 'unsupported' }
     try {
       await writeFile(path, content, 'utf-8')
+      rememberDialogDirectory(path)
       return { ok: true, path }
     } catch (err) {
       return { ok: false, error: (err as Error).message }
@@ -258,14 +276,16 @@ function registerIpc(): void {
 
   ipcMain.handle(IPC.saveAs, async (_e, content: unknown, suggestedName?: unknown): Promise<WriteResult> => {
     if (typeof content !== 'string') return { ok: false, error: 'unsupported' }
+    const fileName = suggestedMarkdownName(suggestedName)
     const options: Electron.SaveDialogOptions = {
-      defaultPath: suggestedMarkdownName(suggestedName),
+      defaultPath: dialogDefaultPath(fileName),
       filters: [{ name: 'Markdown', extensions: ['md', 'markdown'] }]
     }
     const { canceled, filePath } = mainWindow
       ? await dialog.showSaveDialog(mainWindow, options)
       : await dialog.showSaveDialog(options)
     if (canceled || !filePath) return { ok: false, canceled: true }
+    rememberDialogDirectory(filePath)
     try {
       await writeFile(filePath, content, 'utf-8')
       return { ok: true, path: filePath }

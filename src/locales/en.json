@@ -6,7 +6,12 @@
   },
   "tabs": {
     "documents": "Open documents",
-    "close": "Close tab"
+    "close": "Close tab",
+    "closeThis": "Close",
+    "closeOthers": "Close Others",
+    "closeRight": "Close to the Right",
+    "closeSaved": "Close Saved",
+    "closeAll": "Close All"
   },
   "menu": {
     "file": "File",
@@ -38,6 +43,7 @@
     "replaceOne": "Replace",
     "replaceAll": "Replace all",
     "occurrences": "Occurrences",
+    "close": "Close",
     "export": "Export",
     "exportHtml": "Export as HTML",
     "exportPdf": "Export as PDF",
@@ -79,7 +85,11 @@
     "subtitle": "Open a Markdown file to read it cleanly.",
     "openButton": "Open File",
     "newButton": "New File",
-    "dropHint": "or drop a .md file anywhere in this window"
+    "dropHint": "or drop a .md file anywhere in this window",
+    "recent": {
+      "title": "Recent files",
+      "remove": "Remove from list"
+    }
   },
   "dialog": {
     "unsavedTitle": "Unsaved changes",

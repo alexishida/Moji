@@ -1,7 +1,7 @@
 import { useState, useCallback, useEffect, type ChangeEvent, type FormEvent } from 'react'
 import { useTranslation } from 'react-i18next'
 import { SettingsButton } from './SettingsButton'
-import { IconMoon, IconSun, IconEye, IconPencil, IconDownload, IconOpen, IconFilePlus, IconSave, IconInfo, IconReplace } from './icons'
+import { IconMoon, IconSun, IconEye, IconPencil, IconDownload, IconOpen, IconFilePlus, IconSave, IconInfo, IconReplace, IconReplaceAll, IconSearch, IconX } from './icons'
 import type { ExportFormat, Theme } from '../../electron/shared'
 
 interface TopBarProps {
@@ -23,6 +23,7 @@ interface TopBarProps {
   onSearch: (term: string) => void
   onFindNext: () => void
   onReplace: (search: string, replacement: string, all: boolean) => void
+  onReplaceActiveChange: (active: boolean) => void
   searchMatchCount: number
   activeSearchIndex: number | null
   canToggleTheme: boolean
@@ -33,8 +34,10 @@ export function TopBar(props: TopBarProps): JSX.Element {
   const [searchTerm, setSearchTerm] = useState('')
   const [replaceTerm, setReplaceTerm] = useState('')
   const [replaceOpen, setReplaceOpen] = useState(false)
-  const canFind = props.hasDoc && props.searchMatchCount > 0
-  const canReplace = canFind
+  const canSearch = props.hasDoc && !props.exportOpen
+  const canFind = canSearch && props.searchMatchCount > 0
+  const canOpenReplace = props.hasDoc && props.mode === 'edit' && !props.exportOpen
+  const canReplace = canFind && props.mode === 'edit' && !props.exportOpen
   const occurrenceLabel =
     props.searchMatchCount > 0 && props.activeSearchIndex !== null
       ? `${props.activeSearchIndex + 1}/${props.searchMatchCount}`
@@ -68,8 +71,21 @@ export function TopBar(props: TopBarProps): JSX.Element {
   }, [canReplace, props.onReplace, replaceTerm, searchTerm])
 
   useEffect(() => {
-    if (!props.hasDoc) setReplaceOpen(false)
-  }, [props.hasDoc])
+    if (!canOpenReplace) setReplaceOpen(false)
+  }, [canOpenReplace])
+
+  useEffect(() => {
+    if (props.hasDoc) return
+    setSearchTerm('')
+    setReplaceTerm('')
+    setReplaceOpen(false)
+    props.onSearch('')
+  }, [props.hasDoc, props.onSearch])
+
+  // Highlight the active match only while the replace field is in use.
+  useEffect(() => {
+    props.onReplaceActiveChange(canOpenReplace && replaceOpen && replaceTerm.trim() !== '')
+  }, [canOpenReplace, replaceOpen, replaceTerm, props.onReplaceActiveChange])
 
   return (
     <header className="topbar">
@@ -99,7 +115,7 @@ export function TopBar(props: TopBarProps): JSX.Element {
               className={`iconbtn topbar__replace-toggle ${replaceOpen ? 'iconbtn--active' : ''}`}
               type="button"
               onClick={() => setReplaceOpen((open) => !open)}
-              disabled={!props.hasDoc}
+              disabled={!canOpenReplace}
               title={t('toolbar.replace')}
               aria-label={t('toolbar.replace')}
               aria-expanded={replaceOpen}
@@ -112,7 +128,7 @@ export function TopBar(props: TopBarProps): JSX.Element {
               placeholder={t('toolbar.search')}
               value={searchTerm}
               onChange={handleSearchChange}
-              disabled={!props.hasDoc}
+              disabled={!canSearch}
             />
 
             {replaceOpen && (
@@ -120,7 +136,7 @@ export function TopBar(props: TopBarProps): JSX.Element {
                 <div className="topbar__replace-row">
                   <input
                     className="topbar__replace-input"
-                    type="text"
+                    type="search"
                     placeholder={t('toolbar.replaceWith')}
                     value={replaceTerm}
                     onChange={handleReplaceChange}
@@ -128,15 +144,27 @@ export function TopBar(props: TopBarProps): JSX.Element {
                   <span className="topbar__replace-count" title={t('toolbar.occurrences')}>
                     {occurrenceLabel}
                   </span>
+                  <button
+                    className="iconbtn topbar__replace-close"
+                    type="button"
+                    onClick={() => setReplaceOpen(false)}
+                    title={t('toolbar.close')}
+                    aria-label={t('toolbar.close')}
+                  >
+                    <IconX width={16} height={16} />
+                  </button>
                 </div>
                 <div className="topbar__replace-actions">
                   <button className="btn" type="button" onClick={props.onFindNext} disabled={!canFind}>
+                    <IconSearch width={15} height={15} />
                     {t('toolbar.findNext')}
                   </button>
                   <button className="btn" type="submit" disabled={!canReplace}>
+                    <IconReplace width={15} height={15} />
                     {t('toolbar.replaceOne')}
                   </button>
                   <button className="btn" type="button" onClick={replaceAll} disabled={!canReplace}>
+                    <IconReplaceAll width={15} height={15} />
                     {t('toolbar.replaceAll')}
                   </button>
                 </div>

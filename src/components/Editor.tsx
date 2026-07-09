@@ -13,11 +13,13 @@ interface EditorProps {
   theme: Theme
   searchTerm: string
   activeSearchIndex: number | null
+  highlightActive: boolean
   onChange: (value: string) => void
 }
 
 const externalSearchTerm = StateEffect.define<string>()
 const externalSearchIndex = StateEffect.define<number | null>()
+const externalHighlightActive = StateEffect.define<boolean>()
 const externalSearchMark = Decoration.mark({ class: 'cm-external-searchMatch' })
 const externalSearchActiveMark = Decoration.mark({ class: 'cm-external-searchMatch cm-external-searchMatch--active' })
 
@@ -65,7 +67,12 @@ const oneDarkProHighlightStyle = HighlightStyle.define([
 
 const oneDarkProExtensions = [oneDarkProEditorTheme, syntaxHighlighting(oneDarkProHighlightStyle)]
 
-function buildSearchDecorations(state: EditorState, rawTerm: string, activeIndex: number | null): DecorationSet {
+function buildSearchDecorations(
+  state: EditorState,
+  rawTerm: string,
+  activeIndex: number | null,
+  highlightActive: boolean
+): DecorationSet {
   const term = rawTerm.trim()
   if (!term) return Decoration.none
 
@@ -76,24 +83,40 @@ function buildSearchDecorations(state: EditorState, rawTerm: string, activeIndex
   const cursor = query.getCursor(state)
   for (let index = 0, match = cursor.next(); !match.done; index += 1, match = cursor.next()) {
     const { from, to } = match.value
-    if (from !== to) builder.add(from, to, index === activeIndex ? externalSearchActiveMark : externalSearchMark)
+    if (from !== to) {
+      const isActive = highlightActive && index === activeIndex
+      builder.add(from, to, isActive ? externalSearchActiveMark : externalSearchMark)
+    }
   }
   return builder.finish()
 }
 
-const externalSearchHighlight = StateField.define<{ term: string; activeIndex: number | null; decorations: DecorationSet }>({
+const externalSearchHighlight = StateField.define<{
+  term: string
+  activeIndex: number | null
+  highlightActive: boolean
+  decorations: DecorationSet
+}>({
   create() {
-    return { term: '', activeIndex: null, decorations: Decoration.none }
+    return { term: '', activeIndex: null, highlightActive: false, decorations: Decoration.none }
   },
   update(value, tr) {
     let term = value.term
     let activeIndex = value.activeIndex
+    let highlightActive = value.highlightActive
     for (const effect of tr.effects) {
       if (effect.is(externalSearchTerm)) term = effect.value
       if (effect.is(externalSearchIndex)) activeIndex = effect.value
+      if (effect.is(externalHighlightActive)) highlightActive = effect.value
     }
-    if (term === value.term && activeIndex === value.activeIndex && !tr.docChanged) return value
-    return { term, activeIndex, decorations: buildSearchDecorations(tr.state, term, activeIndex) }
+    if (
+      term === value.term &&
+      activeIndex === value.activeIndex &&
+      highlightActive === value.highlightActive &&
+      !tr.docChanged
+    )
+      return value
+    return { term, activeIndex, highlightActive, decorations: buildSearchDecorations(tr.state, term, activeIndex, highlightActive) }
   },
   provide: (field) => EditorView.decorations.from(field, (value) => value.decorations)
 })
@@ -111,7 +134,7 @@ function activeElementAcceptsText(): boolean {
 }
 
 /** CodeMirror 6 Markdown source editor with theme-aware styling. */
-export function Editor({ value, theme, searchTerm, activeSearchIndex, onChange }: EditorProps): JSX.Element {
+export function Editor({ value, theme, searchTerm, activeSearchIndex, highlightActive, onChange }: EditorProps): JSX.Element {
   const hostRef = useRef<HTMLDivElement>(null)
   const viewRef = useRef<EditorView | null>(null)
   const themeCompartment = useRef(new Compartment())
@@ -168,7 +191,11 @@ export function Editor({ value, theme, searchTerm, activeSearchIndex, onChange }
     const view = viewRef.current
     if (!view) return
     const term = searchTerm.trim()
-    const effects = [externalSearchTerm.of(searchTerm), externalSearchIndex.of(activeSearchIndex)]
+    const effects = [
+      externalSearchTerm.of(searchTerm),
+      externalSearchIndex.of(activeSearchIndex),
+      externalHighlightActive.of(highlightActive)
+    ]
 
     if (!term) {
       view.dispatch({ effects })
@@ -199,7 +226,7 @@ export function Editor({ value, theme, searchTerm, activeSearchIndex, onChange }
       userEvent: 'select.search'
     })
     if (!activeElementAcceptsText()) view.focus()
-  }, [activeSearchIndex, searchTerm])
+  }, [activeSearchIndex, searchTerm, highlightActive])
 
   return <div className="editor-pane pane" ref={hostRef} />
 }

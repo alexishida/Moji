@@ -16,7 +16,7 @@ import { buildOutline } from './lib/outline'
 import { getActivePreviewHeadingId, scrollPreviewHeadingIntoView } from './lib/previewScroll'
 import { useDebounced } from './lib/useDebounced'
 import { buildStandaloneHtml } from './lib/exportHtml'
-import type { ExportFormat, Settings, Theme } from '../electron/shared'
+import { MAX_RECENT_FILES, type ExportFormat, type Settings, type Theme } from '../electron/shared'
 import packageJson from '../package.json'
 
 interface DocumentState {
@@ -127,7 +127,8 @@ export function App(): JSX.Element {
     language: 'en',
     previewFontFamily: 'Inter',
     previewFontSize: 16,
-    previewLineHeight: 1.7
+    previewLineHeight: 1.7,
+    recentFiles: []
   })
   const [documents, setDocuments] = useState<DocumentState[]>([])
   const [activeDocId, setActiveDocId] = useState<string | null>(null)
@@ -135,6 +136,7 @@ export function App(): JSX.Element {
   const [mdTheme, setMdTheme] = useState<Theme>('dark')
   const [searchTerm, setSearchTerm] = useState('')
   const [activeSearchIndex, setActiveSearchIndex] = useState<number | null>(null)
+  const [replaceActive, setReplaceActive] = useState(false)
   const [dragging, setDragging] = useState(false)
   const [notice, setNotice] = useState<{ text: string; error?: boolean } | null>(null)
   const [activeHeadingId, setActiveHeadingId] = useState<string | null>(null)
@@ -206,6 +208,37 @@ export function App(): JSX.Element {
     setNotice({ text, error })
     window.setTimeout(() => setNotice(null), 2600)
   }, [])
+
+  // --- Recent files ------------------------------------------------------
+  // Live snapshot so the record/prune helpers never read a stale list.
+  const recentFilesRef = useRef<string[]>(settings.recentFiles)
+  recentFilesRef.current = settings.recentFiles
+
+  const persistRecentFiles = useCallback((next: string[]) => {
+    const capped = next.slice(0, MAX_RECENT_FILES)
+    setSettings((prev) => ({ ...prev, recentFiles: capped }))
+    void window.api.setSettings({ recentFiles: capped })
+  }, [])
+
+  // Move the given paths to the front (most-recent first), deduped.
+  const rememberRecent = useCallback(
+    (paths: Array<string | null>) => {
+      const fresh = paths.filter((p): p is string => Boolean(p))
+      const unique = fresh.filter((p, index) => fresh.indexOf(p) === index)
+      if (unique.length === 0) return
+      persistRecentFiles([...unique, ...recentFilesRef.current.filter((p) => !unique.includes(p))])
+    },
+    [persistRecentFiles]
+  )
+
+  const forgetRecent = useCallback(
+    (paths: string[]) => {
+      const remove = new Set(paths)
+      const next = recentFilesRef.current.filter((p) => !remove.has(p))
+      if (next.length !== recentFilesRef.current.length) persistRecentFiles(next)
+    },
+    [persistRecentFiles]
+  )
 
   const newDocumentId = useCallback(() => {
     const id = `doc-${Date.now()}-${nextDocSeq.current}`
@@ -408,23 +441,34 @@ export function App(): JSX.Element {
 
   const doOpen = useCallback(async () => {
     const res = await window.api.openDialog()
-    if (res.ok) addDocuments(res.documents)
-    else if (!res.canceled) flash(t('notice.openFailed', { error: res.error }), true)
-  }, [addDocuments, flash, t])
+    if (res.ok) {
+      addDocuments(res.documents)
+      rememberRecent(res.documents.map((doc) => doc.path))
+    } else if (!res.canceled) flash(t('notice.openFailed', { error: res.error }), true)
+  }, [addDocuments, flash, rememberRecent, t])
 
   const openPaths = useCallback(
     async (paths: string[]) => {
       const opened: DocumentInput[] = []
+      const failed: string[] = []
       for (const path of paths) {
         const res = await window.api.readPath(path)
         if (res.ok) opened.push({ path: res.path, content: res.content })
-        else if (res.error === 'unsupported') flash(t('notice.unsupported'), true)
-        else flash(t('notice.openFailed', { error: res.error }), true)
+        else {
+          failed.push(path)
+          if (res.error === 'unsupported') flash(t('notice.unsupported'), true)
+          else flash(t('notice.openFailed', { error: res.error }), true)
+        }
       }
       addDocuments(opened)
+      rememberRecent(opened.map((doc) => doc.path))
+      // Drop paths that no longer open (e.g. a recent file that was moved/deleted).
+      forgetRecent(failed)
     },
-    [addDocuments, flash, t]
+    [addDocuments, flash, forgetRecent, rememberRecent, t]
   )
+
+  const openRecent = useCallback((path: string) => void openPaths([path]), [openPaths])
 
   const openExportDialog = useCallback(
     (format: ExportFormat = 'pdf') => {
@@ -516,6 +560,8 @@ export function App(): JSX.Element {
         return
       }
 
+      if (stateRef.current.mode !== 'edit') return
+
       if (!term) {
         flash(t('notice.replaceNeedsSearch'), true)
         return
@@ -532,7 +578,6 @@ export function App(): JSX.Element {
       setExportDialogFormat(null)
       setSettingsOpen(false)
       setAboutOpen(false)
-      setMode('edit')
       flash(t(all ? 'notice.replaceAllSuccess' : 'notice.replaceOneSuccess', { count: result.count }))
     },
     [activeSearchIndex, flash, t]
@@ -584,6 +629,82 @@ export function App(): JSX.Element {
     [confirmUnsavedDocument]
   )
 
+  const closeDocuments = useCallback(
+    async (ids: string[]) => {
+      const idSet = new Set(ids)
+      if (idSet.size === 0) return
+
+      // Confirm each dirty document in the set; abort all if the user cancels.
+      const dirtyDocs = stateRef.current.documents.filter(
+        (doc) => idSet.has(doc.id) && doc.content !== doc.savedContent
+      )
+      for (const doc of dirtyDocs) {
+        if ((await confirmUnsavedDocument(doc.id)) === 'cancel') return
+      }
+
+      const currentDocs = stateRef.current.documents
+      const nextDocs = currentDocs.filter((doc) => !idSet.has(doc.id))
+      const survivorIds = new Set(nextDocs.map((doc) => doc.id))
+
+      let nextActive = stateRef.current.activeDocId
+      if (nextActive && !survivorIds.has(nextActive)) {
+        const activeIndex = currentDocs.findIndex((doc) => doc.id === nextActive)
+        nextActive = null
+        for (let i = activeIndex; i < currentDocs.length; i += 1) {
+          if (survivorIds.has(currentDocs[i].id)) {
+            nextActive = currentDocs[i].id
+            break
+          }
+        }
+        if (!nextActive) {
+          for (let i = activeIndex - 1; i >= 0; i -= 1) {
+            if (survivorIds.has(currentDocs[i].id)) {
+              nextActive = currentDocs[i].id
+              break
+            }
+          }
+        }
+      }
+
+      setDocuments(nextDocs)
+      setActiveDocId(nextActive)
+      if (nextDocs.length === 0) setMode('view')
+      setExportDialogFormat(null)
+      setSettingsOpen(false)
+      setAboutOpen(false)
+    },
+    [confirmUnsavedDocument]
+  )
+
+  const closeOtherDocuments = useCallback(
+    (docId: string) => {
+      const ids = stateRef.current.documents.filter((doc) => doc.id !== docId).map((doc) => doc.id)
+      void closeDocuments(ids)
+    },
+    [closeDocuments]
+  )
+
+  const closeDocumentsToRight = useCallback(
+    (docId: string) => {
+      const docs = stateRef.current.documents
+      const index = docs.findIndex((doc) => doc.id === docId)
+      if (index < 0) return
+      void closeDocuments(docs.slice(index + 1).map((doc) => doc.id))
+    },
+    [closeDocuments]
+  )
+
+  const closeSavedDocuments = useCallback(() => {
+    const ids = stateRef.current.documents
+      .filter((doc) => doc.content === doc.savedContent)
+      .map((doc) => doc.id)
+    void closeDocuments(ids)
+  }, [closeDocuments])
+
+  const closeAllDocuments = useCallback(() => {
+    void closeDocuments(stateRef.current.documents.map((doc) => doc.id))
+  }, [closeDocuments])
+
   const scrollToHeading = useCallback((id: string) => {
     const target = document.getElementById(id)
     if (!target) return
@@ -634,12 +755,13 @@ export function App(): JSX.Element {
     })
     const offDoc = window.api.onOpenDocument((doc) => {
       addDocuments([{ path: doc.path, content: doc.content }])
+      rememberRecent([doc.path])
     })
     return () => {
       offClose()
       offDoc()
     }
-  }, [confirmAnyUnsaved, addDocuments])
+  }, [confirmAnyUnsaved, addDocuments, rememberRecent])
 
   // --- Drag & drop -------------------------------------------------------
   const onDrop = useCallback(
@@ -685,6 +807,7 @@ export function App(): JSX.Element {
         onSearch={doSearch}
         onFindNext={doFindNext}
         onReplace={doReplace}
+        onReplaceActiveChange={setReplaceActive}
         searchMatchCount={searchMatchCount}
         activeSearchIndex={activeSearchIndex}
         canToggleTheme={canToggleMdTheme()}
@@ -700,6 +823,10 @@ export function App(): JSX.Element {
           activeId={activeDocId}
           onSelect={selectDocument}
           onClose={(id) => void closeDocument(id)}
+          onCloseOthers={closeOtherDocuments}
+          onCloseToRight={closeDocumentsToRight}
+          onCloseSaved={closeSavedDocuments}
+          onCloseAll={closeAllDocuments}
         />
       )}
 
@@ -729,7 +856,13 @@ export function App(): JSX.Element {
                 <AboutDialog version={packageJson.version} onClose={() => setAboutOpen(false)} />
               </div>
             ) : !hasDoc ? (
-              <Welcome onOpen={() => void doOpen()} onNew={doNew} />
+              <Welcome
+                onOpen={() => void doOpen()}
+                onNew={doNew}
+                recentFiles={settings.recentFiles}
+                onOpenRecent={openRecent}
+                onForgetRecent={(path) => forgetRecent([path])}
+              />
             ) : exportDialogFormat ? (
               <div className="export-workspace">
                 <ExportDialog
@@ -744,6 +877,7 @@ export function App(): JSX.Element {
                 theme={'dark'}
                 searchTerm={searchTerm}
                 activeSearchIndex={activeSearchIndex}
+                highlightActive={replaceActive}
                 onChange={updateActiveContent}
               />
             ) : (

@@ -51,6 +51,15 @@
   </keywords>
   <content_rating type="oars-1.1" />
   <releases>
+    <release version="0.1.1" date="2026-07-09">
+      <description>
+        <ul>
+          <li>Add recent files on the Welcome screen.</li>
+          <li>Add document tab close actions.</li>
+          <li>Remember the last used directory for file dialogs.</li>
+        </ul>
+      </description>
+    </release>
     <release version="0.1.0" date="2026-07-09">
       <description>
         <p>Initial desktop release of Moji.</p>

@@ -1,5 +1,6 @@
 import { BrowserWindow, dialog } from 'electron'
 import { writeFile } from 'node:fs/promises'
+import { dirname, join } from 'node:path'
 import {
   EXPORT_PAGE_SIZES,
   type ExportFormat,
@@ -8,6 +9,7 @@ import {
   type ExportRequest,
   type WriteResult
 } from './shared'
+import { getSettings, updateSettings } from './settings'
 
 const FILTERS: Record<ExportFormat, Electron.FileFilter> = {
   html: { name: 'HTML', extensions: ['html'] },
@@ -54,6 +56,16 @@ function exportBaseName(baseName: string): string {
   return baseName.replace(/[\\/]/g, '').trim() || 'document'
 }
 
+function exportDefaultPath(baseName: string, format: ExportFormat): string {
+  const fileName = `${exportBaseName(baseName)}.${format}`
+  const directory = getSettings().lastDialogDirectory
+  return directory ? join(directory, fileName) : fileName
+}
+
+function rememberDialogDirectory(filePath: string): void {
+  updateSettings({ lastDialogDirectory: dirname(filePath) })
+}
+
 /**
  * Export the current document. `request.html` is a fully rendered, standalone
  * HTML document (theme CSS already inlined by the renderer).
@@ -67,10 +79,11 @@ export async function exportDocument(request: unknown): Promise<WriteResult> {
   const { format, pageSize, pageOrientation, html, assetBaseUrl, baseName } = request
 
   const { canceled, filePath } = await dialog.showSaveDialog({
-    defaultPath: `${exportBaseName(baseName)}.${format}`,
+    defaultPath: exportDefaultPath(baseName, format),
     filters: [FILTERS[format]]
   })
   if (canceled || !filePath) return { ok: false, canceled: true }
+  rememberDialogDirectory(filePath)
 
   try {
     if (format === 'html') {
