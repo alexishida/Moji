@@ -20,6 +20,10 @@ let mainWindow: BrowserWindow | null = null
 let pendingOpenPath: string | null = null
 let forceQuit = false
 
+if (process.platform === 'linux') {
+  app.setDesktopName('moji.desktop')
+}
+
 const IMAGE_EXTENSIONS = new Set(['.avif', '.bmp', '.gif', '.ico', '.jpeg', '.jpg', '.png', '.svg', '.webp'])
 const SAMPLE_FILES = new Set([
   'complete-markdown-guide.md',

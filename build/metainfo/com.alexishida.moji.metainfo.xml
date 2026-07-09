@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>com.alexishida.moji</id>
+  <metadata_license>MIT</metadata_license>
+  <project_license>MIT</project_license>
+  <name>Moji</name>
+  <summary>Clean Markdown viewer and editor</summary>
+  <description>
+    <p>
+      Moji opens, previews, edits, and exports Markdown files in a compact desktop workspace.
+    </p>
+    <p>
+      It supports split preview and editing, outline navigation, search and replace, localized UI,
+      and export to PDF, HTML, and PNG.
+    </p>
+  </description>
+  <developer id="com.alexishida">
+    <name>Alex Ishida</name>
+  </developer>
+  <url type="homepage">https://github.com/alexishida/Moji</url>
+  <url type="bugtracker">https://github.com/alexishida/Moji/issues</url>
+  <url type="vcs-browser">https://github.com/alexishida/Moji</url>
+  <screenshots>
+    <screenshot type="default">
+      <caption>Main preview workspace</caption>
+      <image type="source">https://raw.githubusercontent.com/alexishida/Moji/main/docs/scr-main.jpg</image>
+    </screenshot>
+    <screenshot>
+      <caption>Markdown editor</caption>
+      <image type="source">https://raw.githubusercontent.com/alexishida/Moji/main/docs/scr-edit.jpg</image>
+    </screenshot>
+    <screenshot>
+      <caption>Document export panel</caption>
+      <image type="source">https://raw.githubusercontent.com/alexishida/Moji/main/docs/scr-export.jpg</image>
+    </screenshot>
+  </screenshots>
+  <launchable type="desktop-id">moji.desktop</launchable>
+  <provides>
+    <binary>moji</binary>
+    <mediatype>text/markdown</mediatype>
+  </provides>
+  <categories>
+    <category>Office</category>
+  </categories>
+  <keywords>
+    <keyword>Markdown</keyword>
+    <keyword>Editor</keyword>
+    <keyword>Viewer</keyword>
+    <keyword>Documents</keyword>
+    <keyword>Notes</keyword>
+  </keywords>
+  <content_rating type="oars-1.1" />
+  <releases>
+    <release version="0.1.0" date="2026-07-09">
+      <description>
+        <p>Initial desktop release of Moji.</p>
+        <ul>
+          <li>Open Markdown files from the file dialog, drag and drop, CLI, or file association.</li>
+          <li>Edit with CodeMirror 6 and preview sanitized Markdown with outline navigation.</li>
+          <li>Export documents as PDF, HTML, or PNG.</li>
+          <li>Use English, Portuguese, Spanish, Japanese, Chinese, or Russian UI.</li>
+        </ul>
+      </description>
+    </release>
+  </releases>
+</component>

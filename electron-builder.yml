@@ -39,6 +39,9 @@ linux:
   description: Moji is a desktop app for opening, reading, editing, and exporting Markdown files with split preview/editing, outline navigation, localized UI, and PDF, HTML, and PNG export.
   icon: build/icons
   syncDesktopName: true
+  extraFiles:
+    - from: build/linux/moji.desktop
+      to: usr/share/applications/moji.desktop
   desktop:
     entry:
       Keywords: Markdown;Editor;Viewer;Documents;Notes;
@@ -66,3 +69,4 @@ deb:
     - "Vcs-Browser: https://github.com/alexishida/Moji"
     - --deb-field
     - "Vcs-Git: https://github.com/alexishida/Moji.git"
+    - "build/metainfo/com.alexishida.moji.metainfo.xml=/usr/share/metainfo/com.alexishida.moji.metainfo.xml"
