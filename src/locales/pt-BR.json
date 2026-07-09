@@ -6,7 +6,12 @@
   },
   "tabs": {
     "documents": "Documentos abertos",
-    "close": "Fechar aba"
+    "close": "Fechar aba",
+    "closeThis": "Fechar",
+    "closeOthers": "Fechar Outros",
+    "closeRight": "Fechar à Direita",
+    "closeSaved": "Fechar Salvos",
+    "closeAll": "Fechar Tudo"
   },
   "menu": {
     "file": "Arquivo",
@@ -38,6 +43,7 @@
     "replaceOne": "Substituir",
     "replaceAll": "Substituir tudo",
     "occurrences": "Ocorrências",
+    "close": "Fechar",
     "export": "Exportar",
     "exportHtml": "Exportar como HTML",
     "exportPdf": "Exportar como PDF",
@@ -79,7 +85,11 @@
     "subtitle": "Abra um Markdown para ler com clareza, sem distrações.",
     "openButton": "Abrir arquivo",
     "newButton": "Novo Arquivo",
-    "dropHint": "ou arraste um arquivo .md para esta janela"
+    "dropHint": "ou arraste um arquivo .md para esta janela",
+    "recent": {
+      "title": "Arquivos recentes",
+      "remove": "Remover da lista"
+    }
   },
   "dialog": {
     "unsavedTitle": "Alterações não salvas",

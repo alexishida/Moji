@@ -4,6 +4,20 @@ All notable changes to this project will be documented in this file.
 
 Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.1.1] - 2026-07-09
+
+### Added
+
+- Recent files list on the Welcome screen, persisted in user settings and capped to the most recent entries.
+- Tab management actions for closing other documents, documents to the right, saved documents, or all documents.
+- Persisted file dialog directory reuse for open, save as, and export flows.
+
+### Changed
+
+- Search and replace fields now use native search inputs with clear controls.
+- Editor search highlighting now only promotes the active match when replace mode is open.
+- Markdown preview scrollbars now use theme tokens for light and dark reading themes.
+
 ## [0.1.0] - 2026-07-09
 
 ### Added

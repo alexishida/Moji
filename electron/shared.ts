@@ -8,12 +8,18 @@ export const DEFAULT_LANGUAGE: Language = 'en'
 
 export const MARKDOWN_EXTENSIONS = ['.md', '.markdown'] as const
 
+/** Max entries kept in the recent-files list shown on the Welcome screen. */
+export const MAX_RECENT_FILES = 3
+
 export interface Settings {
   theme: Theme
   language: Language
   previewFontFamily: string
   previewFontSize: number
   previewLineHeight: number
+  /** Absolute paths of recently opened documents, most-recent first. */
+  recentFiles: string[]
+  lastDialogDirectory?: string
 }
 
 export interface DocumentPayload {

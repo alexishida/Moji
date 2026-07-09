@@ -1,7 +1,7 @@
 import { app } from 'electron'
 import { readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { DEFAULT_LANGUAGE, SUPPORTED_LANGUAGES, type Language, type Settings } from './shared'
+import { DEFAULT_LANGUAGE, MAX_RECENT_FILES, SUPPORTED_LANGUAGES, type Language, type Settings } from './shared'
 
 let cache: Settings | null = null
 
@@ -25,12 +25,27 @@ function defaults(): Settings {
     language: resolveLanguage(app.getLocale()),
     previewFontFamily: 'Inter',
     previewFontSize: 16,
-    previewLineHeight: 1.7
+    previewLineHeight: 1.7,
+    recentFiles: []
   }
 }
 
 function boundedNumber(value: unknown, fallback: number, min: number, max: number): number {
   return typeof value === 'number' && Number.isFinite(value) ? Math.min(max, Math.max(min, value)) : fallback
+}
+
+/** Keep only string paths, drop duplicates, and cap the list length. */
+function sanitizeRecentFiles(value: unknown): string[] {
+  if (!Array.isArray(value)) return []
+  const seen = new Set<string>()
+  const list: string[] = []
+  for (const entry of value) {
+    if (typeof entry !== 'string' || entry.length === 0 || seen.has(entry)) continue
+    seen.add(entry)
+    list.push(entry)
+    if (list.length >= MAX_RECENT_FILES) break
+  }
+  return list
 }
 
 export function getSettings(): Settings {
@@ -43,7 +58,9 @@ export function getSettings(): Settings {
       language: raw.language && SUPPORTED_LANGUAGES.includes(raw.language) ? raw.language : base.language,
       previewFontFamily: typeof raw.previewFontFamily === 'string' ? raw.previewFontFamily : base.previewFontFamily,
       previewFontSize: boundedNumber(raw.previewFontSize, base.previewFontSize, 12, 24),
-      previewLineHeight: boundedNumber(raw.previewLineHeight, base.previewLineHeight, 1.2, 2.4)
+      previewLineHeight: boundedNumber(raw.previewLineHeight, base.previewLineHeight, 1.2, 2.4),
+      recentFiles: sanitizeRecentFiles(raw.recentFiles),
+      lastDialogDirectory: typeof raw.lastDialogDirectory === 'string' ? raw.lastDialogDirectory : undefined
     }
   } catch {
     cache = defaults()
@@ -58,7 +75,9 @@ export function updateSettings(patch: Partial<Settings>): Settings {
     language: SUPPORTED_LANGUAGES.includes(merged.language) ? merged.language : getSettings().language,
     previewFontFamily: typeof merged.previewFontFamily === 'string' ? merged.previewFontFamily : 'Inter',
     previewFontSize: boundedNumber(merged.previewFontSize, 16, 12, 24),
-    previewLineHeight: boundedNumber(merged.previewLineHeight, 1.7, 1.2, 2.4)
+    previewLineHeight: boundedNumber(merged.previewLineHeight, 1.7, 1.2, 2.4),
+    recentFiles: sanitizeRecentFiles(merged.recentFiles),
+    lastDialogDirectory: typeof merged.lastDialogDirectory === 'string' ? merged.lastDialogDirectory : undefined
   }
   cache = next
   try {

@@ -6,7 +6,12 @@
   },
   "tabs": {
     "documents": "開いているドキュメント",
-    "close": "タブを閉じる"
+    "close": "タブを閉じる",
+    "closeThis": "閉じる",
+    "closeOthers": "他を閉じる",
+    "closeRight": "右側を閉じる",
+    "closeSaved": "保存済みを閉じる",
+    "closeAll": "すべて閉じる"
   },
   "menu": {
     "file": "ファイル",
@@ -38,6 +43,7 @@
     "replaceOne": "置換",
     "replaceAll": "すべて置換",
     "occurrences": "一致数",
+    "close": "閉じる",
     "export": "エクスポート",
     "exportHtml": "HTML としてエクスポート",
     "exportPdf": "PDF としてエクスポート",
@@ -79,7 +85,11 @@
     "subtitle": "Markdown ファイルを開いて、すっきり読めます。",
     "openButton": "ファイルを開く",
     "newButton": "新規ファイル",
-    "dropHint": "または、このウィンドウのどこかに .md ファイルをドロップ"
+    "dropHint": "または、このウィンドウのどこかに .md ファイルをドロップ",
+    "recent": {
+      "title": "最近使ったファイル",
+      "remove": "一覧から削除"
+    }
   },
   "dialog": {
     "unsavedTitle": "未保存の変更",

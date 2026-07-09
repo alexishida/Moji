@@ -70,6 +70,14 @@ Projeto atual: Moji, aplicativo desktop Electron + React + TypeScript para abrir
 - Exibir a versao do app a partir de `package.json`, nao com string fixa.
 - Ao modificar `electron/shared.ts`, verificar consistencia com `electron/preload.ts` (API exposta) e handlers em `electron/main.ts`.
 - Configuracoes de usuario persistem via `electron/settings.ts` em JSON; adicionar novos campos com valores default e validacao de limites (`boundedNumber`).
+- Lista de arquivos recentes usa `settings.recentFiles`, limite `MAX_RECENT_FILES` em `electron/shared.ts`, e deve manter caminhos deduplicados em ordem mais-recente primeiro.
+- Dialogos nativos de abrir, salvar como e exportar usam `settings.lastDialogDirectory`; lembrar diretorio apos operacao concluida ou caminho escolhido.
+
+## Busca e Substituicao
+
+- Campos de busca e de substituir usam `type="search"` com botao X nativo para limpar o texto (estilizado via `::-webkit-search-cancel-button` em `src/styles/app.css`).
+- Destaque amarelo do match ativo (`cm-external-searchMatch--active`) so aparece quando o campo substituir esta aberto e preenchido; na busca simples todos os matches usam a cor accent padrao (`cm-external-searchMatch`).
+- Fluxo passa `searchTerm`/`activeSearchIndex` para `Editor.tsx` e `highlightActive` controla o destaque do match ativo.
 
 ## Regras de Layout e Design
 

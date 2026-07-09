@@ -6,7 +6,12 @@
   },
   "tabs": {
     "documents": "Открытые документы",
-    "close": "Закрыть вкладку"
+    "close": "Закрыть вкладку",
+    "closeThis": "Закрыть",
+    "closeOthers": "Закрыть другие",
+    "closeRight": "Закрыть справа",
+    "closeSaved": "Закрыть сохранённые",
+    "closeAll": "Закрыть все"
   },
   "menu": {
     "file": "Файл",
@@ -38,6 +43,7 @@
     "replaceOne": "Заменить",
     "replaceAll": "Заменить все",
     "occurrences": "Совпадения",
+    "close": "Закрыть",
     "export": "Экспорт",
     "exportHtml": "Экспорт в HTML",
     "exportPdf": "Экспорт в PDF",
@@ -79,7 +85,11 @@
     "subtitle": "Откройте файл Markdown, чтобы читать его в удобном виде.",
     "openButton": "Открыть файл",
     "newButton": "Новый файл",
-    "dropHint": "или перетащите файл .md в это окно"
+    "dropHint": "или перетащите файл .md в это окно",
+    "recent": {
+      "title": "Недавние файлы",
+      "remove": "Удалить из списка"
+    }
   },
   "dialog": {
     "unsavedTitle": "Несохранённые изменения",

@@ -49,6 +49,9 @@
   --nav-active-text: #7cb0ff;
   --segment-track: #2a2a2c;
   --segment-active-bg: #38383a;
+  --scrollbar-track: #202021;
+  --scrollbar-thumb: #4c9aff;
+  --scrollbar-thumb-hover: #63a9ff;
 
   /* highlight.js tokens (One Dark Pro) */
   --hl-comment: #5c6370;
@@ -74,6 +77,9 @@
   --code-border: #d8dee4;
   --table-header-bg: #f8fafc;
   --table-stripe-bg: #f5f7fa;
+  --scrollbar-track: #f6f7f9;
+  --scrollbar-thumb: #2f6fed;
+  --scrollbar-thumb-hover: #1f5dd6;
 
   --hl-comment: #6a737d;
   --hl-keyword: #d73a49;

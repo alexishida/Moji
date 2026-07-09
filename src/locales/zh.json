@@ -6,7 +6,12 @@
   },
   "tabs": {
     "documents": "打开的文档",
-    "close": "关闭标签页"
+    "close": "关闭标签页",
+    "closeThis": "关闭",
+    "closeOthers": "关闭其他",
+    "closeRight": "关闭右侧",
+    "closeSaved": "关闭已保存",
+    "closeAll": "关闭全部"
   },
   "menu": {
     "file": "文件",
@@ -38,6 +43,7 @@
     "replaceOne": "替换",
     "replaceAll": "全部替换",
     "occurrences": "匹配数",
+    "close": "关闭",
     "export": "导出",
     "exportHtml": "导出为 HTML",
     "exportPdf": "导出为 PDF",
@@ -79,7 +85,11 @@
     "subtitle": "打开 Markdown 文件以清晰地阅读。",
     "openButton": "打开文件",
     "newButton": "新建文件",
-    "dropHint": "或将 .md 文件拖入此窗口任意位置"
+    "dropHint": "或将 .md 文件拖入此窗口任意位置",
+    "recent": {
+      "title": "最近打开的文件",
+      "remove": "从列表中移除"
+    }
   },
   "dialog": {
     "unsavedTitle": "未保存的更改",

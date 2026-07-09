@@ -18,6 +18,7 @@ O app Electron usa um shell em camadas:
 
 - **Top bar** (`.topbar`): duas linhas sobre `--chrome-bg`. Primeira linha contem acoes de arquivo (*Novo*, *Abrir*, *Salvar*) e campo de busca com botao de substituicao. Segunda linha contem o seletor segmentado *Preview / Editor / Exportar* e acoes de tema, configuracoes e sobre (icone de informacao).
 - **Document tabs** (`.document-tabs`): barra horizontal abaixo da top bar, visivel quando ha documentos abertos. Cada aba tem largura estavel, marcador de alteracao e botao de fechar.
+- **Menu de abas** (`.document-tab__menu`): menu contextual compacto acionado por botao iconico na aba ativa; oferece fechar outras abas, fechar abas a direita, fechar salvas e fechar todas.
 - **Body** (`.body`): sidebar + area principal.
 - **Sidebar** (`.sidebar`): coluna de `--sidebar-w`, visivel com documento aberto. No modo preview mostra a arvore de outline gerada dos headings (aninhada por nivel) e destaca o heading ativo.
 - **Main/workspace** (`.main`, `.workspace`): renderiza welcome, preview, editor, dialogo inline de exportacao, painel inline de configuracoes ou painel inline de sobre.
@@ -91,6 +92,9 @@ Nao usar `data-theme` no `<html>` para alternar a UI inteira; o estado atual alt
 | `--nav-active-text` | `#7cb0ff` |
 | `--segment-track` | `#2a2a2c` |
 | `--segment-active-bg` | `#38383a` |
+| `--scrollbar-track` | `#202021` |
+| `--scrollbar-thumb` | `#4c9aff` |
+| `--scrollbar-thumb-hover` | `#63a9ff` |
 
 ### Markdown claro
 
@@ -108,6 +112,9 @@ Nao usar `data-theme` no `<html>` para alternar a UI inteira; o estado atual alt
 | `--code-border` | `#d8dee4` |
 | `--table-header-bg` | `#f8fafc` |
 | `--table-stripe-bg` | `#f5f7fa` |
+| `--scrollbar-track` | `#f6f7f9` |
+| `--scrollbar-thumb` | `#2f6fed` |
+| `--scrollbar-thumb-hover` | `#1f5dd6` |
 
 ## Componentes
 
@@ -116,7 +123,7 @@ Nao usar `data-theme` no `<html>` para alternar a UI inteira; o estado atual alt
 - **Busca/substituicao** (`.topbar__search`, `.topbar__replace-popover`): busca segue altura de 30px, fundo `--bg`, borda `--border` e tipografia de 13px. Substituicao abre em popover compacto ancorado no campo de busca, com input de destino, contador de ocorrencias e acoes para localizar proxima, substituir uma ocorrencia ou substituir todas.
 - **Segment** (`.segment`, `.segment__btn`): trilho `--segment-track`, botoes de 30px, ativo em `--segment-active-bg`.
 - **Icon button** (`.iconbtn`): 34x34px, sem borda visivel por padrao, hover em `--bg-inset`, ativo com `--accent`.
-- **Document tabs** (`.document-tabs`, `.document-tab`): altura 35px; aba ativa usa `--bg` e filete superior `--accent`; marcador de dirty usa `--accent`.
+- **Document tabs** (`.document-tabs`, `.document-tab`): altura 35px; aba ativa usa `--bg` e filete superior `--accent`; marcador de dirty usa `--accent`; menu da aba ativa usa popover em `--bg-elevated`, borda `--border`, sombra `--shadow` e acoes compactas de 30px.
 - **Sidebar / outline** (`.sidebar`, `.outline-tree`, `.outline-item`): outline aparece no modo preview como arvore aninhada por nivel de heading. Cada grupo (`.outline-tree__children`) tem linha-guia vertical `--border`. Headings com filhos sao colapsaveis por chevron; botao no topo do painel (`.outline-head__toggle`) expande/colapsa tudo. Prefixos `Requirement:`/`Scenario:` viram icones (`IconBlock`/`IconFlow`) e saem do texto; Requirement usa peso maior e `--text`, Scenario recua com `--text-muted`. Titulos longos quebram em ate 2 linhas com `title` completo no hover. Item ativo usa `--nav-active-text`, fundo tenue `--nav-active-bg` e barra `inset 2px --accent`. O item ativo acompanha a rolagem do preview via scroll-spy (`getActivePreviewHeadingId` em `src/lib/previewScroll.ts`); clicar rola suavemente ate o heading.
 - **Preview** (`.markdown-body`): largura maxima `--reading-width`, padding `--space-6 --space-5`, tipografia configuravel pelo painel de configuracoes (padrao 16px, linha 1.7), headings com hierarquia clara e codigo em `--code-bg`.
 - **Editor** (`.editor-pane`, `.cm-editor`): ocupa toda a area principal, fonte mono 14px, line wrapping e tema escuro CodeMirror no estado atual.
@@ -126,7 +133,8 @@ Nao usar `data-theme` no `<html>` para alternar a UI inteira; o estado atual alt
 - **Confirm dialog** (`.dialog`): modal com backdrop, largura `min(420px, 90vw)`, usado para alteracoes nao salvas.
 - **Notice** (`.notice`): toast inferior sobre a status bar; erro usa `--danger`.
 - **Button** (`.btn`, `.btn--primary`): botao padrao de acao usado no welcome. `.btn` tem borda `--border` e fundo `--bg-elevated`; `.btn--primary` usa `--accent`. Aceita icone + texto.
-- **Welcome** (`.welcome`): tela vazia centralizada exibida sem documento aberto. Empilha logo (`.welcome__logo`, `src/assets/logo-mark-light.png`), tagline (`.welcome__tagline`), titulo (`.welcome__title`), acoes de abrir/criar (`.welcome__actions` com `.btn`/`.btn--primary`), subtitulo (`.welcome__subtitle`) e dica de arrastar arquivo (`.welcome__hint`).
+- **Welcome** (`.welcome`): tela vazia centralizada exibida sem documento aberto. Empilha logo (`.welcome__logo`, `src/assets/logo-mark-light.png`), tagline (`.welcome__tagline`), titulo (`.welcome__title`), acoes de abrir/criar (`.welcome__actions` com `.btn`/`.btn--primary`), subtitulo (`.welcome__subtitle`), lista de arquivos recentes (`.welcome__recent`) e dica de arrastar arquivo (`.welcome__hint`).
+- **Arquivos recentes** (`.welcome__recent`): lista opcional no welcome com os documentos abertos recentemente (persistidos em `settings.recentFiles`, limite `MAX_RECENT_FILES`). Cada linha (`.welcome__recent-item`) tem botao de abrir (`.welcome__recent-open`: icone, nome do arquivo e caminho truncado) e botao de remover (`.welcome__recent-remove`, visivel no hover). So aparece quando ha entradas.
 - **Drop overlay** (`.drop-overlay`): sobreposicao em tela cheia ao arrastar arquivo Markdown para a janela.
 
 ## Markdown Renderizado

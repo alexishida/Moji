@@ -49,6 +49,14 @@ export const IconFilePlus = (p: IconProps): JSX.Element => (
   </svg>
 )
 
+/** Plain document with text lines — recent-file rows on the Welcome screen. */
+export const IconFileText = (p: IconProps): JSX.Element => (
+  <svg {...base} {...p}>
+    <path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8Z" />
+    <path d="M14 3v5h5M8 13h8M8 17h5" />
+  </svg>
+)
+
 export const IconList = (p: IconProps): JSX.Element => (
   <svg {...base} {...p}>
     <path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01" />
@@ -129,6 +137,24 @@ export const IconReplace = (p: IconProps): JSX.Element => (
     <path d="M19 8H9" />
     <path d="M13 15l-3 3 3 3" />
     <path d="M10 18h10" />
+  </svg>
+)
+
+/** Magnifier — "find next" in the replace popover. */
+export const IconSearch = (p: IconProps): JSX.Element => (
+  <svg {...base} {...p}>
+    <circle cx="11" cy="11" r="7" />
+    <path d="m21 21-4.3-4.3" />
+  </svg>
+)
+
+/** Swap arrows looping — "replace all" in the replace popover. */
+export const IconReplaceAll = (p: IconProps): JSX.Element => (
+  <svg {...base} {...p}>
+    <path d="M14 4l3 3-3 3" />
+    <path d="M17 7H8a3 3 0 0 0-3 3v1" />
+    <path d="M10 20l-3-3 3-3" />
+    <path d="M7 17h9a3 3 0 0 0 3-3v-1" />
   </svg>
 )
 
