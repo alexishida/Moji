@@ -20,6 +20,10 @@ let mainWindow: BrowserWindow | null = null
 let pendingOpenPath: string | null = null
 let forceQuit = false
 
+function stripLeadingBom(content: string): string {
+  return content.startsWith('\uFEFF') ? content.slice(1) : content
+}
+
 function isMarkdown(filePath: string): boolean {
   return (MARKDOWN_EXTENSIONS as readonly string[]).includes(extname(filePath).toLowerCase())
 }
@@ -40,7 +44,7 @@ function samplePath(sampleName: string): string {
 async function readDocument(filePath: string): Promise<OpenResult> {
   if (!isMarkdown(filePath)) return { ok: false, error: 'unsupported' }
   try {
-    const content = await readFile(filePath, 'utf-8')
+    const content = stripLeadingBom(await readFile(filePath, 'utf-8'))
     return { ok: true, path: filePath, content }
   } catch (err) {
     return { ok: false, error: (err as Error).message }
