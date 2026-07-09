@@ -1,7 +1,23 @@
 {
   "name": "moji",
   "version": "0.1.0",
+  "desktopName": "moji.desktop",
   "description": "Clean cross-platform Markdown viewer and editor (React + Electron)",
+  "homepage": "https://github.com/alexishida/Moji",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/alexishida/Moji.git"
+  },
+  "bugs": {
+    "url": "https://github.com/alexishida/Moji/issues"
+  },
+  "keywords": [
+    "markdown",
+    "editor",
+    "viewer",
+    "electron",
+    "desktop"
+  ],
   "author": {
     "name": "Alex Ishida",
     "email": "alexishida@gmail.com"

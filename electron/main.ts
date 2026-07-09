@@ -147,9 +147,7 @@ function requestClose(): void {
 }
 
 function createWindow(): void {
-  // In dev the app path is the project root, so build/icon.png resolves. When
-  // packaged, Windows/macOS use the installer icon from electron-builder instead.
-  const iconPath = join(app.getAppPath(), 'build', 'icon.png')
+  const iconPath = app.isPackaged ? join(process.resourcesPath, 'icon.png') : join(app.getAppPath(), 'build', 'icon.png')
   mainWindow = new BrowserWindow({
     width: 1000,
     height: 760,
