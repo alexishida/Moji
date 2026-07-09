@@ -75,20 +75,22 @@ export function TopBar(props: TopBarProps): JSX.Element {
     <header className="topbar">
       <div className="topbar__row topbar__row--tools">
         <div className="topbar__left">
-          <button className="topbar__open-btn" onClick={props.onNew} title={t('toolbar.newDocument')}>
-            <IconFilePlus width={15} height={15} />
-            {t('toolbar.newDocument')}
-          </button>
+          <div className="filegroup" role="group" aria-label={t('toolbar.viewMode')}>
+            <button className="filegroup__btn" onClick={props.onNew} title={t('toolbar.newDocument')}>
+              <IconFilePlus width={15} height={15} />
+              {t('toolbar.newDocument')}
+            </button>
 
-          <button className="topbar__open-btn" onClick={props.onOpen} title={t('toolbar.open')}>
-            <IconOpen width={15} height={15} />
-            {t('toolbar.open')}
-          </button>
+            <button className="filegroup__btn" onClick={props.onOpen} title={t('toolbar.open')}>
+              <IconOpen width={15} height={15} />
+              {t('toolbar.open')}
+            </button>
 
-          <button className="topbar__open-btn" onClick={props.onSave} disabled={!props.hasDoc} title={t('toolbar.save')}>
-            <IconSave width={15} height={15} />
-            {t('toolbar.save')}
-          </button>
+            <button className="filegroup__btn" onClick={props.onSave} disabled={!props.hasDoc} title={t('toolbar.save')}>
+              <IconSave width={15} height={15} />
+              {t('toolbar.save')}
+            </button>
+          </div>
         </div>
 
         <div className="topbar__right">

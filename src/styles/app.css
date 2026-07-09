@@ -57,7 +57,15 @@ body {
   min-width: 0;
 }
 
-.topbar__open-btn {
+.filegroup {
+  display: inline-flex;
+  flex-shrink: 0;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.filegroup__btn {
   display: inline-flex;
   align-items: center;
   gap: 6px;
@@ -67,26 +75,24 @@ body {
   font-size: 13px;
   color: var(--text-muted);
   background: none;
-  border: 1px solid var(--border);
-  border-radius: 6px;
+  border: none;
+  border-radius: 0;
   cursor: pointer;
   transition: background 0.12s, color 0.12s;
-  flex-shrink: 0;
 }
 
-.topbar__open-btn:hover {
+.filegroup__btn:not(:first-child) {
+  border-left: 1px solid var(--border);
+}
+
+.filegroup__btn:hover:not(:disabled) {
   color: var(--text);
   background: var(--bg-inset);
 }
 
-.topbar__open-btn:disabled {
+.filegroup__btn:disabled {
   opacity: 0.45;
   cursor: default;
-}
-
-.topbar__open-btn:disabled:hover {
-  color: var(--text-muted);
-  background: none;
 }
 
 .topbar__file {
