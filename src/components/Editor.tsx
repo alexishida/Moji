@@ -98,6 +98,18 @@ const externalSearchHighlight = StateField.define<{ term: string; activeIndex: n
   provide: (field) => EditorView.decorations.from(field, (value) => value.decorations)
 })
 
+function activeElementAcceptsText(): boolean {
+  const element = document.activeElement
+  if (!(element instanceof HTMLElement)) return false
+
+  return (
+    element instanceof HTMLInputElement ||
+    element instanceof HTMLTextAreaElement ||
+    element instanceof HTMLSelectElement ||
+    element.isContentEditable
+  )
+}
+
 /** CodeMirror 6 Markdown source editor with theme-aware styling. */
 export function Editor({ value, theme, searchTerm, activeSearchIndex, onChange }: EditorProps): JSX.Element {
   const hostRef = useRef<HTMLDivElement>(null)
@@ -186,7 +198,7 @@ export function Editor({ value, theme, searchTerm, activeSearchIndex, onChange }
       effects: [...effects, EditorView.scrollIntoView(selected.from, { y: 'center' })],
       userEvent: 'select.search'
     })
-    view.focus()
+    if (!activeElementAcceptsText()) view.focus()
   }, [activeSearchIndex, searchTerm])
 
   return <div className="editor-pane pane" ref={hostRef} />
