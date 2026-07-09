@@ -3,6 +3,7 @@ import {
   IPC,
   type DocumentPayload,
   type ExportRequest,
+  type ImageDataResult,
   type Language,
   type MenuAction,
   type OpenManyResult,
@@ -18,6 +19,7 @@ const api = {
 
   openDialog: (): Promise<OpenManyResult> => ipcRenderer.invoke(IPC.openDialog),
   readPath: (filePath: string): Promise<OpenResult> => ipcRenderer.invoke(IPC.readPath, filePath),
+  readImageAsDataUrl: (filePath: string): Promise<ImageDataResult> => ipcRenderer.invoke(IPC.readImage, filePath),
   readSample: (sampleName: string): Promise<OpenResult> => ipcRenderer.invoke(IPC.readSample, sampleName),
   save: (filePath: string, content: string): Promise<WriteResult> => ipcRenderer.invoke(IPC.save, filePath, content),
   saveAs: (content: string, suggestedName?: string): Promise<WriteResult> =>

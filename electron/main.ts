@@ -1,11 +1,12 @@
 import { app, BrowserWindow, dialog, ipcMain, Menu, shell } from 'electron'
 import { readFile, writeFile } from 'node:fs/promises'
 import { existsSync } from 'node:fs'
-import { extname, join } from 'node:path'
+import { extname, isAbsolute, join } from 'node:path'
 import {
   IPC,
   MARKDOWN_EXTENSIONS,
   type ExportRequest,
+  type ImageDataResult,
   type Language,
   type MenuAction,
   type OpenManyResult,
@@ -20,12 +21,52 @@ let mainWindow: BrowserWindow | null = null
 let pendingOpenPath: string | null = null
 let forceQuit = false
 
+const IMAGE_EXTENSIONS = new Set(['.avif', '.bmp', '.gif', '.ico', '.jpeg', '.jpg', '.png', '.svg', '.webp'])
+
 function stripLeadingBom(content: string): string {
   return content.startsWith('\uFEFF') ? content.slice(1) : content
 }
 
 function isMarkdown(filePath: string): boolean {
   return (MARKDOWN_EXTENSIONS as readonly string[]).includes(extname(filePath).toLowerCase())
+}
+
+function isSupportedImage(filePath: string): boolean {
+  return IMAGE_EXTENSIONS.has(extname(filePath).toLowerCase())
+}
+
+function imageMimeType(filePath: string): string {
+  switch (extname(filePath).toLowerCase()) {
+    case '.avif':
+      return 'image/avif'
+    case '.bmp':
+      return 'image/bmp'
+    case '.gif':
+      return 'image/gif'
+    case '.ico':
+      return 'image/x-icon'
+    case '.jpeg':
+    case '.jpg':
+      return 'image/jpeg'
+    case '.png':
+      return 'image/png'
+    case '.svg':
+      return 'image/svg+xml'
+    case '.webp':
+      return 'image/webp'
+    default:
+      return 'application/octet-stream'
+  }
+}
+
+async function readImageAsDataUrl(filePath: string): Promise<ImageDataResult> {
+  if (!isAbsolute(filePath) || !isSupportedImage(filePath)) return { ok: false, error: 'unsupported' }
+  try {
+    const image = await readFile(filePath)
+    return { ok: true, dataUrl: `data:${imageMimeType(filePath)};base64,${image.toString('base64')}` }
+  } catch (err) {
+    return { ok: false, error: (err as Error).message }
+  }
 }
 
 function fileFromArgv(argv: string[]): string | null {
@@ -148,6 +189,8 @@ function registerIpc(): void {
   })
 
   ipcMain.handle(IPC.readPath, (_e, filePath: string): Promise<OpenResult> => readDocument(filePath))
+
+  ipcMain.handle(IPC.readImage, (_e, filePath: string): Promise<ImageDataResult> => readImageAsDataUrl(filePath))
 
   ipcMain.handle(IPC.readSample, (_e, name: string): Promise<OpenResult> => readDocument(samplePath(name)))
 

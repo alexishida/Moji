@@ -143,6 +143,16 @@ export const IconSave = (p: IconProps): JSX.Element => (
   </svg>
 )
 
+export const IconReplace = (p: IconProps): JSX.Element => (
+  <svg {...base} {...p}>
+    <path d="M4 7h9M4 17h7" />
+    <path d="M16 5l3 3-3 3" />
+    <path d="M19 8H9" />
+    <path d="M13 15l-3 3 3 3" />
+    <path d="M10 18h10" />
+  </svg>
+)
+
 /** Right chevron — rotates to point down when its outline node is expanded. */
 export const IconChevronRight = (p: IconProps): JSX.Element => (
   <svg {...base} {...p}>

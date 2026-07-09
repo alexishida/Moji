@@ -32,6 +32,12 @@
     "newDocument": "新規",
     "save": "保存",
     "search": "検索...",
+    "replace": "置換",
+    "replaceWith": "置換後の文字列...",
+    "findNext": "次を検索",
+    "replaceOne": "置換",
+    "replaceAll": "すべて置換",
+    "occurrences": "一致数",
     "export": "エクスポート",
     "exportHtml": "HTML としてエクスポート",
     "exportPdf": "PDF としてエクスポート",
@@ -120,6 +126,10 @@
     "saveSuccess": "保存しました",
     "saveFailed": "保存に失敗しました: {{error}}",
     "openFailed": "ファイルを開けませんでした: {{error}}",
-    "noDocument": "まずドキュメントを開いてください。"
+    "noDocument": "まずドキュメントを開いてください。",
+    "replaceNeedsSearch": "検索語を入力してください。",
+    "replaceNone": "一致する項目がありません。",
+    "replaceOneSuccess": "{{count}} 件を置換しました。",
+    "replaceAllSuccess": "{{count}} 件を置換しました。"
   }
 }

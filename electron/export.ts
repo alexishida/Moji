@@ -33,6 +33,11 @@ function pagePixels(pageSize: ExportPageSize, pageOrientation: ExportPageOrienta
   return { width: size.height, height: size.width }
 }
 
+function exportAssetBaseUrl(assetBaseUrl: unknown): string | undefined {
+  if (typeof assetBaseUrl !== 'string') return undefined
+  return assetBaseUrl.startsWith('file://') ? assetBaseUrl : undefined
+}
+
 /**
  * Export the current document. `request.html` is a fully rendered, standalone
  * HTML document (theme CSS already inlined by the renderer).
@@ -41,7 +46,7 @@ function pagePixels(pageSize: ExportPageSize, pageOrientation: ExportPageOrienta
  * - PNG: render the HTML at the selected page width and capture it as an image.
  */
 export async function exportDocument(request: ExportRequest): Promise<WriteResult> {
-  const { format, pageSize, pageOrientation, html, baseName } = request
+  const { format, pageSize, pageOrientation, html, assetBaseUrl, baseName } = request
   if (!isExportFormat(format) || !isPageSize(pageSize) || !isPageOrientation(pageOrientation)) {
     return { ok: false, error: 'Invalid export options.' }
   }
@@ -57,10 +62,10 @@ export async function exportDocument(request: ExportRequest): Promise<WriteResul
     if (format === 'html') {
       await writeFile(filePath, html, 'utf-8')
     } else if (format === 'pdf') {
-      const pdf = await htmlToPdf(html, pageSize, pageOrientation)
+      const pdf = await htmlToPdf(html, pageSize, pageOrientation, assetBaseUrl)
       await writeFile(filePath, pdf)
     } else {
-      const png = await htmlToPng(html, pageSize, pageOrientation)
+      const png = await htmlToPng(html, pageSize, pageOrientation, assetBaseUrl)
       await writeFile(filePath, png)
     }
     return { ok: true, path: filePath }
@@ -79,7 +84,8 @@ async function waitForFonts(win: BrowserWindow): Promise<void> {
 async function createExportWindow(
   html: string,
   pageSize: ExportPageSize,
-  pageOrientation: ExportPageOrientation
+  pageOrientation: ExportPageOrientation,
+  assetBaseUrl?: string
 ): Promise<BrowserWindow> {
   const size = pagePixels(pageSize, pageOrientation)
   const win = new BrowserWindow({
@@ -93,7 +99,9 @@ async function createExportWindow(
       nodeIntegration: false
     }
   })
-  await win.loadURL('data:text/html;charset=utf-8,' + encodeURIComponent(html))
+  await win.loadURL('data:text/html;charset=utf-8,' + encodeURIComponent(html), {
+    baseURLForDataURL: exportAssetBaseUrl(assetBaseUrl)
+  })
   await waitForFonts(win)
   return win
 }
@@ -101,9 +109,10 @@ async function createExportWindow(
 async function htmlToPdf(
   html: string,
   pageSize: ExportPageSize,
-  pageOrientation: ExportPageOrientation
+  pageOrientation: ExportPageOrientation,
+  assetBaseUrl?: string
 ): Promise<Buffer> {
-  const win = await createExportWindow(html, pageSize, pageOrientation)
+  const win = await createExportWindow(html, pageSize, pageOrientation, assetBaseUrl)
   try {
     return await win.webContents.printToPDF({
       printBackground: true,
@@ -119,10 +128,11 @@ async function htmlToPdf(
 async function htmlToPng(
   html: string,
   pageSize: ExportPageSize,
-  pageOrientation: ExportPageOrientation
+  pageOrientation: ExportPageOrientation,
+  assetBaseUrl?: string
 ): Promise<Buffer> {
   const size = pagePixels(pageSize, pageOrientation)
-  const win = await createExportWindow(html, pageSize, pageOrientation)
+  const win = await createExportWindow(html, pageSize, pageOrientation, assetBaseUrl)
   try {
     const documentHeight = (await win.webContents.executeJavaScript(
       'Math.ceil(Math.max(document.body.scrollHeight, document.documentElement.scrollHeight))'
