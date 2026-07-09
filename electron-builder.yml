@@ -8,6 +8,9 @@ files:
   - out/**/*
   - package.json
   - samples/**/*
+extraResources:
+  - from: build/icon.png
+    to: icon.png
 fileAssociations:
   - ext: md
     name: Markdown Document
@@ -32,9 +35,34 @@ nsis:
   createStartMenuShortcut: true
 linux:
   maintainer: Alex Ishida <alexishida@gmail.com>
+  synopsis: Clean Markdown viewer and editor
+  description: Moji is a desktop app for opening, reading, editing, and exporting Markdown files with split preview/editing, outline navigation, localized UI, and PDF, HTML, and PNG export.
+  icon: build/icons
+  syncDesktopName: true
+  desktop:
+    entry:
+      Keywords: Markdown;Editor;Viewer;Documents;Notes;
   target:
     - AppImage
     - deb
   category: Office
   mimeTypes:
     - text/markdown
+appImage:
+  desktop:
+    entry:
+      X-AppImage-Repository: https://github.com/alexishida/Moji
+      X-AppImage-Author: Alex Ishida
+      X-AppImage-Homepage: https://github.com/alexishida/Moji
+      X-AppImage-Description: Moji is a desktop app for opening, reading, editing, and exporting Markdown files with split preview/editing, outline navigation, localized UI, and PDF, HTML, and PNG export.
+deb:
+  packageCategory: editors
+  fpm:
+    - --deb-field
+    - "Repository: https://github.com/alexishida/Moji"
+    - --deb-field
+    - "Author: Alex Ishida"
+    - --deb-field
+    - "Vcs-Browser: https://github.com/alexishida/Moji"
+    - --deb-field
+    - "Vcs-Git: https://github.com/alexishida/Moji.git"
