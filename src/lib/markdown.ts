@@ -14,6 +14,11 @@ import katex from 'katex'
 import hljs from 'highlight.js'
 import DOMPurify from 'dompurify'
 
+interface RenderMarkdownOptions {
+  documentPath?: string | null
+  assetMode?: 'app' | 'file'
+}
+
 const md = new MarkdownIt({
   html: true, // raw HTML allowed here, then sanitized by DOMPurify below
   linkify: true,
@@ -59,14 +64,87 @@ DOMPurify.addHook('afterSanitizeAttributes', (node) => {
   }
 })
 
+const EMPTY_IMAGE =
+  'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw=='
+
+function filePathToFileUrl(filePath: string): string {
+  const normalized = filePath.replace(/\\/g, '/')
+  if (/^[A-Za-z]:\//.test(normalized)) {
+    const [drive, ...rest] = normalized.split('/')
+    return `file:///${drive}/${rest.map(encodeURIComponent).join('/')}`
+  }
+  if (normalized.startsWith('//')) {
+    const [host, ...rest] = normalized.slice(2).split('/')
+    return `file://${host}/${rest.map(encodeURIComponent).join('/')}`
+  }
+  return `file://${normalized.split('/').map(encodeURIComponent).join('/')}`
+}
+
+function prepareAppImage(image: Element, filePath: string): void {
+  image.setAttribute('data-local-src', filePath)
+  image.setAttribute('src', EMPTY_IMAGE)
+}
+
+function fileUrlToPath(fileUrl: string): string {
+  const url = new URL(fileUrl)
+  const pathname = decodeURIComponent(url.pathname)
+  if (url.hostname) return `//${url.hostname}${pathname}`
+  return /^\/[A-Za-z]:\//.test(pathname) ? pathname.slice(1) : pathname
+}
+
+export function documentAssetBaseUrl(documentPath: string | null | undefined): string | null {
+  if (!documentPath) return null
+  const normalized = documentPath.replace(/\\/g, '/')
+  const lastSlash = normalized.lastIndexOf('/')
+  if (lastSlash < 0) return null
+  return `${filePathToFileUrl(normalized.slice(0, lastSlash + 1))}/`.replace(/\/+$/, '/')
+}
+
+function resolveImageSources(
+  html: string,
+  documentPath: string | null | undefined,
+  assetMode: RenderMarkdownOptions['assetMode']
+): string {
+  const baseUrl = documentAssetBaseUrl(documentPath)
+  if (!baseUrl) return html
+
+  const template = document.createElement('template')
+  template.innerHTML = html
+
+  template.content.querySelectorAll('img[src]').forEach((image) => {
+    const src = image.getAttribute('src')?.trim()
+    if (!src || src.startsWith('#')) return
+
+    if (/^file:/i.test(src)) {
+      if (assetMode === 'app') prepareAppImage(image, fileUrlToPath(src))
+      return
+    }
+
+    if (/^[a-z][a-z\d+.-]*:/i.test(src)) return
+
+    try {
+      const fileUrl = new URL(src.replace(/\\/g, '/'), baseUrl).toString()
+      if (assetMode === 'app') prepareAppImage(image, fileUrlToPath(fileUrl))
+      else image.setAttribute('src', fileUrl)
+    } catch {
+      /* Keep original src when URL parsing fails. */
+    }
+  })
+
+  return template.innerHTML
+}
+
 /** Render Markdown to sanitized HTML safe to inject into the preview. */
-export function renderMarkdown(source: string): string {
+export function renderMarkdown(source: string, options: RenderMarkdownOptions = {}): string {
   const rawHtml = md.render((source ?? '').replace(/^\uFEFF/, ''))
-  return DOMPurify.sanitize(rawHtml, {
+  const htmlWithResolvedImages = resolveImageSources(rawHtml, options.documentPath, options.assetMode ?? 'file')
+  return DOMPurify.sanitize(htmlWithResolvedImages, {
     // html for the document, mathMl + svg for KaTeX output. `eq`/`eqn` are the
     // wrapper tags markdown-it-texmath emits around each formula.
     USE_PROFILES: { html: true, mathMl: true, svg: true },
+    ALLOWED_URI_REGEXP:
+      /^(?:(?:(?:f|ht)tps?|file|mailto|tel|callto|sms|cid|xmpp):|[^a-z]|[a-z+.-]+(?:[^a-z+.-:]|$))/i,
     ADD_TAGS: ['eq', 'eqn'],
-    ADD_ATTR: ['target', 'rel', 'id']
+    ADD_ATTR: ['target', 'rel', 'id', 'src', 'data-local-src']
   })
 }

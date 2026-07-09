@@ -16,7 +16,7 @@ Fonte de verdade dos tokens: [`src/styles/theme.css`](../src/styles/theme.css). 
 
 O app Electron usa um shell em camadas:
 
-- **Top bar** (`.topbar`): duas linhas sobre `--chrome-bg`. Primeira linha contem acoes de arquivo (*Novo*, *Abrir*, *Salvar*) e campo de busca. Segunda linha contem o seletor segmentado *Preview / Editor / Exportar* e acoes de tema, configuracoes e sobre (icone de informacao).
+- **Top bar** (`.topbar`): duas linhas sobre `--chrome-bg`. Primeira linha contem acoes de arquivo (*Novo*, *Abrir*, *Salvar*) e campo de busca com botao de substituicao. Segunda linha contem o seletor segmentado *Preview / Editor / Exportar* e acoes de tema, configuracoes e sobre (icone de informacao).
 - **Document tabs** (`.document-tabs`): barra horizontal abaixo da top bar, visivel quando ha documentos abertos. Cada aba tem largura estavel, marcador de alteracao e botao de fechar.
 - **Body** (`.body`): sidebar + area principal.
 - **Sidebar** (`.sidebar`): coluna de `--sidebar-w`, visivel com documento aberto. No modo preview mostra a arvore de outline gerada dos headings (aninhada por nivel) e destaca o heading ativo.
@@ -101,7 +101,7 @@ Nao usar `data-theme` no `<html>` para alternar a UI inteira; o estado atual alt
 
 - **Top bar** (`.topbar`): flex column, `--chrome-bg`, area arrastavel via `-webkit-app-region: drag`; botoes e inputs internos devem usar `no-drag`.
 - **Botoes de arquivo** (`.topbar__open-btn`): altura 30px, icone + texto, borda `--border`, hover em `--bg-inset`.
-- **Busca** (`.topbar__search`): quando usada, deve seguir altura de 30px, fundo `--bg`, borda `--border` e tipografia de 13px.
+- **Busca/substituicao** (`.topbar__search`, `.topbar__replace-popover`): busca segue altura de 30px, fundo `--bg`, borda `--border` e tipografia de 13px. Substituicao abre em popover compacto ancorado no campo de busca, com input de destino, contador de ocorrencias e acoes para localizar proxima, substituir uma ocorrencia ou substituir todas.
 - **Segment** (`.segment`, `.segment__btn`): trilho `--segment-track`, botoes de 30px, ativo em `--segment-active-bg`.
 - **Icon button** (`.iconbtn`): 34x34px, sem borda visivel por padrao, hover em `--bg-inset`, ativo com `--accent`.
 - **Document tabs** (`.document-tabs`, `.document-tab`): altura 35px; aba ativa usa `--bg` e filete superior `--accent`; marcador de dirty usa `--accent`.

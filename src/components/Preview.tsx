@@ -31,6 +31,26 @@ export function Preview({ html, mdTheme, searchTerm, settings, className }: Prev
 
   useEffect(() => {
     if (!bodyRef.current) return
+    let canceled = false
+    const images = Array.from(bodyRef.current.querySelectorAll('img[data-local-src]')) as HTMLImageElement[]
+
+    for (const image of images) {
+      const filePath = image.dataset.localSrc
+      if (!filePath) continue
+
+      void window.api.readImageAsDataUrl(filePath).then((result) => {
+        if (canceled || !result.ok) return
+        image.src = result.dataUrl
+      })
+    }
+
+    return () => {
+      canceled = true
+    }
+  }, [html])
+
+  useEffect(() => {
+    if (!bodyRef.current) return
     const el = bodyRef.current
     // Remove previous highlight spans
     el.querySelectorAll('.search-highlight').forEach((s) => {

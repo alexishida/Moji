@@ -11,7 +11,7 @@ import { ConfirmDialog, type ConfirmChoice } from './components/ConfirmDialog'
 import { ExportDialog, type ExportDialogOptions } from './components/ExportDialog'
 import { SettingsDialog } from './components/SettingsDialog'
 import { AboutDialog } from './components/AboutDialog'
-import { renderMarkdown } from './lib/markdown'
+import { documentAssetBaseUrl, renderMarkdown } from './lib/markdown'
 import { buildOutline } from './lib/outline'
 import { getActivePreviewHeadingId, scrollPreviewHeadingIntoView } from './lib/previewScroll'
 import { useDebounced } from './lib/useDebounced'
@@ -51,6 +51,48 @@ function markdownFileName(name: string): string {
   return /\.(md|markdown)$/i.test(name) ? name : `${name}.md`
 }
 
+function findLiteralMatches(text: string, search: string): Array<{ from: number; to: number }> {
+  if (!search) return []
+  const needle = search.toLowerCase()
+  const haystack = text.toLowerCase()
+  const matches: Array<{ from: number; to: number }> = []
+
+  for (let index = haystack.indexOf(needle); index >= 0; index = haystack.indexOf(needle, index + search.length)) {
+    matches.push({ from: index, to: index + search.length })
+  }
+
+  return matches
+}
+
+function replaceTextLiteral(
+  text: string,
+  search: string,
+  replacement: string,
+  all: boolean,
+  activeIndex: number | null
+): { text: string; count: number; nextIndex: number | null } {
+  const matches = findLiteralMatches(text, search)
+  if (matches.length === 0) return { text, count: 0, nextIndex: null }
+
+  if (!all) {
+    const index = Math.min(activeIndex ?? 0, matches.length - 1)
+    const match = matches[index]
+    const nextText = `${text.slice(0, match.from)}${replacement}${text.slice(match.to)}`
+    const nextCount = findLiteralMatches(nextText, search).length
+    return { text: nextText, count: 1, nextIndex: nextCount > 0 ? Math.min(index, nextCount - 1) : null }
+  }
+
+  let lastIndex = 0
+  let nextText = ''
+
+  for (const match of matches) {
+    nextText += `${text.slice(lastIndex, match.from)}${replacement}`
+    lastIndex = match.to
+  }
+
+  return { text: `${nextText}${text.slice(lastIndex)}`, count: matches.length, nextIndex: null }
+}
+
 export function App(): JSX.Element {
   const { t, i18n } = useTranslation()
 
@@ -67,6 +109,7 @@ export function App(): JSX.Element {
   const [mdTheme, setMdTheme] = useState<Theme>('dark')
   const [, setLanguage] = useState<Language>('en')
   const [searchTerm, setSearchTerm] = useState('')
+  const [activeSearchIndex, setActiveSearchIndex] = useState<number | null>(null)
   const [dragging, setDragging] = useState(false)
   const [notice, setNotice] = useState<{ text: string; error?: boolean } | null>(null)
   const [activeHeadingId, setActiveHeadingId] = useState<string | null>(null)
@@ -89,9 +132,13 @@ export function App(): JSX.Element {
   const hasDirtyDocs = documents.some((doc) => doc.content !== doc.savedContent)
 
   const debouncedContent = useDebounced(content, 150)
-  const html = useMemo(() => renderMarkdown(debouncedContent), [debouncedContent])
+  const html = useMemo(
+    () => renderMarkdown(debouncedContent, { documentPath: activeDoc?.path, assetMode: 'app' }),
+    [activeDoc?.path, debouncedContent]
+  )
   const outline = useMemo(() => buildOutline(html), [html])
   const words = useMemo(() => countWords(content), [content])
+  const searchMatchCount = useMemo(() => findLiteralMatches(content, searchTerm.trim()).length, [content, searchTerm])
   const tabs = useMemo<DocumentTabItem[]>(
     () =>
       documents.map((doc) => ({
@@ -177,6 +224,14 @@ export function App(): JSX.Element {
   useEffect(() => {
     if (documents.length > 0 && !activeDoc) setActiveDocId(documents[0].id)
   }, [documents, activeDoc])
+
+  useEffect(() => {
+    if (!searchTerm.trim() || searchMatchCount === 0) {
+      setActiveSearchIndex(null)
+      return
+    }
+    setActiveSearchIndex((index) => (index === null ? 0 : Math.min(index, searchMatchCount - 1)))
+  }, [searchMatchCount, searchTerm])
 
   // --- Outline scroll-spy: highlight the heading nearest the viewport top --
   useEffect(() => {
@@ -362,12 +417,19 @@ export function App(): JSX.Element {
         flash(t('notice.noDocument'), true)
         return
       }
-      const rendered = renderMarkdown(s.activeDoc.content)
+      const rendered = renderMarkdown(s.activeDoc.content, { documentPath: s.activeDoc.path })
       const name = documentName(s.activeDoc, t('app.untitled'))
       // Exports (HTML/PDF/PNG) always use the light theme, regardless of the preview theme.
       const doc = buildStandaloneHtml(rendered, 'light', name)
       const base = name.replace(/\.[^.]+$/, '')
-      const res = await window.api.exportAs({ format, pageSize, pageOrientation, html: doc, baseName: base })
+      const res = await window.api.exportAs({
+        format,
+        pageSize,
+        pageOrientation,
+        html: doc,
+        assetBaseUrl: documentAssetBaseUrl(s.activeDoc.path) ?? undefined,
+        baseName: base
+      })
       if (res.ok) flash(t('notice.exportSuccess', { path: res.path }))
       else if (!res.canceled) flash(t('notice.exportFailed', { error: res.error }), true)
     },
@@ -404,7 +466,55 @@ export function App(): JSX.Element {
 
   const doSearch = useCallback((term: string) => {
     setSearchTerm(term)
+    const nextCount = findLiteralMatches(stateRef.current.activeDoc?.content ?? '', term.trim()).length
+    setActiveSearchIndex(nextCount > 0 ? 0 : null)
   }, [])
+
+  const doFindNext = useCallback(() => {
+    const term = searchTerm.trim()
+    const count = findLiteralMatches(stateRef.current.activeDoc?.content ?? '', term).length
+    if (!term || count === 0) {
+      flash(t('notice.replaceNone'), true)
+      return
+    }
+    setExportDialogFormat(null)
+    setSettingsOpen(false)
+    setAboutOpen(false)
+    setMode('edit')
+    setActiveSearchIndex((index) => (index === null ? 0 : (index + 1) % count))
+  }, [flash, searchTerm, t])
+
+  const doReplace = useCallback(
+    (search: string, replacement: string, all: boolean) => {
+      const term = search.trim()
+      const doc = stateRef.current.activeDoc
+
+      if (!doc) {
+        flash(t('notice.noDocument'), true)
+        return
+      }
+
+      if (!term) {
+        flash(t('notice.replaceNeedsSearch'), true)
+        return
+      }
+
+      const result = replaceTextLiteral(doc.content, term, replacement, all, activeSearchIndex)
+      if (result.count === 0) {
+        flash(t('notice.replaceNone'), true)
+        return
+      }
+
+      setDocuments((prev) => prev.map((item) => (item.id === doc.id ? { ...item, content: result.text } : item)))
+      setActiveSearchIndex(result.nextIndex)
+      setExportDialogFormat(null)
+      setSettingsOpen(false)
+      setAboutOpen(false)
+      setMode('edit')
+      flash(t(all ? 'notice.replaceAllSuccess' : 'notice.replaceOneSuccess', { count: result.count }))
+    },
+    [activeSearchIndex, flash, t]
+  )
 
   const doGuide = useCallback(async () => {
     const res = await window.api.readSample('guia-markdown-completo.md')
@@ -584,6 +694,10 @@ export function App(): JSX.Element {
         onNew={doNew}
         onSave={doSave}
         onSearch={doSearch}
+        onFindNext={doFindNext}
+        onReplace={doReplace}
+        searchMatchCount={searchMatchCount}
+        activeSearchIndex={activeSearchIndex}
         onToggleTheme={toggleMdTheme}
         onExport={openExportDialog}
         onOpenSettings={openSettings}
@@ -636,7 +750,13 @@ export function App(): JSX.Element {
                 />
               </div>
             ) : mode === 'edit' ? (
-              <Editor value={content} theme={'dark'} searchTerm={searchTerm} onChange={updateActiveContent} />
+              <Editor
+                value={content}
+                theme={'dark'}
+                searchTerm={searchTerm}
+                activeSearchIndex={activeSearchIndex}
+                onChange={updateActiveContent}
+              />
             ) : (
               <Preview html={html} mdTheme={mdTheme} searchTerm={searchTerm} settings={settings} />
             )}

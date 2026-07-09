@@ -32,6 +32,12 @@
     "newDocument": "Novo",
     "save": "Salvar",
     "search": "Buscar...",
+    "replace": "Substituir",
+    "replaceWith": "Substituir por...",
+    "findNext": "Localizar próximo",
+    "replaceOne": "Substituir",
+    "replaceAll": "Substituir tudo",
+    "occurrences": "Ocorrências",
     "export": "Exportar",
     "exportHtml": "Exportar como HTML",
     "exportPdf": "Exportar como PDF",
@@ -120,6 +126,10 @@
     "saveSuccess": "Salvo",
     "saveFailed": "Falha ao salvar: {{error}}",
     "openFailed": "Não foi possível abrir o arquivo: {{error}}",
-    "noDocument": "Abra um documento primeiro."
+    "noDocument": "Abra um documento primeiro.",
+    "replaceNeedsSearch": "Digite um termo para buscar.",
+    "replaceNone": "Nenhuma ocorrência encontrada.",
+    "replaceOneSuccess": "{{count}} ocorrência substituída.",
+    "replaceAllSuccess": "{{count}} ocorrências substituídas."
   }
 }

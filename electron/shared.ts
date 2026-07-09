@@ -36,6 +36,10 @@ export type WriteResult =
   | { ok: true; path: string }
   | { ok: false; canceled?: boolean; error?: string }
 
+export type ImageDataResult =
+  | { ok: true; dataUrl: string }
+  | { ok: false; error?: string }
+
 export type ExportFormat = 'pdf' | 'html' | 'png'
 
 export type ExportPageSize = 'A4' | 'Letter' | 'Legal'
@@ -54,6 +58,8 @@ export interface ExportRequest {
   pageOrientation: ExportPageOrientation
   /** Fully-rendered, standalone HTML document (with inlined CSS). */
   html: string
+  /** Base URL for resolving local assets while rendering HTML exports. */
+  assetBaseUrl?: string
   /** Suggested base name (without extension) for the save dialog. */
   baseName: string
 }
@@ -75,6 +81,7 @@ export type MenuAction = (typeof MENU_ACTIONS)[number]
 export const IPC = {
   openDialog: 'file:open-dialog',
   readPath: 'file:read-path',
+  readImage: 'file:read-image',
   readSample: 'file:read-sample',
   save: 'file:save',
   saveAs: 'file:save-as',
