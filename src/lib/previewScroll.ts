@@ -1,4 +1,4 @@
-export function getPreviewScroller(target: Element | null): HTMLElement | null {
+function getPreviewScroller(target: Element | null): HTMLElement | null {
   return target?.closest('.pane') as HTMLElement | null
 }
 

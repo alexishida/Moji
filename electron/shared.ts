@@ -2,7 +2,7 @@
 
 export type Theme = 'light' | 'dark'
 
-export const SUPPORTED_LANGUAGES = ['en', 'pt-BR', 'es', 'ja', 'zh'] as const
+export const SUPPORTED_LANGUAGES = ['en', 'pt-BR', 'es', 'ja', 'zh', 'ru'] as const
 export type Language = (typeof SUPPORTED_LANGUAGES)[number]
 export const DEFAULT_LANGUAGE: Language = 'en'
 
@@ -64,19 +64,6 @@ export interface ExportRequest {
   baseName: string
 }
 
-/** Menu actions the main process forwards to the focused renderer. */
-export const MENU_ACTIONS = [
-  'open',
-  'save',
-  'save-as',
-  'export:html',
-  'export:pdf',
-  'toggle-edit',
-  'toggle-theme',
-  'request-close'
-] as const
-export type MenuAction = (typeof MENU_ACTIONS)[number]
-
 /** IPC channel names. */
 export const IPC = {
   openDialog: 'file:open-dialog',
@@ -88,9 +75,8 @@ export const IPC = {
   export: 'doc:export',
   getSettings: 'settings:get',
   setSettings: 'settings:set',
-  setLanguage: 'settings:set-language',
   confirmClose: 'app:confirm-close',
   // main -> renderer push channels
-  openDocument: 'doc:open',
-  menuAction: 'menu:action'
+  requestClose: 'app:request-close',
+  openDocument: 'doc:open'
 } as const

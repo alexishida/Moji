@@ -21,7 +21,7 @@ O app Electron usa um shell em camadas:
 - **Body** (`.body`): sidebar + area principal.
 - **Sidebar** (`.sidebar`): coluna de `--sidebar-w`, visivel com documento aberto. No modo preview mostra a arvore de outline gerada dos headings (aninhada por nivel) e destaca o heading ativo.
 - **Main/workspace** (`.main`, `.workspace`): renderiza welcome, preview, editor, dialogo inline de exportacao, painel inline de configuracoes ou painel inline de sobre.
-- **Status bar** (`.statusbar`): rodape de `--statusbar-h`, com marca, guia Markdown e contagem de palavras.
+- **Status bar** (`.statusbar`): rodape de `--statusbar-h`. Esquerda mostra a marca; direita mostra o link de guia Markdown (abre o sample embutido) e contagens de linhas, tokens e palavras do documento ativo.
 
 ## Temas
 
@@ -59,7 +59,7 @@ Nao usar `data-theme` no `<html>` para alternar a UI inteira; o estado atual alt
 | `--topbar-h` | `52px` |
 | `--statusbar-h` | `34px` |
 | `--sidebar-w` | `260px` |
-| `--shadow` | sombra leve para popovers/dialogos |
+| `--shadow` | sombra leve para popover de substituicao e dialogos |
 
 ## Cores
 
@@ -112,7 +112,7 @@ Nao usar `data-theme` no `<html>` para alternar a UI inteira; o estado atual alt
 ## Componentes
 
 - **Top bar** (`.topbar`): flex column, `--chrome-bg`, area arrastavel via `-webkit-app-region: drag`; botoes e inputs internos devem usar `no-drag`.
-- **Botoes de arquivo** (`.topbar__open-btn`): altura 30px, icone + texto, borda `--border`, hover em `--bg-inset`.
+- **Botoes de arquivo** (`.filegroup`, `.filegroup__btn`): altura 30px, icone + texto, borda `--border`, hover em `--bg-inset`.
 - **Busca/substituicao** (`.topbar__search`, `.topbar__replace-popover`): busca segue altura de 30px, fundo `--bg`, borda `--border` e tipografia de 13px. Substituicao abre em popover compacto ancorado no campo de busca, com input de destino, contador de ocorrencias e acoes para localizar proxima, substituir uma ocorrencia ou substituir todas.
 - **Segment** (`.segment`, `.segment__btn`): trilho `--segment-track`, botoes de 30px, ativo em `--segment-active-bg`.
 - **Icon button** (`.iconbtn`): 34x34px, sem borda visivel por padrao, hover em `--bg-inset`, ativo com `--accent`.
@@ -121,12 +121,13 @@ Nao usar `data-theme` no `<html>` para alternar a UI inteira; o estado atual alt
 - **Preview** (`.markdown-body`): largura maxima `--reading-width`, padding `--space-6 --space-5`, tipografia configuravel pelo painel de configuracoes (padrao 16px, linha 1.7), headings com hierarquia clara e codigo em `--code-bg`.
 - **Editor** (`.editor-pane`, `.cm-editor`): ocupa toda a area principal, fonte mono 14px, line wrapping e tema escuro CodeMirror no estado atual.
 - **Export dialog** (`.export-dialog`): dialogo inline centralizado, largura `min(760px, calc(100vw - 32px))`, lista de formatos PDF/HTML/PNG, configuracoes de pagina para PDF.
-- **Settings dialog** (`.settings-dialog`): painel inline centralizado no mesmo padrao do export; contem idioma e configuracoes de preview como familia de fonte, tamanho e altura de linha. Idiomas embarcados atuais: English, Portugues (Brasil), Espanol e Japones.
+- **Settings dialog** (`.settings-dialog`): painel inline centralizado no mesmo padrao do export. Cada grupo (`.settings-section`) e um cartao em `--bg-elevated` com cabecalho (`.settings-section__heading`) em `--bg-inset` e campos empilhados (`.settings-field`) separados por filete `--border`, rotulo a esquerda e controle de 36px a direita. Contem idioma e configuracoes de preview como familia de fonte, tamanho e altura de linha. Idiomas embarcados atuais: English, Portugues (Brasil), Espanol, Japones, Chines e Russo.
 - **About dialog** (`.about-dialog`): painel inline centralizado que reutiliza a estrutura de `.export-dialog`; mostra nome do app, versao (de `package.json`), autor, e-mail, link do repositorio e a explicacao do nome. Aberto pelo botao de informacao na top bar.
-- **Popover/menu** (`.popover`, `.menu__list`): usar `--bg-elevated`, `--border`, `--shadow`, raio de ate `--radius`.
 - **Confirm dialog** (`.dialog`): modal com backdrop, largura `min(420px, 90vw)`, usado para alteracoes nao salvas.
 - **Notice** (`.notice`): toast inferior sobre a status bar; erro usa `--danger`.
-- **Welcome** (`.welcome`): tela vazia centralizada com acoes principais de abrir/criar documento.
+- **Button** (`.btn`, `.btn--primary`): botao padrao de acao usado no welcome. `.btn` tem borda `--border` e fundo `--bg-elevated`; `.btn--primary` usa `--accent`. Aceita icone + texto.
+- **Welcome** (`.welcome`): tela vazia centralizada exibida sem documento aberto. Empilha logo (`.welcome__logo`, `src/assets/logo-mark-light.png`), tagline (`.welcome__tagline`), titulo (`.welcome__title`), acoes de abrir/criar (`.welcome__actions` com `.btn`/`.btn--primary`), subtitulo (`.welcome__subtitle`) e dica de arrastar arquivo (`.welcome__hint`).
+- **Drop overlay** (`.drop-overlay`): sobreposicao em tela cheia ao arrastar arquivo Markdown para a janela.
 
 ## Markdown Renderizado
 
@@ -154,4 +155,4 @@ O preview deve manter suporte visual para:
 - Alvos clicaveis principais com 30px ou mais.
 - Estados hover/foco devem ser visiveis.
 - Botoes iconicos precisam de `title` ou `aria-label`.
-- Menus nativos mantem atalhos de teclado para abrir, salvar, salvar como, alternar editor e alternar tema.
+- Acoes principais ficam acessiveis pela top bar com `title` ou `aria-label` nos botoes iconicos.

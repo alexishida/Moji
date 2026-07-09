@@ -1,6 +1,6 @@
 {
   "app": {
-    "name": "Moji v0.1",
+    "name": "Moji v0.1.0",
     "untitled": "Sin título",
     "modifiedMarker": "•"
   },
@@ -63,16 +63,19 @@
     "noDocument": "Abre o crea un documento para ver su esquema."
   },
   "statusbar": {
-    "brand": "Moji v0.1",
+    "brand": "Moji v0.1.0",
     "guide": "Guía de Markdown",
     "exportPdf": "Exportar PDF",
+    "lineCount": "Líneas: {{count}}",
+    "tokenCount": "Tokens: {{count}}",
     "wordCount": "Palabras: {{count}}"
   },
   "help": {
     "hint": "Abre o suelta un archivo .md, cambia entre Vista previa/Editor en las pestañas superiores y usa el esquema para saltar entre encabezados."
   },
   "welcome": {
-    "title": "Moji v0.1",
+    "tagline": "Un lector de Markdown ligero y sencillo",
+    "title": "Moji v0.1.0",
     "subtitle": "Abre un archivo Markdown para leerlo de forma limpia.",
     "openButton": "Abrir archivo",
     "newButton": "Nuevo archivo",
@@ -113,6 +116,7 @@
     "title": "Acerca de",
     "application": "Aplicación",
     "version": "Versión {{version}}",
+    "authorTitle": "Autor",
     "authorLabel": "Nombre",
     "emailLabel": "Correo",
     "repositoryLabel": "Repositorio",

@@ -16,7 +16,7 @@ import { buildOutline } from './lib/outline'
 import { getActivePreviewHeadingId, scrollPreviewHeadingIntoView } from './lib/previewScroll'
 import { useDebounced } from './lib/useDebounced'
 import { buildStandaloneHtml } from './lib/exportHtml'
-import type { ExportFormat, Language, MenuAction, Settings, Theme } from '../electron/shared'
+import type { ExportFormat, Settings, Theme } from '../electron/shared'
 import packageJson from '../package.json'
 
 interface DocumentState {
@@ -33,9 +33,35 @@ interface DocumentInput {
   content: string
 }
 
+interface DocumentStats {
+  lines: number
+  tokens: number
+  words: number
+}
+
 function countWords(text: string): number {
   const trimmed = text.trim()
   return trimmed ? trimmed.split(/\s+/).length : 0
+}
+
+function countLines(text: string): number {
+  if (!text) return 0
+  return text.split(/\r?\n/).length
+}
+
+function countTokens(text: string): number {
+  const trimmed = text.trim()
+  if (!trimmed) return 0
+
+  return Math.ceil(Array.from(trimmed).length / 4)
+}
+
+function getDocumentStats(text: string): DocumentStats {
+  return {
+    lines: countLines(text),
+    tokens: countTokens(text),
+    words: countWords(text)
+  }
 }
 
 function baseName(path: string | null): string | null {
@@ -107,7 +133,6 @@ export function App(): JSX.Element {
   const [activeDocId, setActiveDocId] = useState<string | null>(null)
   const [mode, setMode] = useState<'view' | 'edit'>('view')
   const [mdTheme, setMdTheme] = useState<Theme>('dark')
-  const [, setLanguage] = useState<Language>('en')
   const [searchTerm, setSearchTerm] = useState('')
   const [activeSearchIndex, setActiveSearchIndex] = useState<number | null>(null)
   const [dragging, setDragging] = useState(false)
@@ -137,7 +162,7 @@ export function App(): JSX.Element {
     [activeDoc?.path, debouncedContent]
   )
   const outline = useMemo(() => buildOutline(html), [html])
-  const words = useMemo(() => countWords(content), [content])
+  const stats = useMemo(() => getDocumentStats(content), [content])
   const searchMatchCount = useMemo(() => findLiteralMatches(content, searchTerm.trim()).length, [content, searchTerm])
   const tabs = useMemo<DocumentTabItem[]>(
     () =>
@@ -274,7 +299,6 @@ export function App(): JSX.Element {
   useEffect(() => {
     void window.api.getSettings().then((s) => {
       setSettings(s)
-      setLanguage(s.language)
       void i18n.changeLanguage(s.language)
     })
   }, [i18n])
@@ -351,15 +375,6 @@ export function App(): JSX.Element {
     }
     return saveDocument(doc.id)
   }, [flash, saveDocument, t])
-
-  const doSaveAs = useCallback(async (): Promise<boolean> => {
-    const doc = stateRef.current.activeDoc
-    if (!doc) {
-      flash(t('notice.noDocument'), true)
-      return false
-    }
-    return saveDocumentAs(doc.id)
-  }, [flash, saveDocumentAs, t])
 
   const confirmUnsavedDocument = useCallback(
     async (docId: string): Promise<'proceed' | 'cancel'> => {
@@ -459,14 +474,6 @@ export function App(): JSX.Element {
     [doExport]
   )
 
-  const toggleEdit = useCallback(() => {
-    if (!stateRef.current.hasDoc) return
-    setExportDialogFormat(null)
-    setSettingsOpen(false)
-    setAboutOpen(false)
-    setMode((m) => (m === 'view' ? 'edit' : 'view'))
-  }, [])
-
   const setModeSafe = useCallback((next: 'view' | 'edit') => {
     if (!stateRef.current.hasDoc) return
     setExportDialogFormat(null)
@@ -532,10 +539,19 @@ export function App(): JSX.Element {
   )
 
   const doGuide = useCallback(async () => {
-    const res = await window.api.readSample('guia-markdown-completo.md')
+    const guideFiles: Record<string, string> = {
+      'en': 'complete-markdown-guide.md',
+      'pt-BR': 'guia-markdown-completo.md',
+      'es': 'guia-markdown.es.md',
+      'ja': 'guia-markdown.ja.md',
+      'zh': 'guia-markdown.zh.md',
+      'ru': 'guia-markdown.ru.md',
+    }
+    const guideFile = guideFiles[i18n.language] ?? guideFiles['en']
+    const res = await window.api.readSample(guideFile)
     if (res.ok) addDocuments([{ path: res.path, content: res.content }])
     else flash(t('notice.openFailed', { error: res.error }), true)
-  }, [addDocuments, flash, t])
+  }, [addDocuments, flash, i18n.language, t])
 
   const selectDocument = useCallback((docId: string) => {
     setActiveDocId(docId)
@@ -585,26 +601,18 @@ export function App(): JSX.Element {
     setMdTheme((prev) => (prev === 'dark' ? 'light' : 'dark'))
   }, [canToggleMdTheme])
 
-  const changeLanguage = useCallback(
-    (lang: Language) => {
-      setLanguage(lang)
-      setSettings((prev) => ({ ...prev, language: lang }))
-      void i18n.changeLanguage(lang)
-      void window.api.setLanguage(lang)
-    },
-    [i18n]
-  )
-
   const changeSettings = useCallback(
     (patch: Partial<Settings>) => {
       setSettings((prev) => ({ ...prev, ...patch, theme: 'dark' }))
       if (patch.language) {
-        changeLanguage(patch.language)
-        return
+        void i18n.changeLanguage(patch.language)
       }
-      void window.api.setSettings(patch).then((next) => setSettings(next))
+      void window.api.setSettings(patch).then((next) => {
+        setSettings(next)
+        if (patch.language && next.language !== i18n.language) void i18n.changeLanguage(next.language)
+      })
     },
-    [changeLanguage]
+    [i18n]
   )
 
   const openSettings = useCallback(() => {
@@ -619,59 +627,19 @@ export function App(): JSX.Element {
     setAboutOpen(true)
   }, [])
 
-  // --- Wire menu actions + pushed documents -----------------------------
+  // --- Wire main-process requests + pushed documents --------------------
   useEffect(() => {
-    const offMenu = window.api.onMenuAction((action: MenuAction) => {
-      switch (action) {
-        case 'open':
-          void doOpen()
-          break
-        case 'save':
-          void doSave()
-          break
-        case 'save-as':
-          void doSaveAs()
-          break
-        case 'export:html':
-          openExportDialog('html')
-          break
-        case 'export:pdf':
-          openExportDialog('pdf')
-          break
-        case 'toggle-edit':
-          toggleEdit()
-          break
-         case 'toggle-theme':
-          toggleMdTheme()
-          break
-        case 'request-close':
-          void confirmAnyUnsaved().then((r) => window.api.confirmClose(r === 'proceed'))
-          break
-      }
+    const offClose = window.api.onCloseRequest(() => {
+      void confirmAnyUnsaved().then((result) => window.api.confirmClose(result === 'proceed'))
     })
     const offDoc = window.api.onOpenDocument((doc) => {
       addDocuments([{ path: doc.path, content: doc.content }])
     })
-    const offLang = window.api.onLanguageChanged((lang) => {
-      setLanguage(lang)
-      void i18n.changeLanguage(lang)
-    })
     return () => {
-      offMenu()
+      offClose()
       offDoc()
-      offLang()
     }
-  }, [
-    doOpen,
-    doSave,
-    doSaveAs,
-    openExportDialog,
-    toggleEdit,
-    toggleMdTheme,
-    confirmAnyUnsaved,
-    addDocuments,
-    i18n
-  ])
+  }, [confirmAnyUnsaved, addDocuments])
 
   // --- Drag & drop -------------------------------------------------------
   const onDrop = useCallback(
@@ -728,7 +696,6 @@ export function App(): JSX.Element {
 
       {hasDoc && (
         <DocumentTabs
-          variant="bar"
           tabs={tabs}
           activeId={activeDocId}
           onSelect={selectDocument}
@@ -786,7 +753,7 @@ export function App(): JSX.Element {
         </main>
       </div>
 
-      <StatusBar hasDoc={hasDoc} words={words} onGuide={doGuide} />
+      <StatusBar hasDoc={hasDoc} stats={stats} onGuide={doGuide} />
 
       {dragging && <div className="drop-overlay">{t('welcome.dropHint')}</div>}
       {notice && <div className={`notice ${notice.error ? 'notice--error' : ''}`}>{notice.text}</div>}

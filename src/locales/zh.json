@@ -1,6 +1,6 @@
 {
   "app": {
-    "name": "Moji v0.1",
+    "name": "Moji v0.1.0",
     "untitled": "无标题",
     "modifiedMarker": "•"
   },
@@ -63,16 +63,19 @@
     "noDocument": "打开或创建一个文档以查看其大纲。"
   },
   "statusbar": {
-    "brand": "Moji v0.1",
+    "brand": "Moji v0.1.0",
     "guide": "Markdown 指南",
     "exportPdf": "导出 PDF",
+    "lineCount": "行数：{{count}}",
+    "tokenCount": "Tokens：{{count}}",
     "wordCount": "字数：{{count}}"
   },
   "help": {
     "hint": "打开或拖入 .md 文件，从顶部标签切换预览／编辑器，并使用大纲在标题间跳转。"
   },
   "welcome": {
-    "title": "Moji v0.1",
+    "tagline": "轻量简洁的 Markdown 阅读器",
+    "title": "Moji v0.1.0",
     "subtitle": "打开 Markdown 文件以清晰地阅读。",
     "openButton": "打开文件",
     "newButton": "新建文件",
@@ -113,6 +116,7 @@
     "title": "关于",
     "application": "应用程序",
     "version": "版本 {{version}}",
+    "authorTitle": "作者",
     "authorLabel": "名称",
     "emailLabel": "电子邮件",
     "repositoryLabel": "代码仓库",

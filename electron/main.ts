@@ -5,10 +5,9 @@ import { extname, isAbsolute, join } from 'node:path'
 import {
   IPC,
   MARKDOWN_EXTENSIONS,
-  type ExportRequest,
+  SUPPORTED_LANGUAGES,
   type ImageDataResult,
   type Language,
-  type MenuAction,
   type OpenManyResult,
   type OpenResult,
   type Settings,
@@ -22,12 +21,49 @@ let pendingOpenPath: string | null = null
 let forceQuit = false
 
 const IMAGE_EXTENSIONS = new Set(['.avif', '.bmp', '.gif', '.ico', '.jpeg', '.jpg', '.png', '.svg', '.webp'])
+const SAMPLE_FILES = new Set([
+  'complete-markdown-guide.md',
+  'guia-markdown-completo.md',
+  'guia-markdown.es.md',
+  'guia-markdown.ja.md',
+  'guia-markdown.zh.md',
+  'guia-markdown.ru.md',
+])
+
+function asString(value: unknown): string | null {
+  return typeof value === 'string' ? value : null
+}
+
+function isLanguage(value: unknown): value is Language {
+  return typeof value === 'string' && (SUPPORTED_LANGUAGES as readonly string[]).includes(value)
+}
+
+function sanitizeSettingsPatch(value: unknown): Partial<Settings> {
+  if (!value || typeof value !== 'object') return {}
+  const raw = value as Record<string, unknown>
+  const patch: Partial<Settings> = {}
+
+  if (isLanguage(raw['language'])) patch.language = raw['language']
+  if (typeof raw['previewFontFamily'] === 'string') patch.previewFontFamily = raw['previewFontFamily']
+  if (typeof raw['previewFontSize'] === 'number') patch.previewFontSize = raw['previewFontSize']
+  if (typeof raw['previewLineHeight'] === 'number') patch.previewLineHeight = raw['previewLineHeight']
+
+  return patch
+}
+
+function suggestedMarkdownName(value: unknown): string {
+  if (typeof value !== 'string') return 'untitled.md'
+  const name = value.replace(/[\\/]/g, '').trim()
+  if (!name) return 'untitled.md'
+  return isMarkdown(name) ? name : `${name}.md`
+}
 
 function stripLeadingBom(content: string): string {
   return content.startsWith('\uFEFF') ? content.slice(1) : content
 }
 
-function isMarkdown(filePath: string): boolean {
+function isMarkdown(filePath: unknown): filePath is string {
+  if (typeof filePath !== 'string') return false
   return (MARKDOWN_EXTENSIONS as readonly string[]).includes(extname(filePath).toLowerCase())
 }
 
@@ -59,7 +95,8 @@ function imageMimeType(filePath: string): string {
   }
 }
 
-async function readImageAsDataUrl(filePath: string): Promise<ImageDataResult> {
+async function readImageAsDataUrl(filePath: unknown): Promise<ImageDataResult> {
+  if (typeof filePath !== 'string') return { ok: false, error: 'unsupported' }
   if (!isAbsolute(filePath) || !isSupportedImage(filePath)) return { ok: false, error: 'unsupported' }
   try {
     const image = await readFile(filePath)
@@ -78,11 +115,12 @@ function fileFromArgv(argv: string[]): string | null {
   return null
 }
 
-function samplePath(sampleName: string): string {
+function samplePath(sampleName: unknown): string | null {
+  if (typeof sampleName !== 'string' || !SAMPLE_FILES.has(sampleName)) return null
   return join(app.getAppPath(), 'samples', sampleName)
 }
 
-async function readDocument(filePath: string): Promise<OpenResult> {
+async function readDocument(filePath: unknown): Promise<OpenResult> {
   if (!isMarkdown(filePath)) return { ok: false, error: 'unsupported' }
   try {
     const content = stripLeadingBom(await readFile(filePath, 'utf-8'))
@@ -104,29 +142,29 @@ async function openDocument(filePath: string): Promise<void> {
   }
 }
 
-function sendMenuAction(action: MenuAction): void {
-  mainWindow?.webContents.send(IPC.menuAction, action)
-}
-
-function applyLanguage(lang: Language): void {
-  updateSettings({ language: lang })
-  mainWindow?.webContents.send(IPC.setLanguage, lang)
+function requestClose(): void {
+  mainWindow?.webContents.send(IPC.requestClose)
 }
 
 function createWindow(): void {
+  // In dev the app path is the project root, so build/icon.png resolves. When
+  // packaged, Windows/macOS use the installer icon from electron-builder instead.
+  const iconPath = join(app.getAppPath(), 'build', 'icon.png')
   mainWindow = new BrowserWindow({
     width: 1000,
-    height: 720,
+    height: 760,
     minWidth: 640,
     minHeight: 480,
     show: false,
+    icon: existsSync(iconPath) ? iconPath : undefined,
     backgroundColor: getSettings().theme === 'dark' ? '#1e1e1e' : '#ffffff',
     autoHideMenuBar: true,
     webPreferences: {
       preload: join(__dirname, '../preload/preload.js'),
       nodeIntegration: false,
       contextIsolation: true,
-      sandbox: true
+      sandbox: true,
+      webSecurity: true
     }
   })
 
@@ -145,11 +183,18 @@ function createWindow(): void {
     return { action: 'deny' }
   })
 
+  mainWindow.webContents.on('will-navigate', (event, url) => {
+    const devUrl = process.env['ELECTRON_RENDERER_URL']
+    if ((devUrl && url.startsWith(devUrl)) || (!devUrl && url.startsWith('file://'))) return
+    event.preventDefault()
+    if (url.startsWith('http:') || url.startsWith('https:')) void shell.openExternal(url)
+  })
+
   // Close guard: ask the renderer before closing when there are unsaved edits.
   mainWindow.on('close', (e) => {
     if (forceQuit) return
     e.preventDefault()
-    sendMenuAction('request-close')
+    requestClose()
   })
 
   mainWindow.on('closed', () => {
@@ -167,15 +212,16 @@ function createWindow(): void {
 function registerIpc(): void {
   ipcMain.handle(IPC.getSettings, (): Settings => getSettings())
 
-  ipcMain.handle(IPC.setSettings, (_e, patch: Partial<Settings>): Settings => updateSettings(patch))
-
-  ipcMain.handle(IPC.setLanguage, (_e, lang: Language): void => applyLanguage(lang))
+  ipcMain.handle(IPC.setSettings, (_e, patch: unknown): Settings => updateSettings(sanitizeSettingsPatch(patch)))
 
   ipcMain.handle(IPC.openDialog, async (): Promise<OpenManyResult> => {
-    const { canceled, filePaths } = await dialog.showOpenDialog(mainWindow!, {
+    const options: Electron.OpenDialogOptions = {
       properties: ['openFile', 'multiSelections'],
       filters: [{ name: 'Markdown', extensions: ['md', 'markdown'] }]
-    })
+    }
+    const { canceled, filePaths } = mainWindow
+      ? await dialog.showOpenDialog(mainWindow, options)
+      : await dialog.showOpenDialog(options)
     if (canceled || filePaths.length === 0) return { ok: false, canceled: true }
     const results = await Promise.all(filePaths.map((filePath) => readDocument(filePath)))
     const failed = results.find((result) => !result.ok)
@@ -188,26 +234,35 @@ function registerIpc(): void {
     }
   })
 
-  ipcMain.handle(IPC.readPath, (_e, filePath: string): Promise<OpenResult> => readDocument(filePath))
+  ipcMain.handle(IPC.readPath, (_e, filePath: unknown): Promise<OpenResult> => readDocument(filePath))
 
-  ipcMain.handle(IPC.readImage, (_e, filePath: string): Promise<ImageDataResult> => readImageAsDataUrl(filePath))
+  ipcMain.handle(IPC.readImage, (_e, filePath: unknown): Promise<ImageDataResult> => readImageAsDataUrl(filePath))
 
-  ipcMain.handle(IPC.readSample, (_e, name: string): Promise<OpenResult> => readDocument(samplePath(name)))
+  ipcMain.handle(IPC.readSample, (_e, name: unknown): Promise<OpenResult> => {
+    const path = samplePath(name)
+    return path ? readDocument(path) : Promise.resolve({ ok: false, error: 'unsupported' })
+  })
 
-  ipcMain.handle(IPC.save, async (_e, filePath: string, content: string): Promise<WriteResult> => {
+  ipcMain.handle(IPC.save, async (_e, filePath: unknown, content: unknown): Promise<WriteResult> => {
+    const path = asString(filePath)
+    if (!path || !isMarkdown(path) || typeof content !== 'string') return { ok: false, error: 'unsupported' }
     try {
-      await writeFile(filePath, content, 'utf-8')
-      return { ok: true, path: filePath }
+      await writeFile(path, content, 'utf-8')
+      return { ok: true, path }
     } catch (err) {
       return { ok: false, error: (err as Error).message }
     }
   })
 
-  ipcMain.handle(IPC.saveAs, async (_e, content: string, suggestedName?: string): Promise<WriteResult> => {
-    const { canceled, filePath } = await dialog.showSaveDialog(mainWindow!, {
-      defaultPath: suggestedName ?? 'untitled.md',
+  ipcMain.handle(IPC.saveAs, async (_e, content: unknown, suggestedName?: unknown): Promise<WriteResult> => {
+    if (typeof content !== 'string') return { ok: false, error: 'unsupported' }
+    const options: Electron.SaveDialogOptions = {
+      defaultPath: suggestedMarkdownName(suggestedName),
       filters: [{ name: 'Markdown', extensions: ['md', 'markdown'] }]
-    })
+    }
+    const { canceled, filePath } = mainWindow
+      ? await dialog.showSaveDialog(mainWindow, options)
+      : await dialog.showSaveDialog(options)
     if (canceled || !filePath) return { ok: false, canceled: true }
     try {
       await writeFile(filePath, content, 'utf-8')
@@ -217,10 +272,10 @@ function registerIpc(): void {
     }
   })
 
-  ipcMain.handle(IPC.export, (_e, request: ExportRequest): Promise<WriteResult> => exportDocument(request))
+  ipcMain.handle(IPC.export, (_e, request: unknown): Promise<WriteResult> => exportDocument(request))
 
-  ipcMain.handle(IPC.confirmClose, (_e, shouldClose: boolean): void => {
-    if (shouldClose && mainWindow) {
+  ipcMain.handle(IPC.confirmClose, (_e, shouldClose: unknown): void => {
+    if (shouldClose === true && mainWindow) {
       forceQuit = true
       mainWindow.close()
     }

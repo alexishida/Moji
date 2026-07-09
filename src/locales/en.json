@@ -1,6 +1,6 @@
 {
   "app": {
-    "name": "Moji v0.1",
+    "name": "Moji v0.1.0",
     "untitled": "Untitled",
     "modifiedMarker": "•"
   },
@@ -63,16 +63,19 @@
     "noDocument": "Open or create a document to see its outline."
   },
   "statusbar": {
-    "brand": "Moji v0.1",
+    "brand": "Moji v0.1.0",
     "guide": "Markdown Guide",
     "exportPdf": "Export PDF",
+    "lineCount": "Lines: {{count}}",
+    "tokenCount": "Tokens: {{count}}",
     "wordCount": "Words: {{count}}"
   },
   "help": {
     "hint": "Open or drop a .md file, switch Preview/Editor from the top tabs, and use the outline to jump between headings."
   },
   "welcome": {
-    "title": "Moji v0.1",
+    "tagline": "A lightweight, simple Markdown reader",
+    "title": "Moji v0.1.0",
     "subtitle": "Open a Markdown file to read it cleanly.",
     "openButton": "Open File",
     "newButton": "New File",
@@ -113,6 +116,7 @@
     "title": "About",
     "application": "Application",
     "version": "Version {{version}}",
+    "authorTitle": "Author",
     "authorLabel": "Name",
     "emailLabel": "Email",
     "repositoryLabel": "Repository",
