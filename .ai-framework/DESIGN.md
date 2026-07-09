@@ -37,6 +37,10 @@ O preview/export usa `data-md-theme="light|dark"` no container do Markdown. O te
 - `--border-strong`
 - `--accent`
 - `--code-bg`
+- `--code-text`
+- `--code-border`
+- `--table-header-bg`
+- `--table-stripe-bg`
 - `--hl-*`
 
 Nao usar `data-theme` no `<html>` para alternar a UI inteira; o estado atual alterna apenas a leitura/exportacao.
@@ -73,7 +77,11 @@ Nao usar `data-theme` no `<html>` para alternar a UI inteira; o estado atual alt
 | `--accent` | `#4c9aff` |
 | `--accent-hover` | `#63a9ff` |
 | `--accent-contrast` | `#0b1a33` |
-| `--code-bg` | `#161616` |
+| `--code-bg` | `#282c34` |
+| `--code-text` | `#abb2bf` |
+| `--code-border` | `#3a404b` |
+| `--table-header-bg` | `#252526` |
+| `--table-stripe-bg` | `#252526` |
 | `--danger` | `#ff6b6b` |
 | `--brand` | `#6ea8ff` |
 | `--sidebar-bg` | `#1a1a1b` |
@@ -96,6 +104,10 @@ Nao usar `data-theme` no `<html>` para alternar a UI inteira; o estado atual alt
 | `--border-strong` | `#c2c9d1` |
 | `--accent` | `#2f6fed` |
 | `--code-bg` | `#f4f6f8` |
+| `--code-text` | `#24292f` |
+| `--code-border` | `#d8dee4` |
+| `--table-header-bg` | `#f8fafc` |
+| `--table-stripe-bg` | `#f5f7fa` |
 
 ## Componentes
 

@@ -36,6 +36,8 @@
   --code-bg: #282c34;
   --code-text: #abb2bf;
   --code-border: #3a404b;
+  --table-header-bg: #252526;
+  --table-stripe-bg: #252526;
   --danger: #ff6b6b;
 
   /* app chrome (dark) */
@@ -67,15 +69,17 @@
   --border: #d5dae0;
   --border-strong: #c2c9d1;
   --accent: #2f6fed;
-  --code-bg: #282c34;
-  --code-text: #abb2bf;
-  --code-border: #3a404b;
+  --code-bg: #f4f6f8;
+  --code-text: #24292f;
+  --code-border: #d8dee4;
+  --table-header-bg: #f8fafc;
+  --table-stripe-bg: #f5f7fa;
 
-  --hl-comment: #5c6370;
-  --hl-keyword: #c678dd;
-  --hl-string: #98c379;
-  --hl-number: #d19a66;
-  --hl-title: #61afef;
-  --hl-attr: #e06c75;
-  --hl-symbol: #56b6c2;
+  --hl-comment: #6a737d;
+  --hl-keyword: #d73a49;
+  --hl-string: #032f62;
+  --hl-number: #005cc5;
+  --hl-title: #6f42c1;
+  --hl-attr: #e36209;
+  --hl-symbol: #22863a;
 }

@@ -158,9 +158,24 @@ export function App(): JSX.Element {
     mode,
     mdTheme,
     dirty,
-    hasDirtyDocs
+    hasDirtyDocs,
+    exportDialogOpen: false,
+    settingsOpen: false,
+    aboutOpen: false
   })
-  stateRef.current = { documents, activeDocId, activeDoc, hasDoc, mode, mdTheme, dirty, hasDirtyDocs }
+  stateRef.current = {
+    documents,
+    activeDocId,
+    activeDoc,
+    hasDoc,
+    mode,
+    mdTheme,
+    dirty,
+    hasDirtyDocs,
+    exportDialogOpen: exportDialogFormat !== null,
+    settingsOpen,
+    aboutOpen
+  }
 
   const flash = useCallback((text: string, error = false) => {
     setNotice({ text, error })
@@ -560,9 +575,15 @@ export function App(): JSX.Element {
     setActiveHeadingId(id)
   }, [])
 
-  const toggleMdTheme = useCallback(() => {
-    setMdTheme((prev) => (prev === 'dark' ? 'light' : 'dark'))
+  const canToggleMdTheme = useCallback(() => {
+    const s = stateRef.current
+    return s.hasDoc && s.mode === 'view' && !s.exportDialogOpen && !s.settingsOpen && !s.aboutOpen
   }, [])
+
+  const toggleMdTheme = useCallback(() => {
+    if (!canToggleMdTheme()) return
+    setMdTheme((prev) => (prev === 'dark' ? 'light' : 'dark'))
+  }, [canToggleMdTheme])
 
   const changeLanguage = useCallback(
     (lang: Language) => {
@@ -698,6 +719,7 @@ export function App(): JSX.Element {
         onReplace={doReplace}
         searchMatchCount={searchMatchCount}
         activeSearchIndex={activeSearchIndex}
+        canToggleTheme={canToggleMdTheme()}
         onToggleTheme={toggleMdTheme}
         onExport={openExportDialog}
         onOpenSettings={openSettings}

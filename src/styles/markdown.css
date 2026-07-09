@@ -115,8 +115,12 @@
   border: 1px solid var(--border);
 }
 
+.markdown-body th {
+  background: var(--table-header-bg);
+}
+
 .markdown-body tr:nth-child(2n) {
-  background: var(--bg-elevated);
+  background: var(--table-stripe-bg);
 }
 
 /* Task lists */
