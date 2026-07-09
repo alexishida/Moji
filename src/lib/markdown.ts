@@ -61,7 +61,7 @@ DOMPurify.addHook('afterSanitizeAttributes', (node) => {
 
 /** Render Markdown to sanitized HTML safe to inject into the preview. */
 export function renderMarkdown(source: string): string {
-  const rawHtml = md.render(source ?? '')
+  const rawHtml = md.render((source ?? '').replace(/^\uFEFF/, ''))
   return DOMPurify.sanitize(rawHtml, {
     // html for the document, mathMl + svg for KaTeX output. `eq`/`eqn` are the
     // wrapper tags markdown-it-texmath emits around each formula.
