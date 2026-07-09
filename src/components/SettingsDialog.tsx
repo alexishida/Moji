@@ -1,6 +1,6 @@
 import { useTranslation } from 'react-i18next'
 import { LANGUAGES } from '../i18n'
-import { IconX } from './icons'
+import { IconSettings, IconX } from './icons'
 import type { Language, Settings } from '../../electron/shared'
 
 interface SettingsDialogProps {
@@ -22,7 +22,10 @@ export function SettingsDialog({ settings, onClose, onChange }: SettingsDialogPr
   return (
     <section className="export-dialog settings-dialog" aria-label={t('settingsDialog.title')}>
       <header className="export-dialog__header">
-        <h2 className="export-dialog__title">{t('settingsDialog.title')}</h2>
+        <h2 className="export-dialog__title">
+          <IconSettings width={18} height={18} aria-hidden="true" />
+          <span>{t('settingsDialog.title')}</span>
+        </h2>
         <button className="iconbtn" onClick={onClose} title={t('dialog.cancel')} aria-label={t('dialog.cancel')}>
           <IconX />
         </button>

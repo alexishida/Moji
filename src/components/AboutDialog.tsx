@@ -1,5 +1,6 @@
 import { useTranslation } from 'react-i18next'
 import { IconX } from './icons'
+import logoMark from '../assets/logo-mark-light.png'
 
 interface AboutDialogProps {
   version: string
@@ -20,14 +21,19 @@ export function AboutDialog({ version, onClose }: AboutDialogProps): JSX.Element
 
       <div className="about-dialog__body">
         <section className="about-dialog__hero">
-          <p className="about-dialog__eyebrow">{t('aboutDialog.application')}</p>
-          <h3 className="about-dialog__name">Moji v{version}</h3>
-          <p className="about-dialog__version">{t('aboutDialog.version', { version })}</p>
+          <div className="about-dialog__mark" aria-hidden="true">
+            <img className="about-dialog__mark-img" src={logoMark} alt="" />
+          </div>
+          <div className="about-dialog__hero-content">
+            <p className="about-dialog__eyebrow">{t('aboutDialog.application')}</p>
+            <h3 className="about-dialog__name">Moji</h3>
+            <span className="about-dialog__badge">{t('aboutDialog.version', { version })}</span>
+          </div>
         </section>
 
         <section className="settings-section" aria-labelledby="about-author-heading">
           <h3 className="settings-section__heading" id="about-author-heading">
-            {t('aboutDialog.authorLabel')}
+            {t('aboutDialog.authorTitle')}
           </h3>
 
           <div className="about-dialog__meta">
@@ -49,7 +55,7 @@ export function AboutDialog({ version, onClose }: AboutDialogProps): JSX.Element
                 target="_blank"
                 rel="noreferrer"
               >
-                alexishida/moji
+                https://github.com/alexishida/moji
               </a>
             </div>
           </div>

@@ -1,10 +1,28 @@
-# Moji
+<p align="center">
+  <img src="src/assets/logo-mark-light.png" alt="Moji" width="120" />
+</p>
 
-Clean desktop app for opening, reading, editing, and exporting Markdown files. Built with Electron, React, TypeScript, and electron-vite.
+<h1 align="center">Moji</h1>
+
+<p align="center">A lightweight, clean desktop app for opening, reading, editing, and exporting Markdown files.</p>
+
+<p align="center">Built with Electron, React, TypeScript, and electron-vite.</p>
+
+## Screenshots
+
+<p align="center">
+  <img src="docs/scr-welcome.jpg" alt="Welcome" width="45%" />
+  <img src="docs/scr-main.jpg" alt="Preview" width="45%" />
+</p>
+
+<p align="center">
+  <img src="docs/scr-edit.jpg" alt="Editor" width="45%" />
+  <img src="docs/scr-export.jpg" alt="Export" width="45%" />
+</p>
 
 ## Name
 
-**Moji (文字)** significa literalmente "letra", "caractere" ou "escrita" em japonês.
+**Moji (文字)** literally means "letter", "character", or "writing" in Japanese. It fits an app focused on opening, editing, and exporting Markdown with as little friction as possible.
 
 ## Features
 
@@ -18,8 +36,8 @@ Clean desktop app for opening, reading, editing, and exporting Markdown files. B
 - **Settings view**: centered in-workspace panel for language and preview typography controls.
 - **About view**: in-workspace panel showing app name, version (from `package.json`), author, repository link, and the story behind the name.
 - **Markdown guide**: bundled reference document (`samples/guia-markdown-completo.md`) opened from the status bar.
-- **Markdown themes**: dark/light toggle for rendered Markdown and exported output. App chrome remains dark.
-- **Internationalization**: English, Portuguese (Brazil), Spanish, and Japanese. Initial language follows the OS when possible and user choice is persisted.
+- **Markdown themes**: dark/light toggle for rendered Markdown and exported output. App chrome remains dark; exports always use the light theme.
+- **Internationalization**: English, Portuguese (Brazil), Spanish, Japanese, Chinese, and Russian. Initial language follows the OS when possible and user choice is persisted.
 - **Security**: sandboxed renderer, context isolation, `nodeIntegration: false`, DOMPurify sanitization, and external links opened in the OS browser.
 
 ## Requirements
@@ -67,19 +85,17 @@ electron/
   main.ts        Window lifecycle, file opening, single-instance flow, close guard, IPC registration
   preload.ts     Safe renderer API exposed through contextBridge
   shared.ts      Shared IPC names, settings, export types, languages, supported extensions
-  menu.ts        Native menu and language switching
   settings.ts    User settings persistence
   export.ts      HTML/PDF/PNG export implementation
-  i18n-main.ts   Locale lookup for native menu labels
 
 src/
-  App.tsx        Renderer state, document actions, menu wiring, mode switching
+  App.tsx        Renderer state, document actions, close guard wiring, mode switching
   components/    Top bar, tabs, sidebar, outline tree, preview, editor, export/settings/about dialogs, confirm dialog, welcome view
-  lib/           Markdown rendering, outline extraction, preview scroll-spy, export HTML, guide content, hooks
-  locales/       en, pt-BR, es, ja translation files
+  lib/           Markdown rendering, outline extraction, preview scroll-spy, export HTML, hooks
+  locales/       en, pt-BR, es, ja, zh, ru translation files
   styles/        Theme tokens, app shell CSS, Markdown preview CSS
 
-samples/         Bundled Markdown documents (welcome, full Markdown guide)
+samples/         Bundled Markdown documents (full Markdown guide)
 ```
 
 ## Documentation
@@ -87,3 +103,7 @@ samples/         Bundled Markdown documents (welcome, full Markdown guide)
 - `.ai-framework/RULES.md`: project rules for AI-assisted changes.
 - `.ai-framework/DESIGN.md`: visual system, tokens, layout, and component rules.
 - `openspec/specs/`: current behavior specs.
+
+## License
+
+MIT © Alex Ishida

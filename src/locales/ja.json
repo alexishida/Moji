@@ -1,6 +1,6 @@
 {
   "app": {
-    "name": "Moji v0.1",
+    "name": "Moji v0.1.0",
     "untitled": "無題",
     "modifiedMarker": "•"
   },
@@ -63,16 +63,19 @@
     "noDocument": "ドキュメントを開くか新規作成するとアウトラインが表示されます。"
   },
   "statusbar": {
-    "brand": "Moji v0.1",
+    "brand": "Moji v0.1.0",
     "guide": "Markdown ガイド",
     "exportPdf": "PDF をエクスポート",
+    "lineCount": "行数: {{count}}",
+    "tokenCount": "トークン: {{count}}",
     "wordCount": "単語数: {{count}}"
   },
   "help": {
     "hint": ".md ファイルを開くかドロップし、上部タブでプレビューとエディターを切り替え、アウトラインで見出し間を移動できます。"
   },
   "welcome": {
-    "title": "Moji v0.1",
+    "tagline": "軽くてシンプルな Markdown リーダー",
+    "title": "Moji v0.1.0",
     "subtitle": "Markdown ファイルを開いて、すっきり読めます。",
     "openButton": "ファイルを開く",
     "newButton": "新規ファイル",
@@ -113,6 +116,7 @@
     "title": "このアプリについて",
     "application": "アプリケーション",
     "version": "バージョン {{version}}",
+    "authorTitle": "作成者",
     "authorLabel": "名前",
     "emailLabel": "メール",
     "repositoryLabel": "リポジトリ",

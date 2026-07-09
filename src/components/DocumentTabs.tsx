@@ -12,27 +12,20 @@ interface DocumentTabsProps {
   activeId: string | null
   onSelect: (id: string) => void
   onClose: (id: string) => void
-  /** 'bar' = horizontal strip; 'stack' = vertical list for the sidebar. */
-  variant?: 'bar' | 'stack'
 }
 
 export function DocumentTabs({
   tabs,
   activeId,
   onSelect,
-  onClose,
-  variant = 'bar'
+  onClose
 }: DocumentTabsProps): JSX.Element | null {
   const { t } = useTranslation()
 
   if (tabs.length === 0) return null
 
   return (
-    <div
-      className={`document-tabs ${variant === 'stack' ? 'document-tabs--stack' : ''}`}
-      role="tablist"
-      aria-label={t('tabs.documents')}
-    >
+    <div className="document-tabs" role="tablist" aria-label={t('tabs.documents')}>
       {tabs.map((tab) => (
         <div
           key={tab.id}

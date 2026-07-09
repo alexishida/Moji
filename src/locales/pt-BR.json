@@ -1,6 +1,6 @@
 {
   "app": {
-    "name": "Moji v0.1",
+    "name": "Moji v0.1.0",
     "untitled": "Sem título",
     "modifiedMarker": "•"
   },
@@ -63,20 +63,23 @@
     "noDocument": "Abra ou crie um documento para ver o sumário."
   },
   "statusbar": {
-    "brand": "Moji v0.1",
+    "brand": "Moji v0.1.0",
     "guide": "Guia de Markdown",
     "exportPdf": "Exportar PDF",
+    "lineCount": "Linhas: {{count}}",
+    "tokenCount": "Tokens: {{count}}",
     "wordCount": "Palavras: {{count}}"
   },
   "help": {
     "hint": "Abra ou solte um arquivo .md, alterne entre Visualizar/Editor nas abas superiores e use o sumário para navegar entre os títulos."
   },
   "welcome": {
-    "title": "Moji v0.1",
-    "subtitle": "Abra um arquivo Markdown para lê-lo de forma limpa.",
+    "tagline": "Um leitor de Markdown leve e simples",
+    "title": "Moji v0.1.0",
+    "subtitle": "Abra um Markdown para ler com clareza, sem distrações.",
     "openButton": "Abrir arquivo",
     "newButton": "Novo Arquivo",
-    "dropHint": "ou solte um arquivo .md em qualquer lugar desta janela"
+    "dropHint": "ou arraste um arquivo .md para esta janela"
   },
   "dialog": {
     "unsavedTitle": "Alterações não salvas",
@@ -113,6 +116,7 @@
     "title": "Sobre",
     "application": "Aplicativo",
     "version": "Versão {{version}}",
+    "authorTitle": "Autor",
     "authorLabel": "Nome",
     "emailLabel": "Email",
     "repositoryLabel": "Repositório",

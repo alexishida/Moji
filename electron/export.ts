@@ -27,6 +27,18 @@ function isPageOrientation(pageOrientation: unknown): pageOrientation is ExportP
   return pageOrientation === 'portrait' || pageOrientation === 'landscape'
 }
 
+function isExportRequest(request: unknown): request is ExportRequest {
+  if (!request || typeof request !== 'object') return false
+  const raw = request as Record<string, unknown>
+  return (
+    isExportFormat(raw['format']) &&
+    isPageSize(raw['pageSize']) &&
+    isPageOrientation(raw['pageOrientation']) &&
+    typeof raw['html'] === 'string' &&
+    typeof raw['baseName'] === 'string'
+  )
+}
+
 function pagePixels(pageSize: ExportPageSize, pageOrientation: ExportPageOrientation): { width: number; height: number } {
   const size = EXPORT_PAGE_SIZES.find((item) => item.value === pageSize) ?? EXPORT_PAGE_SIZES[0]
   if (pageOrientation === 'portrait') return size
@@ -38,6 +50,10 @@ function exportAssetBaseUrl(assetBaseUrl: unknown): string | undefined {
   return assetBaseUrl.startsWith('file://') ? assetBaseUrl : undefined
 }
 
+function exportBaseName(baseName: string): string {
+  return baseName.replace(/[\\/]/g, '').trim() || 'document'
+}
+
 /**
  * Export the current document. `request.html` is a fully rendered, standalone
  * HTML document (theme CSS already inlined by the renderer).
@@ -45,15 +61,13 @@ function exportAssetBaseUrl(assetBaseUrl: unknown): string | undefined {
  * - PDF: load the HTML into a hidden window and print it to PDF.
  * - PNG: render the HTML at the selected page width and capture it as an image.
  */
-export async function exportDocument(request: ExportRequest): Promise<WriteResult> {
+export async function exportDocument(request: unknown): Promise<WriteResult> {
+  if (!isExportRequest(request)) return { ok: false, error: 'Invalid export request.' }
+
   const { format, pageSize, pageOrientation, html, assetBaseUrl, baseName } = request
-  if (!isExportFormat(format) || !isPageSize(pageSize) || !isPageOrientation(pageOrientation)) {
-    return { ok: false, error: 'Invalid export options.' }
-  }
-  if (typeof html !== 'string' || typeof baseName !== 'string') return { ok: false, error: 'Invalid export content.' }
 
   const { canceled, filePath } = await dialog.showSaveDialog({
-    defaultPath: `${baseName}.${format}`,
+    defaultPath: `${exportBaseName(baseName)}.${format}`,
     filters: [FILTERS[format]]
   })
   if (canceled || !filePath) return { ok: false, canceled: true }
@@ -96,7 +110,8 @@ async function createExportWindow(
       offscreen: true,
       sandbox: true,
       contextIsolation: true,
-      nodeIntegration: false
+      nodeIntegration: false,
+      webSecurity: true
     }
   })
   await win.loadURL('data:text/html;charset=utf-8,' + encodeURIComponent(html), {

@@ -42,14 +42,6 @@ export const IconInfo = (p: IconProps): JSX.Element => (
   </svg>
 )
 
-export const IconKebab = (p: IconProps): JSX.Element => (
-  <svg {...base} {...p}>
-    <circle cx="12" cy="5" r="1.4" />
-    <circle cx="12" cy="12" r="1.4" />
-    <circle cx="12" cy="19" r="1.4" />
-  </svg>
-)
-
 export const IconFilePlus = (p: IconProps): JSX.Element => (
   <svg {...base} {...p}>
     <path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8Z" />
@@ -57,22 +49,9 @@ export const IconFilePlus = (p: IconProps): JSX.Element => (
   </svg>
 )
 
-export const IconFolder = (p: IconProps): JSX.Element => (
-  <svg {...base} {...p}>
-    <path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z" />
-  </svg>
-)
-
 export const IconList = (p: IconProps): JSX.Element => (
   <svg {...base} {...p}>
     <path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01" />
-  </svg>
-)
-
-export const IconHelp = (p: IconProps): JSX.Element => (
-  <svg {...base} {...p}>
-    <circle cx="12" cy="12" r="9" />
-    <path d="M9.1 9a3 3 0 0 1 5.8 1c0 2-3 2.5-3 3.5M12 17h.01" />
   </svg>
 )
 

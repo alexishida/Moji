@@ -1,0 +1,139 @@
+{
+  "app": {
+    "name": "Moji v0.1.0",
+    "untitled": "Без названия",
+    "modifiedMarker": "•"
+  },
+  "tabs": {
+    "documents": "Открытые документы",
+    "close": "Закрыть вкладку"
+  },
+  "menu": {
+    "file": "Файл",
+    "open": "Открыть…",
+    "save": "Сохранить",
+    "saveAs": "Сохранить как…",
+    "export": "Экспорт",
+    "exportHtml": "Экспорт в HTML…",
+    "exportPdf": "Экспорт в PDF…",
+    "quit": "Выход",
+    "view": "Вид",
+    "toggleEdit": "Переключить редактирование",
+    "toggleTheme": "Переключить тему",
+    "language": "Язык"
+  },
+  "toolbar": {
+    "open": "Открыть",
+    "edit": "Правка",
+    "view": "Вид",
+    "preview": "Просмотр",
+    "editor": "Редактор",
+    "viewMode": "Режим просмотра",
+    "newDocument": "Создать",
+    "save": "Сохранить",
+    "search": "Поиск...",
+    "replace": "Заменить",
+    "replaceWith": "Заменить на...",
+    "findNext": "Найти далее",
+    "replaceOne": "Заменить",
+    "replaceAll": "Заменить все",
+    "occurrences": "Совпадения",
+    "export": "Экспорт",
+    "exportHtml": "Экспорт в HTML",
+    "exportPdf": "Экспорт в PDF",
+    "theme": "Тема",
+    "themeLight": "Светлая тема",
+    "themeDark": "Тёмная тема",
+    "settings": "Настройки",
+    "about": "О программе",
+    "more": "Другие действия",
+    "language": "Язык"
+  },
+  "sidebar": {
+    "library": "Библиотека",
+    "localStorage": "Локальное хранилище",
+    "documents": "Документы",
+    "outline": "Структура",
+    "help": "Справка",
+    "expand": "Развернуть",
+    "collapse": "Свернуть",
+    "expandAll": "Развернуть все",
+    "collapseAll": "Свернуть все",
+    "noHeadings": "Заголовков пока нет. Добавьте заголовок, чтобы построить структуру.",
+    "noDocument": "Откройте или создайте документ, чтобы увидеть его структуру."
+  },
+  "statusbar": {
+    "brand": "Moji v0.1.0",
+    "guide": "Руководство по Markdown",
+    "exportPdf": "Экспорт в PDF",
+    "lineCount": "Строк: {{count}}",
+    "tokenCount": "Токенов: {{count}}",
+    "wordCount": "Слов: {{count}}"
+  },
+  "help": {
+    "hint": "Откройте или перетащите файл .md, переключайте Просмотр/Редактор через верхние вкладки и используйте структуру для перехода между заголовками."
+  },
+  "welcome": {
+    "tagline": "Лёгкая и простая программа для чтения Markdown",
+    "title": "Moji v0.1.0",
+    "subtitle": "Откройте файл Markdown, чтобы читать его в удобном виде.",
+    "openButton": "Открыть файл",
+    "newButton": "Новый файл",
+    "dropHint": "или перетащите файл .md в это окно"
+  },
+  "dialog": {
+    "unsavedTitle": "Несохранённые изменения",
+    "unsavedBody": "В этом документе есть несохранённые изменения. Сохранить их перед продолжением?",
+    "save": "Сохранить",
+    "discard": "Не сохранять",
+    "cancel": "Отмена"
+  },
+  "exportDialog": {
+    "title": "Экспорт документа",
+    "format": "Формат",
+    "settings": "Параметры",
+    "pageSize": "Размер страницы",
+    "orientation": "Ориентация",
+    "portrait": "Книжная",
+    "landscape": "Альбомная",
+    "pdfTitle": "Экспорт в PDF",
+    "pdfDescription": "Идеально для печати и передачи точной вёрстки.",
+    "htmlTitle": "Экспорт в HTML",
+    "htmlDescription": "Лучше всего для веб-публикации и встраивания.",
+    "pngTitle": "Экспорт в PNG",
+    "pngDescription": "Изображение содержимого документа в высоком разрешении.",
+    "export": "Экспорт"
+  },
+  "settingsDialog": {
+    "title": "Настройки",
+    "general": "Общие",
+    "preview": "Просмотр",
+    "fontFamily": "Шрифт",
+    "fontSize": "Размер шрифта",
+    "lineHeight": "Межстрочный интервал"
+  },
+  "aboutDialog": {
+    "title": "О программе",
+    "application": "Приложение",
+    "version": "Версия {{version}}",
+    "authorTitle": "Автор",
+    "authorLabel": "Имя",
+    "emailLabel": "Эл. почта",
+    "repositoryLabel": "Репозиторий",
+    "whyNameTitle": "Почему Moji?",
+    "whyNameBody": "Имя Moji выбрано как короткое, запоминающееся и ориентированное на текст. Оно вызывает ассоциации с символами и письмом, что подходит приложению для открытия, редактирования и экспорта Markdown с минимальными усилиями."
+  },
+  "notice": {
+    "unsupported": "Неподдерживаемый тип файла. Можно открывать только файлы .md и .markdown.",
+    "exportSuccess": "Экспортировано в {{path}}",
+    "exportFailed": "Ошибка экспорта: {{error}}",
+    "saveSuccess": "Сохранено",
+    "saveFailed": "Ошибка сохранения: {{error}}",
+    "openFailed": "Не удалось открыть файл: {{error}}",
+    "noDocument": "Сначала откройте документ.",
+    "replaceNeedsSearch": "Сначала введите условие поиска.",
+    "replaceNone": "Совпадений не найдено.",
+    "replaceOneSuccess": "Заменено совпадений: {{count}}.",
+    "replaceAllSuccess": "Заменено совпадений: {{count}}."
+  }
+}
