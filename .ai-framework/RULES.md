@@ -22,6 +22,7 @@ Projeto atual: Moji, aplicativo desktop Electron + React + TypeScript para abrir
 - `shared.ts`: tipos e constantes compartilhados entre main, preload e renderer (tipos de resultado IPC, `Settings`, `ExportFormat`, `SUPPORTED_LANGUAGES`, `IPC` channels).
 - `settings.ts`: persiste configuracoes do usuario em `settings.json` no `userData`; resolve idioma inicial a partir do locale do SO; aplica limites numericos (`boundedNumber`).
 - `export.ts`: exporta documento ativo como PDF (via `printToPDF` em `BrowserWindow` oculta), PNG (via `capturePage().toPNG()`) ou HTML (escrita direta). Suporta A4/Letter/Legal e portrait/landscape.
+- `updater.ts`: gerencia verificacao, download e instalacao de GitHub Releases com `electron-updater`; habilitado apenas em Windows NSIS empacotado e Linux AppImage.
 
 ### Renderer (`src/`)
 
@@ -46,6 +47,7 @@ Projeto atual: Moji, aplicativo desktop Electron + React + TypeScript para abrir
 - Internacionalizacao com `i18next` + `react-i18next`.
 - Build/desenvolvimento com `electron-vite`.
 - Empacotamento com `electron-builder` (NSIS para Windows, AppImage/deb para Linux).
+- Atualizacao automatica com `electron-updater` e metadados publicados em GitHub Releases.
 
 ### Formatos de exportacao suportados
 
@@ -72,6 +74,7 @@ Projeto atual: Moji, aplicativo desktop Electron + React + TypeScript para abrir
 - Configuracoes de usuario persistem via `electron/settings.ts` em JSON; adicionar novos campos com valores default e validacao de limites (`boundedNumber`).
 - Lista de arquivos recentes usa `settings.recentFiles`, limite `MAX_RECENT_FILES` em `electron/shared.ts`, e deve manter caminhos deduplicados em ordem mais-recente primeiro.
 - Dialogos nativos de abrir, salvar como e exportar usam `settings.lastDialogDirectory`; lembrar diretorio apos operacao concluida ou caminho escolhido.
+- Guias Markdown em `samples/` abrem como documentos somente leitura; nao permitir edicao, salvar ou salvar como sobre recursos empacotados.
 
 ## Busca e Substituicao
 

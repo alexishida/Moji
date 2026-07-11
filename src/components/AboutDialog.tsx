@@ -1,14 +1,36 @@
 import { useTranslation } from 'react-i18next'
-import { IconX } from './icons'
+import type { UpdateState } from '../../electron/shared'
+import { IconRefresh, IconX } from './icons'
 import logoMark from '../assets/logo-mark-light.png'
 
 interface AboutDialogProps {
   version: string
+  updateState: UpdateState
   onClose: () => void
+  onCheckForUpdates: () => void
 }
 
-export function AboutDialog({ version, onClose }: AboutDialogProps): JSX.Element {
+export function AboutDialog({ version, updateState, onClose, onCheckForUpdates }: AboutDialogProps): JSX.Element {
   const { t } = useTranslation()
+  const checking = updateState.status === 'checking'
+  const checkDisabled = ['unsupported', 'checking', 'available', 'downloading', 'downloaded'].includes(updateState.status)
+
+  const updateStatus =
+    updateState.status === 'checking'
+      ? t('aboutDialog.updateChecking')
+      : updateState.status === 'up-to-date'
+        ? t('aboutDialog.updateCurrent', { version: updateState.currentVersion })
+        : updateState.status === 'available'
+          ? t('aboutDialog.updateAvailable', { version: updateState.version })
+          : updateState.status === 'downloading'
+            ? t('aboutDialog.updateDownloading', { percent: Math.round(updateState.percent ?? 0) })
+            : updateState.status === 'downloaded'
+              ? t('aboutDialog.updateReady', { version: updateState.version })
+              : updateState.status === 'error'
+                ? t('aboutDialog.updateFailed')
+                : updateState.status === 'unsupported'
+                  ? t('aboutDialog.updateUnsupported')
+                  : t('aboutDialog.updateIdle', { version: updateState.currentVersion })
 
   return (
     <section className="export-dialog about-dialog" aria-label={t('aboutDialog.title')}>
@@ -67,6 +89,14 @@ export function AboutDialog({ version, onClose }: AboutDialogProps): JSX.Element
           </h3>
           <p className="about-dialog__text">{t('aboutDialog.whyNameBody')}</p>
         </section>
+
+        <div className="about-dialog__update">
+          <span className="about-dialog__update-status" aria-live="polite">{updateStatus}</span>
+          <button className="btn" onClick={onCheckForUpdates} disabled={checkDisabled}>
+            <IconRefresh aria-hidden="true" />
+            {checking ? t('aboutDialog.checkingForUpdates') : t('aboutDialog.checkForUpdates')}
+          </button>
+        </div>
       </div>
     </section>
   )

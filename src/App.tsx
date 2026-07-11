@@ -11,12 +11,13 @@ import { ConfirmDialog, type ConfirmChoice } from './components/ConfirmDialog'
 import { ExportDialog, type ExportDialogOptions } from './components/ExportDialog'
 import { SettingsDialog } from './components/SettingsDialog'
 import { AboutDialog } from './components/AboutDialog'
+import { UpdateNotice } from './components/UpdateNotice'
 import { documentAssetBaseUrl, renderMarkdown } from './lib/markdown'
 import { buildOutline } from './lib/outline'
 import { getActivePreviewHeadingId, scrollPreviewHeadingIntoView } from './lib/previewScroll'
 import { useDebounced } from './lib/useDebounced'
 import { buildStandaloneHtml } from './lib/exportHtml'
-import { MAX_RECENT_FILES, type ExportFormat, type Settings, type Theme } from '../electron/shared'
+import { MAX_RECENT_FILES, type ExportFormat, type Settings, type Theme, type UpdateState } from '../electron/shared'
 import packageJson from '../package.json'
 
 interface DocumentState {
@@ -25,12 +26,14 @@ interface DocumentState {
   title: string | null
   content: string
   savedContent: string
+  readOnly: boolean
 }
 
 interface DocumentInput {
   path: string | null
   title?: string | null
   content: string
+  readOnly?: boolean
 }
 
 interface DocumentStats {
@@ -140,6 +143,11 @@ export function App(): JSX.Element {
   const [replaceActive, setReplaceActive] = useState(false)
   const [dragging, setDragging] = useState(false)
   const [notice, setNotice] = useState<{ text: string; error?: boolean } | null>(null)
+  const [updateState, setUpdateState] = useState<UpdateState>({
+    status: 'idle',
+    currentVersion: packageJson.version
+  })
+  const [dismissedUpdate, setDismissedUpdate] = useState<string | null>(null)
   const [activeHeadingId, setActiveHeadingId] = useState<string | null>(null)
 
   const [dialogOpen, setDialogOpen] = useState(false)
@@ -210,6 +218,21 @@ export function App(): JSX.Element {
     window.setTimeout(() => setNotice(null), 2600)
   }, [])
 
+  const updateKey = `${updateState.status}:${updateState.version ?? ''}:${updateState.error ?? ''}`
+
+  const downloadUpdate = useCallback(() => {
+    void window.api.downloadUpdate().then(setUpdateState)
+  }, [])
+
+  const checkForUpdate = useCallback(() => {
+    setDismissedUpdate(null)
+    void window.api.checkForUpdate().then(setUpdateState)
+  }, [])
+
+  const installUpdate = useCallback(() => {
+    void window.api.installUpdate()
+  }, [])
+
   // --- Recent files ------------------------------------------------------
   // Live snapshot so the record/prune helpers never read a stale list.
   const recentFilesRef = useRef<string[]>(settings.recentFiles)
@@ -262,7 +285,12 @@ export function App(): JSX.Element {
           const existing = nextDocs[existingIndex]
           nextActiveId ??= existing.id
           if (existing.content === existing.savedContent) {
-            nextDocs[existingIndex] = { ...existing, content: item.content, savedContent: item.content }
+            nextDocs[existingIndex] = {
+              ...existing,
+              content: item.content,
+              savedContent: item.content,
+              readOnly: existing.readOnly || item.readOnly === true
+            }
           }
           continue
         }
@@ -272,7 +300,8 @@ export function App(): JSX.Element {
           path: item.path,
           title: item.title ?? null,
           content: item.content,
-          savedContent: item.content
+          savedContent: item.content,
+          readOnly: item.readOnly === true
         }
         nextDocs.push(doc)
         nextActiveId ??= doc.id
@@ -290,7 +319,7 @@ export function App(): JSX.Element {
 
   const updateActiveContent = useCallback((nextContent: string) => {
     const id = stateRef.current.activeDocId
-    if (!id) return
+    if (!id || stateRef.current.activeDoc?.readOnly) return
     setDocuments((prev) => prev.map((doc) => (doc.id === id ? { ...doc, content: nextContent } : doc)))
   }, [])
 
@@ -363,6 +392,10 @@ export function App(): JSX.Element {
     async (docId: string): Promise<boolean> => {
       const doc = stateRef.current.documents.find((item) => item.id === docId)
       if (!doc) return false
+      if (doc.readOnly) {
+        flash(t('notice.readOnlyGuide'), true)
+        return false
+      }
 
       const suggested = markdownFileName(documentName(doc, 'untitled'))
       const savedText = doc.content
@@ -385,6 +418,10 @@ export function App(): JSX.Element {
       const doc = stateRef.current.documents.find((item) => item.id === docId)
       if (!doc) {
         flash(t('notice.noDocument'), true)
+        return false
+      }
+      if (doc.readOnly) {
+        flash(t('notice.readOnlyGuide'), true)
         return false
       }
       if (!doc.path) return saveDocumentAs(docId)
@@ -522,6 +559,7 @@ export function App(): JSX.Element {
 
   const setModeSafe = useCallback((next: 'view' | 'edit') => {
     if (!stateRef.current.hasDoc) return
+    if (next === 'edit' && stateRef.current.activeDoc?.readOnly) return
     setExportDialogFormat(null)
     setSettingsOpen(false)
     setAboutOpen(false)
@@ -548,7 +586,7 @@ export function App(): JSX.Element {
     setExportDialogFormat(null)
     setSettingsOpen(false)
     setAboutOpen(false)
-    setMode('edit')
+    if (!stateRef.current.activeDoc?.readOnly) setMode('edit')
     setActiveSearchIndex((index) => (index === null ? 0 : (index + 1) % count))
   }, [flash, searchTerm, t])
 
@@ -587,21 +625,23 @@ export function App(): JSX.Element {
 
   const doGuide = useCallback(async () => {
     const guideFiles: Record<string, string> = {
-      'en': 'complete-markdown-guide.md',
-      'pt-BR': 'guia-markdown-completo.md',
-      'es': 'guia-markdown.es.md',
-      'ja': 'guia-markdown.ja.md',
-      'zh': 'guia-markdown.zh.md',
-      'ru': 'guia-markdown.ru.md',
+      'en': 'markdown-guide.en.md',
+      'pt-BR': 'markdown-guide.pt-BR.md',
+      'es': 'markdown-guide.es.md',
+      'ja': 'markdown-guide.ja.md',
+      'zh': 'markdown-guide.zh.md',
+      'ru': 'markdown-guide.ru.md',
     }
     const guideFile = guideFiles[i18n.language] ?? guideFiles['en']
     const res = await window.api.readSample(guideFile)
-    if (res.ok) addDocuments([{ path: res.path, content: res.content }])
+    if (res.ok) addDocuments([{ path: res.path, content: res.content, readOnly: true }])
     else flash(t('notice.openFailed', { error: res.error }), true)
   }, [addDocuments, flash, i18n.language, t])
 
   const selectDocument = useCallback((docId: string) => {
+    const selected = stateRef.current.documents.find((doc) => doc.id === docId)
     setActiveDocId(docId)
+    if (selected?.readOnly) setMode('view')
     setExportDialogFormat(null)
     setSettingsOpen(false)
     setAboutOpen(false)
@@ -773,6 +813,12 @@ export function App(): JSX.Element {
     }
   }, [confirmAnyUnsaved, addDocuments, rememberRecent])
 
+  useEffect(() => {
+    const offUpdate = window.api.onUpdateState(setUpdateState)
+    void window.api.getUpdateState().then(setUpdateState)
+    return offUpdate
+  }, [])
+
   // --- Drag & drop -------------------------------------------------------
   const onDrop = useCallback(
     (e: React.DragEvent) => {
@@ -805,6 +851,7 @@ export function App(): JSX.Element {
       <TopBar
         title={title}
         hasDoc={hasDoc}
+        readOnly={activeDoc?.readOnly === true}
         mode={mode}
         exportOpen={exportDialogFormat !== null}
         settingsOpen={settingsOpen}
@@ -863,7 +910,12 @@ export function App(): JSX.Element {
               </div>
             ) : aboutOpen ? (
               <div className="export-workspace">
-                <AboutDialog version={packageJson.version} onClose={() => setAboutOpen(false)} />
+                <AboutDialog
+                  version={packageJson.version}
+                  updateState={updateState}
+                  onClose={() => setAboutOpen(false)}
+                  onCheckForUpdates={checkForUpdate}
+                />
               </div>
             ) : !hasDoc ? (
               <Welcome
@@ -900,6 +952,15 @@ export function App(): JSX.Element {
       <StatusBar hasDoc={hasDoc} stats={stats} onGuide={doGuide} />
 
       {dragging && <div className="drop-overlay">{t('welcome.dropHint')}</div>}
+      {dismissedUpdate !== updateKey && (
+        <UpdateNotice
+          state={updateState}
+          onDismiss={() => setDismissedUpdate(updateKey)}
+          onDownload={downloadUpdate}
+          onInstall={installUpdate}
+          onRetry={checkForUpdate}
+        />
+      )}
       {notice && <div className={`notice ${notice.error ? 'notice--error' : ''}`}>{notice.text}</div>}
       {dialogOpen && <ConfirmDialog onChoice={onDialogChoice} />}
     </div>

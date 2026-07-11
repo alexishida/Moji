@@ -38,9 +38,10 @@
 - **Export mode**: export the active document as HTML, PDF, or PNG. PDF supports A4, Letter, Legal, portrait, and landscape.
 - **Settings view**: centered in-workspace panel for language and preview typography controls.
 - **About view**: in-workspace panel showing app name, version (from `package.json`), author, repository link, and the story behind the name.
-- **Markdown guide**: bundled reference document (`samples/guia-markdown-completo.md`) opened from the status bar.
+- **Markdown guide**: bundled localized reference documents (`samples/markdown-guide.<locale>.md`) opened from the status bar.
 - **Recent files**: Welcome screen shows recently opened Markdown files and lets you reopen or remove entries.
 - **Remembered app state**: window size/position, recent files, last used folder, language, preview typography, and Markdown preview theme are persisted in user settings.
+- **Automatic updates**: installed Windows NSIS and Linux AppImage builds check GitHub Releases, show download progress, and restart only after protecting unsaved documents.
 - **Markdown themes**: dark/light toggle for rendered Markdown. App chrome remains dark; exports always use the light theme.
 - **Internationalization**: English, Portuguese (Brazil), Spanish, Japanese, Chinese, and Russian. Initial language follows the OS when possible and user choice is persisted.
 - **Security**: sandboxed renderer, context isolation, `nodeIntegration: false`, DOMPurify sanitization, and external links opened in the OS browser.
@@ -78,10 +79,19 @@ Artifacts are written to `release/`.
 
 Current packaging targets:
 
-- Windows: NSIS installer, x64.
-- Linux: AppImage and deb.
+- Windows: NSIS installer, x64, with automatic updates.
+- Linux: AppImage with automatic updates, plus deb for manual installation.
 
 File associations for `.md` and `.markdown` are declared in `electron-builder.yml`.
+
+### Publishing a release
+
+1. Update `version` in `package.json` and `package-lock.json`.
+2. Commit changes, then create and push matching tag such as `v0.2.0`.
+3. `.github/workflows/release.yml` validates tag, builds Windows first, then Linux, and publishes draft artifacts.
+4. Workflow makes GitHub Release public only after NSIS/AppImage binaries and `latest.yml`/`latest-linux.yml` are uploaded.
+
+`electron-updater` runs only in packaged Windows NSIS builds and Linux AppImages. Development and deb builds do not self-update. AppImage must live in a user-writable directory to be replaced successfully. Windows production releases should use an Authenticode certificate through electron-builder signing environment variables; never store certificate credentials in repository.
 
 ## Project Structure
 
@@ -90,6 +100,7 @@ electron/
   main.ts        Window lifecycle, persisted bounds, file opening, single-instance flow, close guard, IPC registration
   preload.ts     Safe renderer API exposed through contextBridge
   shared.ts      Shared IPC names, settings, export types, languages, recent-file limits, supported extensions
+  updater.ts     GitHub release checks, update download state, and NSIS/AppImage installation
   settings.ts    User settings persistence, window bounds, recent files, preview theme, and last dialog directory
   export.ts      HTML/PDF/PNG export implementation with remembered output directory
 

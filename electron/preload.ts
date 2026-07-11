@@ -7,6 +7,7 @@ import {
   type OpenManyResult,
   type OpenResult,
   type Settings,
+  type UpdateState,
   type WriteResult
 } from './shared'
 
@@ -23,6 +24,10 @@ const api = {
     ipcRenderer.invoke(IPC.saveAs, content, suggestedName),
   exportAs: (request: ExportRequest): Promise<WriteResult> => ipcRenderer.invoke(IPC.export, request),
   confirmClose: (shouldClose: boolean): Promise<void> => ipcRenderer.invoke(IPC.confirmClose, shouldClose),
+  getUpdateState: (): Promise<UpdateState> => ipcRenderer.invoke(IPC.getUpdateState),
+  checkForUpdate: (): Promise<UpdateState> => ipcRenderer.invoke(IPC.checkForUpdate),
+  downloadUpdate: (): Promise<UpdateState> => ipcRenderer.invoke(IPC.downloadUpdate),
+  installUpdate: (): Promise<boolean> => ipcRenderer.invoke(IPC.installUpdate),
 
   /** Resolve the absolute path of a File obtained from a drag-and-drop event. */
   getDroppedPath: (file: File): string => webUtils.getPathForFile(file),
@@ -36,6 +41,11 @@ const api = {
     const listener = (): void => cb()
     ipcRenderer.on(IPC.requestClose, listener)
     return () => ipcRenderer.removeListener(IPC.requestClose, listener)
+  },
+  onUpdateState: (cb: (state: UpdateState) => void): (() => void) => {
+    const listener = (_e: unknown, state: UpdateState): void => cb(state)
+    ipcRenderer.on(IPC.updateState, listener)
+    return () => ipcRenderer.removeListener(IPC.updateState, listener)
   }
 }
 
