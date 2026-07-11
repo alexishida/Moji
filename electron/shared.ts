@@ -55,6 +55,25 @@ export type ImageDataResult =
   | { ok: true; dataUrl: string }
   | { ok: false; error?: string }
 
+export type UpdateStatus =
+  | 'unsupported'
+  | 'idle'
+  | 'checking'
+  | 'up-to-date'
+  | 'available'
+  | 'downloading'
+  | 'downloaded'
+  | 'error'
+
+/** Serializable updater state sent from main to renderer. */
+export interface UpdateState {
+  status: UpdateStatus
+  currentVersion: string
+  version?: string
+  percent?: number
+  error?: string
+}
+
 export type ExportFormat = 'pdf' | 'html' | 'png'
 
 export type ExportPageSize = 'A4' | 'Letter' | 'Legal'
@@ -91,7 +110,12 @@ export const IPC = {
   getSettings: 'settings:get',
   setSettings: 'settings:set',
   confirmClose: 'app:confirm-close',
+  getUpdateState: 'update:get-state',
+  checkForUpdate: 'update:check',
+  downloadUpdate: 'update:download',
+  installUpdate: 'update:install',
   // main -> renderer push channels
   requestClose: 'app:request-close',
-  openDocument: 'doc:open'
+  openDocument: 'doc:open',
+  updateState: 'update:state'
 } as const

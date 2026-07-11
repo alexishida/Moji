@@ -42,6 +42,7 @@
     "@codemirror/view": "^6.34.1",
     "@lezer/highlight": "^1.2.3",
     "dompurify": "^3.2.2",
+    "electron-updater": "^6.8.9",
     "highlight.js": "^11.10.0",
     "i18next": "^23.16.8",
     "katex": "^0.17.0",

@@ -7,6 +7,7 @@ import type { ExportFormat, Theme } from '../../electron/shared'
 interface TopBarProps {
   title: string
   hasDoc: boolean
+  readOnly: boolean
   mode: 'view' | 'edit'
   exportOpen: boolean
   settingsOpen: boolean
@@ -102,7 +103,12 @@ export function TopBar(props: TopBarProps): JSX.Element {
               {t('toolbar.open')}
             </button>
 
-            <button className="filegroup__btn" onClick={props.onSave} disabled={!props.hasDoc} title={t('toolbar.save')}>
+            <button
+              className="filegroup__btn"
+              onClick={props.onSave}
+              disabled={!props.hasDoc}
+              title={props.readOnly ? t('notice.readOnlyGuide') : t('toolbar.save')}
+            >
               <IconSave width={15} height={15} />
               {t('toolbar.save')}
             </button>
@@ -200,7 +206,7 @@ export function TopBar(props: TopBarProps): JSX.Element {
                   : ''
               }`}
               onClick={() => props.onSetMode('edit')}
-              disabled={!props.hasDoc}
+              disabled={!props.hasDoc || props.readOnly}
               role="tab"
               aria-selected={!props.exportOpen && !props.settingsOpen && !props.aboutOpen && props.mode === 'edit'}
             >

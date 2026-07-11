@@ -4,6 +4,12 @@ copyright: Copyright © 2026 Alex Ishida
 directories:
   output: release
   buildResources: build
+publish:
+  provider: github
+  owner: alexishida
+  repo: Moji
+  # CI keeps release hidden until every platform artifact is uploaded.
+  releaseType: draft
 files:
   - out/**/*
   - package.json
@@ -52,6 +58,7 @@ linux:
   mimeTypes:
     - text/markdown
 appImage:
+  artifactName: ${productName}-${version}-${arch}.${ext}
   desktop:
     entry:
       X-AppImage-Repository: https://github.com/alexishida/Moji
@@ -59,6 +66,7 @@ appImage:
       X-AppImage-Homepage: https://github.com/alexishida/Moji
       X-AppImage-Description: Moji is a desktop app for opening, reading, editing, and exporting Markdown files with split preview/editing, outline navigation, localized UI, and PDF, HTML, and PNG export.
 deb:
+  artifactName: ${productName}-${version}-${arch}.${ext}
   packageCategory: editors
   fpm:
     - --deb-field

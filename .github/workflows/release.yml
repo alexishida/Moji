@@ -1,0 +1,60 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  windows:
+    name: Build Windows
+    runs-on: windows-latest
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Validate tag version
+        shell: bash
+        run: node -e "const p=require('./package.json'); if(process.env.GITHUB_REF_NAME !== 'v'+p.version) throw new Error('Tag must equal v'+p.version)"
+      - run: npm run typecheck
+      - run: npm run build
+      - name: Build and publish NSIS update
+        run: npx electron-builder --win --x64 --publish always
+
+  linux:
+    name: Build Linux
+    needs: windows
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Validate tag version
+        run: node -e "const p=require('./package.json'); if(process.env.GITHUB_REF_NAME !== 'v'+p.version) throw new Error('Tag must equal v'+p.version)"
+      - run: npm run typecheck
+      - run: npm run build
+      - name: Build and publish AppImage and DEB
+        run: npx electron-builder --linux --x64 --publish always
+
+  publish:
+    name: Publish complete release
+    needs: linux
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - name: Make release public
+        run: gh release edit "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --draft=false --latest

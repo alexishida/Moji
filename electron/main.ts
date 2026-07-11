@@ -11,15 +11,19 @@ import {
   type OpenManyResult,
   type OpenResult,
   type Settings,
+  type UpdateState,
   type WindowBounds,
   type WriteResult
 } from './shared'
 import { getSettings, updateSettings } from './settings'
 import { exportDocument } from './export'
+import { createUpdateController, type UpdateController } from './updater'
 
 let mainWindow: BrowserWindow | null = null
 let pendingOpenPath: string | null = null
 let forceQuit = false
+let pendingUpdateInstall = false
+let updateController: UpdateController | null = null
 let persistWindowBoundsTimer: NodeJS.Timeout | null = null
 
 if (process.platform === 'linux') {
@@ -28,12 +32,12 @@ if (process.platform === 'linux') {
 
 const IMAGE_EXTENSIONS = new Set(['.avif', '.bmp', '.gif', '.ico', '.jpeg', '.jpg', '.png', '.svg', '.webp'])
 const SAMPLE_FILES = new Set([
-  'complete-markdown-guide.md',
-  'guia-markdown-completo.md',
-  'guia-markdown.es.md',
-  'guia-markdown.ja.md',
-  'guia-markdown.zh.md',
-  'guia-markdown.ru.md',
+  'markdown-guide.en.md',
+  'markdown-guide.pt-BR.md',
+  'markdown-guide.es.md',
+  'markdown-guide.ja.md',
+  'markdown-guide.zh.md',
+  'markdown-guide.ru.md',
 ])
 
 function asString(value: unknown): string | null {
@@ -173,6 +177,21 @@ async function openDocument(filePath: string): Promise<void> {
 
 function requestClose(): void {
   mainWindow?.webContents.send(IPC.requestClose)
+}
+
+function unavailableUpdateState(): UpdateState {
+  return { status: 'unsupported', currentVersion: app.getVersion() }
+}
+
+function initializeUpdater(): void {
+  updateController = createUpdateController((state) => {
+    if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send(IPC.updateState, state)
+  })
+
+  // Let renderer finish loading before network check; current state remains queryable over IPC.
+  setTimeout(() => {
+    void updateController?.check()
+  }, 3000)
 }
 
 function windowOptionsFromSettings(): Pick<Electron.BrowserWindowConstructorOptions, 'height' | 'width' | 'x' | 'y'> {
@@ -342,10 +361,36 @@ function registerIpc(): void {
 
   ipcMain.handle(IPC.export, (_e, request: unknown): Promise<WriteResult> => exportDocument(request))
 
+  ipcMain.handle(IPC.getUpdateState, (): UpdateState => updateController?.getState() ?? unavailableUpdateState())
+
+  ipcMain.handle(
+    IPC.checkForUpdate,
+    (): Promise<UpdateState> => updateController?.check() ?? Promise.resolve(unavailableUpdateState())
+  )
+
+  ipcMain.handle(
+    IPC.downloadUpdate,
+    (): Promise<UpdateState> => updateController?.download() ?? Promise.resolve(unavailableUpdateState())
+  )
+
+  ipcMain.handle(IPC.installUpdate, (): boolean => {
+    if (updateController?.getState().status !== 'downloaded') return false
+    pendingUpdateInstall = true
+    requestClose()
+    return true
+  })
+
   ipcMain.handle(IPC.confirmClose, (_e, shouldClose: unknown): void => {
     if (shouldClose === true && mainWindow) {
       forceQuit = true
-      mainWindow.close()
+      if (pendingUpdateInstall) {
+        pendingUpdateInstall = false
+        if (!updateController?.quitAndInstall()) mainWindow.close()
+      } else {
+        mainWindow.close()
+      }
+    } else if (shouldClose === false) {
+      pendingUpdateInstall = false
     }
   })
 }
@@ -376,6 +421,7 @@ if (!gotLock) {
     registerIpc()
     Menu.setApplicationMenu(null)
     createWindow()
+    initializeUpdater()
 
     app.on('activate', () => {
       if (BrowserWindow.getAllWindows().length === 0) createWindow()

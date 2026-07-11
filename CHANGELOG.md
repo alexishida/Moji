@@ -4,6 +4,23 @@ All notable changes to this project will be documented in this file.
 
 Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [Unreleased]
+
+### Added
+
+- Automatic GitHub Release checks and user-controlled updates for Windows NSIS and Linux AppImage builds.
+- Localized update availability, download progress, ready-to-restart, and error notifications.
+- Tagged GitHub Actions release workflow publishing updater metadata with Windows and Linux artifacts.
+
+### Security
+
+- Update restart reuses unsaved-document protection, while updater access stays behind narrow typed IPC.
+
+### Changed
+
+- Normalized bundled Markdown guide filenames to `markdown-guide.<locale>.md` for every supported language.
+- Bundled Markdown guides now open as read-only documents with editing and saving disabled.
+
 ## [0.1.2] - 2026-07-10
 
 ### Added
