@@ -4,13 +4,16 @@ All notable changes to this project will be documented in this file.
 
 Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
-## [Unreleased]
+## [0.1.2] - 2026-07-10
 
 ### Added
 
 - Automatic GitHub Release checks and user-controlled updates for Windows NSIS and Linux AppImage builds.
 - Localized update availability, download progress, ready-to-restart, and error notifications.
 - Tagged GitHub Actions release workflow publishing updater metadata with Windows and Linux artifacts.
+- Persisted window size and position across app launches.
+- Persisted Markdown preview light/dark theme choice across app launches.
+- Icons in the unsaved-changes confirmation dialog actions.
 
 ### Security
 
@@ -20,18 +23,8 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 - Normalized bundled Markdown guide filenames to `markdown-guide.<locale>.md` for every supported language.
 - Bundled Markdown guides now open as read-only documents with editing and saving disabled.
-
-## [0.1.2] - 2026-07-10
-
-### Added
-
-- Persisted window size and position across app launches.
-- Persisted Markdown preview light/dark theme choice across app launches.
-- Icons in the unsaved-changes confirmation dialog actions.
-
-### Changed
-
 - Unsaved-changes confirmation dialog actions are now centered.
+
 
 ## [0.1.1] - 2026-07-09
 
