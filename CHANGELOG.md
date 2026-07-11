@@ -4,6 +4,18 @@ All notable changes to this project will be documented in this file.
 
 Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.1.2] - 2026-07-10
+
+### Added
+
+- Persisted window size and position across app launches.
+- Persisted Markdown preview light/dark theme choice across app launches.
+- Icons in the unsaved-changes confirmation dialog actions.
+
+### Changed
+
+- Unsaved-changes confirmation dialog actions are now centered.
+
 ## [0.1.1] - 2026-07-09
 
 ### Added

@@ -1430,9 +1430,17 @@ body {
 }
 
 .dialog__title {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
   margin: 0 0 var(--space-2);
   font-size: 16px;
   font-weight: 600;
+}
+
+.dialog__title-icon {
+  flex: 0 0 auto;
+  color: var(--accent);
 }
 
 .dialog__body {
@@ -1443,7 +1451,7 @@ body {
 
 .dialog__actions {
   display: flex;
-  justify-content: flex-end;
+  justify-content: center;
   gap: var(--space-2);
 }
 

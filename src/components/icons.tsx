@@ -42,6 +42,14 @@ export const IconInfo = (p: IconProps): JSX.Element => (
   </svg>
 )
 
+export const IconAlertTriangle = (p: IconProps): JSX.Element => (
+  <svg {...base} {...p}>
+    <path d="M10.3 4.4 2.7 17.6A2.2 2.2 0 0 0 4.6 21h14.8a2.2 2.2 0 0 0 1.9-3.4L13.7 4.4a2.2 2.2 0 0 0-3.4 0Z" />
+    <path d="M12 9v4" />
+    <path d="M12 17h.01" />
+  </svg>
+)
+
 export const IconFilePlus = (p: IconProps): JSX.Element => (
   <svg {...base} {...p}>
     <path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8Z" />
@@ -99,6 +107,15 @@ export const IconDownload = (p: IconProps): JSX.Element => (
 export const IconX = (p: IconProps): JSX.Element => (
   <svg {...base} {...p}>
     <path d="M18 6 6 18M6 6l12 12" />
+  </svg>
+)
+
+export const IconTrash = (p: IconProps): JSX.Element => (
+  <svg {...base} {...p}>
+    <path d="M4 7h16" />
+    <path d="M10 11v6M14 11v6" />
+    <path d="M6 7l1 14h10l1-14" />
+    <path d="M9 7V4h6v3" />
   </svg>
 )
 

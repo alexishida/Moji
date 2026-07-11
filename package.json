@@ -1,6 +1,6 @@
 {
   "name": "moji",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "desktopName": "moji.desktop",
   "description": "Clean cross-platform Markdown viewer and editor (React + Electron)",
   "homepage": "https://github.com/alexishida/Moji",

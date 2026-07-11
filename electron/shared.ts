@@ -13,6 +13,7 @@ export const MAX_RECENT_FILES = 3
 
 export interface Settings {
   theme: Theme
+  previewTheme: Theme
   language: Language
   previewFontFamily: string
   previewFontSize: number
@@ -20,6 +21,14 @@ export interface Settings {
   /** Absolute paths of recently opened documents, most-recent first. */
   recentFiles: string[]
   lastDialogDirectory?: string
+  windowBounds?: WindowBounds
+}
+
+export interface WindowBounds {
+  x?: number
+  y?: number
+  width: number
+  height: number
 }
 
 export interface DocumentPayload {

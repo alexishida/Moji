@@ -124,6 +124,7 @@ export function App(): JSX.Element {
 
   const [settings, setSettings] = useState<Settings>({
     theme: 'dark',
+    previewTheme: 'dark',
     language: 'en',
     previewFontFamily: 'Inter',
     previewFontSize: 16,
@@ -332,6 +333,7 @@ export function App(): JSX.Element {
   useEffect(() => {
     void window.api.getSettings().then((s) => {
       setSettings(s)
+      setMdTheme(s.previewTheme)
       void i18n.changeLanguage(s.language)
     })
   }, [i18n])
@@ -719,7 +721,15 @@ export function App(): JSX.Element {
 
   const toggleMdTheme = useCallback(() => {
     if (!canToggleMdTheme()) return
-    setMdTheme((prev) => (prev === 'dark' ? 'light' : 'dark'))
+    setMdTheme((prev) => {
+      const next = prev === 'dark' ? 'light' : 'dark'
+      setSettings((current) => ({ ...current, previewTheme: next }))
+      void window.api.setSettings({ previewTheme: next }).then((saved) => {
+        setSettings(saved)
+        setMdTheme(saved.previewTheme)
+      })
+      return next
+    })
   }, [canToggleMdTheme])
 
   const changeSettings = useCallback(
