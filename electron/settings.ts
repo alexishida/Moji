@@ -1,7 +1,7 @@
 import { app } from 'electron'
 import { readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { DEFAULT_LANGUAGE, MAX_RECENT_FILES, SUPPORTED_LANGUAGES, type Language, type Settings } from './shared'
+import { DEFAULT_LANGUAGE, MAX_RECENT_FILES, SUPPORTED_LANGUAGES, type Language, type Settings, type WindowBounds } from './shared'
 
 let cache: Settings | null = null
 
@@ -22,6 +22,7 @@ export function resolveLanguage(locale: string): Language {
 function defaults(): Settings {
   return {
     theme: 'dark' as const,
+    previewTheme: 'dark' as const,
     language: resolveLanguage(app.getLocale()),
     previewFontFamily: 'Inter',
     previewFontSize: 16,
@@ -32,6 +33,24 @@ function defaults(): Settings {
 
 function boundedNumber(value: unknown, fallback: number, min: number, max: number): number {
   return typeof value === 'number' && Number.isFinite(value) ? Math.min(max, Math.max(min, value)) : fallback
+}
+
+function optionalBoundedNumber(value: unknown, min: number, max: number): number | undefined {
+  return typeof value === 'number' && Number.isFinite(value) ? Math.min(max, Math.max(min, value)) : undefined
+}
+
+function sanitizeWindowBounds(value: unknown): WindowBounds | undefined {
+  if (!value || typeof value !== 'object') return undefined
+  const raw = value as Record<string, unknown>
+  const width = boundedNumber(raw['width'], 1000, 640, 8192)
+  const height = boundedNumber(raw['height'], 760, 480, 8192)
+
+  return {
+    x: optionalBoundedNumber(raw['x'], -8192, 8192),
+    y: optionalBoundedNumber(raw['y'], -8192, 8192),
+    width,
+    height
+  }
 }
 
 /** Keep only string paths, drop duplicates, and cap the list length. */
@@ -55,12 +74,14 @@ export function getSettings(): Settings {
     const base = defaults()
     cache = {
       theme: 'dark' as const,
+      previewTheme: raw.previewTheme === 'light' || raw.previewTheme === 'dark' ? raw.previewTheme : base.previewTheme,
       language: raw.language && SUPPORTED_LANGUAGES.includes(raw.language) ? raw.language : base.language,
       previewFontFamily: typeof raw.previewFontFamily === 'string' ? raw.previewFontFamily : base.previewFontFamily,
       previewFontSize: boundedNumber(raw.previewFontSize, base.previewFontSize, 12, 24),
       previewLineHeight: boundedNumber(raw.previewLineHeight, base.previewLineHeight, 1.2, 2.4),
       recentFiles: sanitizeRecentFiles(raw.recentFiles),
-      lastDialogDirectory: typeof raw.lastDialogDirectory === 'string' ? raw.lastDialogDirectory : undefined
+      lastDialogDirectory: typeof raw.lastDialogDirectory === 'string' ? raw.lastDialogDirectory : undefined,
+      windowBounds: sanitizeWindowBounds(raw.windowBounds)
     }
   } catch {
     cache = defaults()
@@ -73,11 +94,13 @@ export function updateSettings(patch: Partial<Settings>): Settings {
   const next: Settings = {
     ...merged,
     language: SUPPORTED_LANGUAGES.includes(merged.language) ? merged.language : getSettings().language,
+    previewTheme: merged.previewTheme === 'light' || merged.previewTheme === 'dark' ? merged.previewTheme : 'dark',
     previewFontFamily: typeof merged.previewFontFamily === 'string' ? merged.previewFontFamily : 'Inter',
     previewFontSize: boundedNumber(merged.previewFontSize, 16, 12, 24),
     previewLineHeight: boundedNumber(merged.previewLineHeight, 1.7, 1.2, 2.4),
     recentFiles: sanitizeRecentFiles(merged.recentFiles),
-    lastDialogDirectory: typeof merged.lastDialogDirectory === 'string' ? merged.lastDialogDirectory : undefined
+    lastDialogDirectory: typeof merged.lastDialogDirectory === 'string' ? merged.lastDialogDirectory : undefined,
+    windowBounds: sanitizeWindowBounds(merged.windowBounds)
   }
   cache = next
   try {

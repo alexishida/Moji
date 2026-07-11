@@ -11,6 +11,7 @@ import {
   type OpenManyResult,
   type OpenResult,
   type Settings,
+  type WindowBounds,
   type WriteResult
 } from './shared'
 import { getSettings, updateSettings } from './settings'
@@ -19,6 +20,7 @@ import { exportDocument } from './export'
 let mainWindow: BrowserWindow | null = null
 let pendingOpenPath: string | null = null
 let forceQuit = false
+let persistWindowBoundsTimer: NodeJS.Timeout | null = null
 
 if (process.platform === 'linux') {
   app.setDesktopName('moji.desktop')
@@ -48,12 +50,20 @@ function sanitizeSettingsPatch(value: unknown): Partial<Settings> {
   const patch: Partial<Settings> = {}
 
   if (isLanguage(raw['language'])) patch.language = raw['language']
+  if (raw['previewTheme'] === 'light' || raw['previewTheme'] === 'dark') patch.previewTheme = raw['previewTheme']
   if (typeof raw['previewFontFamily'] === 'string') patch.previewFontFamily = raw['previewFontFamily']
   if (typeof raw['previewFontSize'] === 'number') patch.previewFontSize = raw['previewFontSize']
   if (typeof raw['previewLineHeight'] === 'number') patch.previewLineHeight = raw['previewLineHeight']
   if (Array.isArray(raw['recentFiles'])) patch.recentFiles = raw['recentFiles'].filter((p): p is string => typeof p === 'string')
+  if (isWindowBounds(raw['windowBounds'])) patch.windowBounds = raw['windowBounds']
 
   return patch
+}
+
+function isWindowBounds(value: unknown): value is WindowBounds {
+  if (!value || typeof value !== 'object') return false
+  const raw = value as Record<string, unknown>
+  return typeof raw['width'] === 'number' && typeof raw['height'] === 'number'
 }
 
 function suggestedMarkdownName(value: unknown): string {
@@ -165,11 +175,34 @@ function requestClose(): void {
   mainWindow?.webContents.send(IPC.requestClose)
 }
 
+function windowOptionsFromSettings(): Pick<Electron.BrowserWindowConstructorOptions, 'height' | 'width' | 'x' | 'y'> {
+  const bounds = getSettings().windowBounds
+  if (!bounds) return { width: 1000, height: 760 }
+  return {
+    x: bounds.x,
+    y: bounds.y,
+    width: bounds.width,
+    height: bounds.height
+  }
+}
+
+function persistWindowBounds(win: BrowserWindow): void {
+  if (win.isDestroyed() || win.isMinimized() || win.isFullScreen()) return
+  updateSettings({ windowBounds: win.getNormalBounds() })
+}
+
+function schedulePersistWindowBounds(win: BrowserWindow): void {
+  if (persistWindowBoundsTimer) clearTimeout(persistWindowBoundsTimer)
+  persistWindowBoundsTimer = setTimeout(() => {
+    persistWindowBoundsTimer = null
+    persistWindowBounds(win)
+  }, 400)
+}
+
 function createWindow(): void {
   const iconPath = app.isPackaged ? join(process.resourcesPath, 'icon.png') : join(app.getAppPath(), 'build', 'icon.png')
   mainWindow = new BrowserWindow({
-    width: 1000,
-    height: 760,
+    ...windowOptionsFromSettings(),
     minWidth: 640,
     minHeight: 480,
     show: false,
@@ -209,12 +242,25 @@ function createWindow(): void {
 
   // Close guard: ask the renderer before closing when there are unsaved edits.
   mainWindow.on('close', (e) => {
+    persistWindowBounds(mainWindow as BrowserWindow)
     if (forceQuit) return
     e.preventDefault()
     requestClose()
   })
 
+  mainWindow.on('resize', () => {
+    if (mainWindow) schedulePersistWindowBounds(mainWindow)
+  })
+
+  mainWindow.on('move', () => {
+    if (mainWindow) schedulePersistWindowBounds(mainWindow)
+  })
+
   mainWindow.on('closed', () => {
+    if (persistWindowBoundsTimer) {
+      clearTimeout(persistWindowBoundsTimer)
+      persistWindowBoundsTimer = null
+    }
     mainWindow = null
   })
 

@@ -1,6 +1,6 @@
 {
   "app": {
-    "name": "Moji v0.1.0",
+    "name": "Moji v0.1.2",
     "untitled": "無題",
     "modifiedMarker": "•"
   },
@@ -69,7 +69,7 @@
     "noDocument": "ドキュメントを開くか新規作成するとアウトラインが表示されます。"
   },
   "statusbar": {
-    "brand": "Moji v0.1.0",
+    "brand": "Moji v0.1.2",
     "guide": "Markdown ガイド",
     "exportPdf": "PDF をエクスポート",
     "lineCount": "行数: {{count}}",
@@ -81,7 +81,7 @@
   },
   "welcome": {
     "tagline": "軽くてシンプルな Markdown リーダー",
-    "title": "Moji v0.1.0",
+    "title": "Moji v0.1.2",
     "subtitle": "Markdown ファイルを開いて、すっきり読めます。",
     "openButton": "ファイルを開く",
     "newButton": "新規ファイル",
