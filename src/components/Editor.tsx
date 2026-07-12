@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react'
-import { Decoration, type DecorationSet, EditorView, keymap, lineNumbers } from '@codemirror/view'
-import { EditorState, Compartment, RangeSetBuilder, StateEffect, StateField } from '@codemirror/state'
+import { Decoration, type Command, type DecorationSet, EditorView, keymap, lineNumbers } from '@codemirror/view'
+import { EditorSelection, EditorState, Compartment, RangeSetBuilder, StateEffect, StateField } from '@codemirror/state'
 import { defaultKeymap, history, historyKeymap } from '@codemirror/commands'
 import { markdown } from '@codemirror/lang-markdown'
 import { HighlightStyle, syntaxHighlighting, defaultHighlightStyle } from '@codemirror/language'
@@ -66,6 +66,77 @@ const oneDarkProHighlightStyle = HighlightStyle.define([
 ])
 
 const oneDarkProExtensions = [oneDarkProEditorTheme, syntaxHighlighting(oneDarkProHighlightStyle)]
+
+function wrapMarkdown(before: string, after = before, placeholder = ''): Command {
+  return (view) => {
+    const transaction = view.state.changeByRange((range) => {
+      const selected = view.state.sliceDoc(range.from, range.to)
+      const inner = selected || placeholder
+      const insert = `${before}${inner}${after}`
+      const anchor = range.from + before.length
+      const head = anchor + inner.length
+
+      return {
+        changes: { from: range.from, to: range.to, insert },
+        range: EditorSelection.range(anchor, head)
+      }
+    })
+    view.dispatch(transaction, { scrollIntoView: true, userEvent: 'input.markdown' })
+    view.focus()
+    return true
+  }
+}
+
+const insertLink: Command = (view) => {
+  const transaction = view.state.changeByRange((range) => {
+    const selected = view.state.sliceDoc(range.from, range.to) || 'text'
+    const before = `[${selected}](`
+    const after = 'url)'
+
+    return {
+      changes: { from: range.from, to: range.to, insert: `${before}${after}` },
+      range: EditorSelection.range(range.from + before.length, range.from + before.length + 3)
+    }
+  })
+  view.dispatch(transaction, { scrollIntoView: true, userEvent: 'input.markdown' })
+  view.focus()
+  return true
+}
+
+function toggleLinePrefix(prefix: string): Command {
+  return (view) => {
+    const changes = view.state.changeByRange((range) => {
+      const line = view.state.doc.lineAt(range.from)
+      const text = line.text
+      const trimmedStart = text.length - text.trimStart().length
+      const markerFrom = line.from + trimmedStart
+
+      if (text.slice(trimmedStart).startsWith(prefix)) {
+        return {
+          changes: { from: markerFrom, to: markerFrom + prefix.length, insert: '' },
+          range: EditorSelection.cursor(Math.max(line.from, range.head - prefix.length))
+        }
+      }
+
+      return {
+        changes: { from: markerFrom, insert: prefix },
+        range: EditorSelection.cursor(range.head + prefix.length)
+      }
+    })
+    view.dispatch(changes, { scrollIntoView: true, userEvent: 'input.markdown' })
+    view.focus()
+    return true
+  }
+}
+
+const markdownKeymap = [
+  { key: 'Mod-b', run: wrapMarkdown('**', '**', 'bold') },
+  { key: 'Mod-i', run: wrapMarkdown('*', '*', 'italic') },
+  { key: 'Mod-k', run: insertLink },
+  { key: 'Mod-l', run: toggleLinePrefix('- ') },
+  { key: 'Mod-Shift-l', run: toggleLinePrefix('- [ ] ') },
+  { key: 'Mod-Shift-k', run: wrapMarkdown('```\n', '\n```', 'code') }
+]
 
 function buildSearchDecorations(
   state: EditorState,
@@ -149,7 +220,7 @@ export function Editor({ value, theme, searchTerm, activeSearchIndex, highlightA
       extensions: [
         lineNumbers(),
         history(),
-        keymap.of([...defaultKeymap, ...historyKeymap, ...searchKeymap]),
+        keymap.of([...markdownKeymap, ...defaultKeymap, ...historyKeymap, ...searchKeymap]),
         markdown(),
         search(),
         externalSearchHighlight,

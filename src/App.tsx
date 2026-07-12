@@ -20,6 +20,10 @@ import { buildStandaloneHtml } from './lib/exportHtml'
 import { MAX_RECENT_FILES, type ExportFormat, type Settings, type Theme, type UpdateState } from '../electron/shared'
 import packageJson from '../package.json'
 
+const MIN_PREVIEW_FONT_SIZE = 12
+const MAX_PREVIEW_FONT_SIZE = 24
+const DEFAULT_PREVIEW_FONT_SIZE = 16
+
 interface DocumentState {
   id: string
   path: string | null
@@ -155,6 +159,9 @@ export function App(): JSX.Element {
   const [exportDialogFormat, setExportDialogFormat] = useState<ExportFormat | null>(null)
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [aboutOpen, setAboutOpen] = useState(false)
+  const [searchFocusRequest, setSearchFocusRequest] = useState(0)
+  const [replaceFocusRequest, setReplaceFocusRequest] = useState(0)
+  const [topBarDismissRequest, setTopBarDismissRequest] = useState(0)
   const dialogResolver = useRef<((c: ConfirmChoice) => void) | null>(null)
   const nextDocSeq = useRef(1)
 
@@ -591,6 +598,20 @@ export function App(): JSX.Element {
     setActiveSearchIndex((index) => (index === null ? 0 : (index + 1) % count))
   }, [flash, searchTerm, t])
 
+  const doFindPrevious = useCallback(() => {
+    const term = searchTerm.trim()
+    const count = findLiteralMatches(stateRef.current.activeDoc?.content ?? '', term).length
+    if (!term || count === 0) {
+      flash(t('notice.replaceNone'), true)
+      return
+    }
+    setExportDialogFormat(null)
+    setSettingsOpen(false)
+    setAboutOpen(false)
+    if (!stateRef.current.activeDoc?.readOnly) setMode('edit')
+    setActiveSearchIndex((index) => (index === null ? count - 1 : (index - 1 + count) % count))
+  }, [flash, searchTerm, t])
+
   const doReplace = useCallback(
     (search: string, replacement: string, all: boolean) => {
       const term = search.trim()
@@ -799,6 +820,220 @@ export function App(): JSX.Element {
     setAboutOpen(true)
   }, [])
 
+  const toggleSettings = useCallback(() => {
+    if (stateRef.current.settingsOpen) {
+      setSettingsOpen(false)
+      return
+    }
+    openSettings()
+  }, [openSettings])
+
+  const toggleAbout = useCallback(() => {
+    if (stateRef.current.aboutOpen) {
+      setAboutOpen(false)
+      return
+    }
+    openAbout()
+  }, [openAbout])
+
+  const focusSearch = useCallback(() => {
+    if (!stateRef.current.hasDoc || stateRef.current.exportDialogOpen) return
+    setSettingsOpen(false)
+    setAboutOpen(false)
+    setSearchFocusRequest((value) => value + 1)
+  }, [])
+
+  const focusReplace = useCallback(() => {
+    const doc = stateRef.current.activeDoc
+    if (!doc || doc.readOnly || stateRef.current.exportDialogOpen) return
+    setSettingsOpen(false)
+    setAboutOpen(false)
+    setMode('edit')
+    setReplaceFocusRequest((value) => value + 1)
+  }, [])
+
+  const selectAdjacentDocument = useCallback((direction: 1 | -1) => {
+    const docs = stateRef.current.documents
+    const activeId = stateRef.current.activeDocId
+    if (docs.length < 2 || !activeId) return
+    const index = docs.findIndex((doc) => doc.id === activeId)
+    if (index < 0) return
+    const next = docs[(index + direction + docs.length) % docs.length]
+    selectDocument(next.id)
+  }, [selectDocument])
+
+  const toggleMode = useCallback(() => {
+    const s = stateRef.current
+    if (!s.hasDoc) return
+    if (s.mode === 'view' && !s.activeDoc?.readOnly) setModeSafe('edit')
+    else setModeSafe('view')
+  }, [setModeSafe])
+
+  const closeActivePanel = useCallback((): boolean => {
+    const s = stateRef.current
+    if (s.exportDialogOpen) {
+      setExportDialogFormat(null)
+      return true
+    }
+    if (s.settingsOpen) {
+      setSettingsOpen(false)
+      return true
+    }
+    if (s.aboutOpen) {
+      setAboutOpen(false)
+      return true
+    }
+    setTopBarDismissRequest((value) => value + 1)
+    return false
+  }, [])
+
+  const changePreviewFontSize = useCallback(
+    (next: number) => {
+      if (!canToggleMdTheme()) return
+      changeSettings({ previewFontSize: Math.min(MAX_PREVIEW_FONT_SIZE, Math.max(MIN_PREVIEW_FONT_SIZE, next)) })
+    },
+    [canToggleMdTheme, changeSettings]
+  )
+
+  const toggleFullscreen = useCallback(() => {
+    if (document.fullscreenElement) {
+      void document.exitFullscreen()
+      return
+    }
+    void document.documentElement.requestFullscreen()
+  }, [])
+
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent): void => {
+      if (event.isComposing || dialogOpen) return
+
+      const key = event.key.toLowerCase()
+      const primary = event.ctrlKey || event.metaKey
+      const onlyPrimary = primary && !event.altKey
+
+      if (event.key === 'Escape') {
+        closeActivePanel()
+        return
+      }
+
+      if (event.key === 'F3') {
+        event.preventDefault()
+        if (event.shiftKey) doFindPrevious()
+        else doFindNext()
+        return
+      }
+
+      if (event.key === 'F11') {
+        event.preventDefault()
+        toggleFullscreen()
+        return
+      }
+
+      if (!onlyPrimary) return
+
+      if (key === 'n') {
+        event.preventDefault()
+        doNew()
+        return
+      }
+      if (key === 'o') {
+        event.preventDefault()
+        void doOpen()
+        return
+      }
+      if (key === 's') {
+        event.preventDefault()
+        const doc = stateRef.current.activeDoc
+        if (!doc) {
+          flash(t('notice.noDocument'), true)
+          return
+        }
+        if (event.shiftKey) void saveDocumentAs(doc.id)
+        else void saveDocument(doc.id)
+        return
+      }
+      if (key === 'w') {
+        event.preventDefault()
+        const id = stateRef.current.activeDocId
+        if (id) void closeDocument(id)
+        return
+      }
+      if (event.key === 'Tab') {
+        event.preventDefault()
+        selectAdjacentDocument(event.shiftKey ? -1 : 1)
+        return
+      }
+      if (key === 'f' && !event.shiftKey) {
+        event.preventDefault()
+        focusSearch()
+        return
+      }
+      if (key === 'h' && !event.shiftKey) {
+        event.preventDefault()
+        focusReplace()
+        return
+      }
+      if (key === 'e' && event.shiftKey) {
+        event.preventDefault()
+        openExportDialog('pdf')
+        return
+      }
+      if (key === 'e') {
+        event.preventDefault()
+        toggleMode()
+        return
+      }
+      if (key === ',') {
+        event.preventDefault()
+        openSettings()
+        return
+      }
+      if (key === 'q') {
+        event.preventDefault()
+        window.close()
+        return
+      }
+      if (key === '+' || key === '=') {
+        event.preventDefault()
+        changePreviewFontSize(settings.previewFontSize + 1)
+        return
+      }
+      if (key === '-') {
+        event.preventDefault()
+        changePreviewFontSize(settings.previewFontSize - 1)
+        return
+      }
+      if (key === '0') {
+        event.preventDefault()
+        changePreviewFontSize(DEFAULT_PREVIEW_FONT_SIZE)
+      }
+    }
+
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [
+    changePreviewFontSize,
+    closeActivePanel,
+    closeDocument,
+    dialogOpen,
+    doFindNext,
+    doFindPrevious,
+    doNew,
+    doOpen,
+    flash,
+    focusReplace,
+    focusSearch,
+    openExportDialog,
+    openSettings,
+    saveDocument,
+    saveDocumentAs,
+    selectAdjacentDocument,
+    settings.previewFontSize,
+    t,
+    toggleFullscreen,
+    toggleMode
+  ])
+
   // --- Wire main-process requests + pushed documents --------------------
   useEffect(() => {
     const offClose = window.api.onCloseRequest(() => {
@@ -877,8 +1112,11 @@ export function App(): JSX.Element {
         onTogglePreviewWidth={() => changeSettings({ previewFluidWidth: !settings.previewFluidWidth })}
         onToggleTheme={toggleMdTheme}
         onExport={openExportDialog}
-        onOpenSettings={openSettings}
-        onOpenAbout={openAbout}
+        onOpenSettings={toggleSettings}
+        onOpenAbout={toggleAbout}
+        searchFocusRequest={searchFocusRequest}
+        replaceFocusRequest={replaceFocusRequest}
+        dismissRequest={topBarDismissRequest}
       />
 
       {hasDoc && (
@@ -908,7 +1146,7 @@ export function App(): JSX.Element {
         <main className="main">
           <div className="workspace">
             {settingsOpen ? (
-              <div className="export-workspace">
+              <div className="export-workspace export-workspace--settings">
                 <SettingsDialog
                   settings={settings}
                   onClose={() => setSettingsOpen(false)}

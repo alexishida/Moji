@@ -644,6 +644,10 @@ body {
   padding: var(--space-4);
 }
 
+.export-workspace--settings {
+  align-items: flex-start;
+}
+
 .pane {
   flex: 1 1 0;
   min-width: 0;
@@ -1221,14 +1225,46 @@ body {
 
 /* --- Settings dialog ----------------------------------------------------- */
 .settings-dialog {
-  width: min(560px, calc(100vw - 32px));
+  width: min(680px, calc(100vw - 32px));
 }
 
 .settings-dialog__body {
+  min-height: 0;
+  overflow-y: auto;
   display: flex;
   flex-direction: column;
   gap: var(--space-4);
   padding: var(--space-4) var(--space-5) var(--space-5);
+}
+
+.settings-tabs {
+  display: inline-flex;
+  align-self: flex-start;
+  gap: 2px;
+  padding: 3px;
+  background: var(--segment-track);
+  border-radius: var(--radius);
+}
+
+.settings-tabs__button {
+  height: 30px;
+  padding: 0 var(--space-4);
+  font-family: inherit;
+  font-size: 13px;
+  color: var(--text-muted);
+  background: none;
+  border: 0;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.settings-tabs__button:hover {
+  color: var(--text);
+}
+
+.settings-tabs__button--active {
+  color: var(--text);
+  background: var(--segment-active-bg);
 }
 
 .about-dialog {
@@ -1408,6 +1444,61 @@ body {
 .settings-field__control {
   width: 100%;
   height: 36px;
+}
+
+.settings-shortcuts {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-3);
+  min-width: 0;
+}
+
+.settings-shortcut-list {
+  display: flex;
+  flex-direction: column;
+}
+
+.settings-shortcut {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--space-3);
+  min-height: 42px;
+  padding: var(--space-2) var(--space-3);
+}
+
+.settings-shortcut + .settings-shortcut {
+  border-top: 1px solid var(--border);
+}
+
+.settings-shortcut__label {
+  min-width: 0;
+  font-size: 13px;
+  line-height: 1.3;
+  color: var(--text);
+}
+
+.settings-shortcut__keys {
+  display: inline-flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 4px;
+}
+
+.settings-shortcut__key {
+  min-width: 24px;
+  height: 22px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 7px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text);
+  background: var(--bg-inset);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  box-shadow: inset 0 -1px 0 rgba(255, 255, 255, 0.04);
 }
 
 /* --- Export dialog ------------------------------------------------------- */
@@ -1676,6 +1767,10 @@ body {
     grid-template-columns: 1fr;
     align-items: stretch;
     gap: var(--space-2);
+  }
+
+  .settings-shortcuts {
+    grid-template-columns: 1fr;
   }
 
   .about-dialog__row {

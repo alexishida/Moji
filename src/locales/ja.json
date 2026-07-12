@@ -32,6 +32,7 @@
     "edit": "編集",
     "view": "表示",
     "preview": "プレビュー",
+    "shortcuts": "ショートカット",
     "editor": "エディター",
     "viewMode": "表示モード",
     "newDocument": "新規",
@@ -85,6 +86,10 @@
   "help": {
     "hint": ".md ファイルを開くかドロップし、上部タブでプレビューとエディターを切り替え、アウトラインで見出し間を移動できます。"
   },
+  "preview": {
+    "copyCode": "コードをコピー",
+    "codeCopied": "コードをコピーしました"
+  },
   "welcome": {
     "tagline": "軽くてシンプルな Markdown リーダー",
     "title": "Moji v0.1.2",
@@ -126,7 +131,44 @@
     "preview": "プレビュー",
     "fontFamily": "フォント",
     "fontSize": "フォントサイズ",
-    "lineHeight": "行の高さ"
+    "lineHeight": "行の高さ",
+    "shortcutSections": {
+      "file": "ファイル",
+      "search": "検索",
+      "view": "表示",
+      "font": "フォント",
+      "tabs": "タブ",
+      "editor": "エディタ"
+    },
+    "shortcutActions": {
+      "newDocument": "新規ドキュメント",
+      "open": "ファイルを開く",
+      "save": "保存",
+      "saveAs": "名前を付けて保存",
+      "closeTab": "現在のタブを閉じる",
+      "quit": "アプリを終了",
+      "search": "検索",
+      "replace": "置換",
+      "findNext": "次の一致",
+      "findPrevious": "前の一致",
+      "toggleEdit": "エディタ/プレビュー切替",
+      "export": "エクスポート",
+      "settings": "設定",
+      "fullscreen": "全画面",
+      "closePanel": "アクティブパネルを閉じる",
+      "increaseFont": "フォントを大きく",
+      "increaseFontAlt": "フォントを大きく",
+      "decreaseFont": "フォントを小さく",
+      "resetFont": "フォントをリセット",
+      "nextTab": "次のタブ",
+      "previousTab": "前のタブ",
+      "bold": "太字",
+      "italic": "斜体",
+      "link": "リンクを挿入",
+      "list": "リスト切替",
+      "checklist": "チェックリスト切替",
+      "codeBlock": "コードブロックを挿入"
+    }
   },
   "aboutDialog": {
     "title": "このアプリについて",

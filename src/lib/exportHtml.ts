@@ -6,10 +6,23 @@ import type { Theme } from '../../electron/shared'
 const PRINT_CSS = `
   html, body { background: var(--bg); }
   .markdown-body { max-width: 820px; margin: 0 auto; padding: 24px; }
+  html.export-png pre {
+    overflow: visible;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+  }
+  html.export-png pre code { white-space: inherit; }
   @page { margin: 16mm; }
   @media print {
     a { color: inherit; text-decoration: underline; }
-    pre, blockquote, table, img { break-inside: avoid; }
+    blockquote, table, img { break-inside: avoid; }
+    pre {
+      overflow: visible;
+      white-space: pre-wrap;
+      overflow-wrap: anywhere;
+      break-inside: auto;
+    }
+    pre code { white-space: inherit; }
     h1, h2, h3 { break-after: avoid; }
   }
 `
