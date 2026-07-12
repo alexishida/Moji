@@ -1,7 +1,8 @@
 import { useState, useCallback, useEffect, type ChangeEvent, type FormEvent } from 'react'
 import { useTranslation } from 'react-i18next'
 import { SettingsButton } from './SettingsButton'
-import { IconMoon, IconSun, IconEye, IconPencil, IconDownload, IconOpen, IconFilePlus, IconSave, IconInfo, IconReplace, IconReplaceAll, IconSearch, IconX } from './icons'
+import { FontSizeButton } from './FontSizeButton'
+import { IconMoon, IconSun, IconEye, IconPencil, IconDownload, IconOpen, IconFilePlus, IconSave, IconInfo, IconReplace, IconReplaceAll, IconSearch, IconX, IconLayoutWidth } from './icons'
 import type { ExportFormat, Theme } from '../../electron/shared'
 
 interface TopBarProps {
@@ -28,6 +29,12 @@ interface TopBarProps {
   searchMatchCount: number
   activeSearchIndex: number | null
   canToggleTheme: boolean
+  previewFontSize: number
+  canAdjustFontSize: boolean
+  onFontSizeChange: (value: number) => void
+  previewFluidWidth: boolean
+  canTogglePreviewWidth: boolean
+  onTogglePreviewWidth: () => void
 }
 
 export function TopBar(props: TopBarProps): JSX.Element {
@@ -227,6 +234,24 @@ export function TopBar(props: TopBarProps): JSX.Element {
         </div>
 
         <div className="topbar__right">
+          <button
+            className={`iconbtn ${props.previewFluidWidth ? 'iconbtn--active' : ''}`}
+            type="button"
+            onClick={props.onTogglePreviewWidth}
+            disabled={!props.canTogglePreviewWidth}
+            title={props.previewFluidWidth ? t('toolbar.useFixedWidth') : t('toolbar.useFluidWidth')}
+            aria-label={props.previewFluidWidth ? t('toolbar.useFixedWidth') : t('toolbar.useFluidWidth')}
+            aria-pressed={props.previewFluidWidth}
+          >
+            <IconLayoutWidth />
+          </button>
+
+          <FontSizeButton
+            value={props.previewFontSize}
+            disabled={!props.canAdjustFontSize}
+            onChange={props.onFontSizeChange}
+          />
+
           <button
             className="iconbtn"
             onClick={props.onToggleTheme}

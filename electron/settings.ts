@@ -27,6 +27,7 @@ function defaults(): Settings {
     previewFontFamily: 'Inter',
     previewFontSize: 16,
     previewLineHeight: 1.7,
+    previewFluidWidth: false,
     recentFiles: []
   }
 }
@@ -77,8 +78,9 @@ export function getSettings(): Settings {
       previewTheme: raw.previewTheme === 'light' || raw.previewTheme === 'dark' ? raw.previewTheme : base.previewTheme,
       language: raw.language && SUPPORTED_LANGUAGES.includes(raw.language) ? raw.language : base.language,
       previewFontFamily: typeof raw.previewFontFamily === 'string' ? raw.previewFontFamily : base.previewFontFamily,
-      previewFontSize: boundedNumber(raw.previewFontSize, base.previewFontSize, 12, 24),
+      previewFontSize: base.previewFontSize,
       previewLineHeight: boundedNumber(raw.previewLineHeight, base.previewLineHeight, 1.2, 2.4),
+      previewFluidWidth: base.previewFluidWidth,
       recentFiles: sanitizeRecentFiles(raw.recentFiles),
       lastDialogDirectory: typeof raw.lastDialogDirectory === 'string' ? raw.lastDialogDirectory : undefined,
       windowBounds: sanitizeWindowBounds(raw.windowBounds)
@@ -98,13 +100,17 @@ export function updateSettings(patch: Partial<Settings>): Settings {
     previewFontFamily: typeof merged.previewFontFamily === 'string' ? merged.previewFontFamily : 'Inter',
     previewFontSize: boundedNumber(merged.previewFontSize, 16, 12, 24),
     previewLineHeight: boundedNumber(merged.previewLineHeight, 1.7, 1.2, 2.4),
+    previewFluidWidth: typeof merged.previewFluidWidth === 'boolean' ? merged.previewFluidWidth : false,
     recentFiles: sanitizeRecentFiles(merged.recentFiles),
     lastDialogDirectory: typeof merged.lastDialogDirectory === 'string' ? merged.lastDialogDirectory : undefined,
     windowBounds: sanitizeWindowBounds(merged.windowBounds)
   }
   cache = next
   try {
-    writeFileSync(settingsFile(), JSON.stringify(next, null, 2), 'utf-8')
+    const persisted: Partial<Settings> = { ...next }
+    delete persisted.previewFontSize
+    delete persisted.previewFluidWidth
+    writeFileSync(settingsFile(), JSON.stringify(persisted, null, 2), 'utf-8')
   } catch {
     // Non-fatal: preference simply won't persist this session.
   }
