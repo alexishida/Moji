@@ -10,8 +10,6 @@
 
 <p align="center"><strong>Current version:</strong> v0.1.3</p>
 
-## Screenshots
-
 <p align="center">
   <img src="docs/repository-open-graph.png" alt="reposytory-open-graph" width="100%" />
 </p>
