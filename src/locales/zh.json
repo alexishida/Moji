@@ -32,6 +32,7 @@
     "edit": "编辑",
     "view": "视图",
     "preview": "预览",
+    "shortcuts": "快捷键",
     "editor": "编辑器",
     "viewMode": "查看模式",
     "newDocument": "新建",
@@ -85,6 +86,10 @@
   "help": {
     "hint": "打开或拖入 .md 文件，从顶部标签切换预览／编辑器，并使用大纲在标题间跳转。"
   },
+  "preview": {
+    "copyCode": "复制代码",
+    "codeCopied": "代码已复制"
+  },
   "welcome": {
     "tagline": "轻量简洁的 Markdown 阅读器",
     "title": "Moji v0.1.2",
@@ -126,7 +131,44 @@
     "preview": "预览",
     "fontFamily": "字体",
     "fontSize": "字号",
-    "lineHeight": "行高"
+    "lineHeight": "行高",
+    "shortcutSections": {
+      "file": "文件",
+      "search": "搜索",
+      "view": "视图",
+      "font": "字体",
+      "tabs": "标签页",
+      "editor": "编辑器"
+    },
+    "shortcutActions": {
+      "newDocument": "新建文档",
+      "open": "打开文件",
+      "save": "保存",
+      "saveAs": "另存为",
+      "closeTab": "关闭当前标签",
+      "quit": "退出应用",
+      "search": "搜索",
+      "replace": "替换",
+      "findNext": "下一个匹配",
+      "findPrevious": "上一个匹配",
+      "toggleEdit": "切换编辑/预览",
+      "export": "导出",
+      "settings": "设置",
+      "fullscreen": "全屏",
+      "closePanel": "关闭当前面板",
+      "increaseFont": "增大字体",
+      "increaseFontAlt": "增大字体",
+      "decreaseFont": "减小字体",
+      "resetFont": "重置字体",
+      "nextTab": "下一个标签",
+      "previousTab": "上一个标签",
+      "bold": "加粗",
+      "italic": "斜体",
+      "link": "插入链接",
+      "list": "切换列表",
+      "checklist": "切换任务列表",
+      "codeBlock": "插入代码块"
+    }
   },
   "aboutDialog": {
     "title": "关于",

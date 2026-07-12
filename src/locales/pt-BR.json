@@ -85,6 +85,10 @@
   "help": {
     "hint": "Abra ou solte um arquivo .md, alterne entre Visualizar/Editor nas abas superiores e use o sumário para navegar entre os títulos."
   },
+  "preview": {
+    "copyCode": "Copiar código",
+    "codeCopied": "Código copiado"
+  },
   "welcome": {
     "tagline": "Um leitor de Markdown leve e simples",
     "title": "Moji v0.1.2",
@@ -123,10 +127,48 @@
   "settingsDialog": {
     "title": "Configurações",
     "general": "Geral",
-    "preview": "Preview",
+    "preview": "Visualizar",
+    "shortcuts": "Atalhos",
     "fontFamily": "Fonte",
     "fontSize": "Tamanho da fonte",
-    "lineHeight": "Altura da linha"
+    "lineHeight": "Altura da linha",
+    "shortcutSections": {
+      "file": "Arquivo",
+      "search": "Busca",
+      "view": "Visualização",
+      "font": "Fonte",
+      "tabs": "Abas",
+      "editor": "Editor"
+    },
+    "shortcutActions": {
+      "newDocument": "Novo documento",
+      "open": "Abrir arquivo",
+      "save": "Salvar",
+      "saveAs": "Salvar como",
+      "closeTab": "Fechar aba atual",
+      "quit": "Sair do app",
+      "search": "Buscar",
+      "replace": "Substituir",
+      "findNext": "Próxima ocorrência",
+      "findPrevious": "Ocorrência anterior",
+      "toggleEdit": "Alternar editor/visualização",
+      "export": "Exportar",
+      "settings": "Configurações",
+      "fullscreen": "Tela cheia",
+      "closePanel": "Fechar painel ativo",
+      "increaseFont": "Aumentar fonte",
+      "increaseFontAlt": "Aumentar fonte",
+      "decreaseFont": "Diminuir fonte",
+      "resetFont": "Restaurar fonte",
+      "nextTab": "Próxima aba",
+      "previousTab": "Aba anterior",
+      "bold": "Negrito",
+      "italic": "Itálico",
+      "link": "Inserir link",
+      "list": "Alternar lista",
+      "checklist": "Alternar checklist",
+      "codeBlock": "Inserir bloco de código"
+    }
   },
   "aboutDialog": {
     "title": "Sobre",

@@ -162,6 +162,7 @@ async function htmlToPng(
   const size = pagePixels(pageSize, pageOrientation)
   const win = await createExportWindow(html, pageSize, pageOrientation, assetBaseUrl)
   try {
+    await win.webContents.executeJavaScript("document.documentElement.classList.add('export-png')")
     const documentHeight = (await win.webContents.executeJavaScript(
       'Math.ceil(Math.max(document.body.scrollHeight, document.documentElement.scrollHeight))'
     )) as number

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, type MouseEvent } from 'react'
+import { useTranslation } from 'react-i18next'
 import type { Settings, Theme } from '../../electron/shared'
 import { scrollPreviewHeadingIntoView } from '../lib/previewScroll'
 
@@ -12,10 +13,28 @@ interface PreviewProps {
 
 /** Renders sanitized Markdown HTML and resolves in-document heading anchors. */
 export function Preview({ html, mdTheme, searchTerm, settings, className }: PreviewProps): JSX.Element {
+  const { t } = useTranslation()
   const bodyRef = useRef<HTMLDivElement>(null)
 
   const handleClick = useCallback((e: MouseEvent<HTMLDivElement>) => {
-    const anchor = (e.target as HTMLElement).closest('a')
+    const target = e.target as HTMLElement
+    const copyButton = target.closest<HTMLButtonElement>('.code-copy-button')
+    if (copyButton) {
+      const code = copyButton.closest('.code-block')?.querySelector('code')?.textContent ?? ''
+      void navigator.clipboard.writeText(code).then(() => {
+        copyButton.classList.add('code-copy-button--copied')
+        copyButton.setAttribute('aria-label', t('preview.codeCopied'))
+        copyButton.title = t('preview.codeCopied')
+        window.setTimeout(() => {
+          copyButton.classList.remove('code-copy-button--copied')
+          copyButton.setAttribute('aria-label', t('preview.copyCode'))
+          copyButton.title = t('preview.copyCode')
+        }, 1600)
+      })
+      return
+    }
+
+    const anchor = target.closest('a')
     if (!anchor) return
     const href = anchor.getAttribute('href') ?? ''
     if (href.startsWith('#')) {
@@ -27,6 +46,69 @@ export function Preview({ html, mdTheme, searchTerm, settings, className }: Prev
     }
     // External http(s) links carry target="_blank"; the main process opens them
     // in the OS browser via the window-open handler.
+  }, [t])
+
+  useEffect(() => {
+    if (!bodyRef.current) return
+
+    bodyRef.current.querySelectorAll('.code-copy-button').forEach((button) => button.remove())
+    bodyRef.current.querySelectorAll('pre').forEach((pre) => {
+      if (!pre.querySelector(':scope > code')) return
+      let wrapper = pre.parentElement
+      if (!wrapper?.classList.contains('code-block')) {
+        wrapper = document.createElement('div')
+        wrapper.className = 'code-block'
+        pre.before(wrapper)
+        wrapper.append(pre)
+      }
+      const button = document.createElement('button')
+      button.type = 'button'
+      button.className = 'code-copy-button'
+      button.setAttribute('aria-label', t('preview.copyCode'))
+      button.title = t('preview.copyCode')
+      wrapper.append(button)
+    })
+  }, [html, t])
+
+  useEffect(() => {
+    const body = bodyRef.current
+    if (!body) return
+
+    const handleSelectionChange = (): void => {
+      const selection = document.getSelection()
+      const range = selection && !selection.isCollapsed && selection.rangeCount > 0
+        ? selection.getRangeAt(0)
+        : null
+      const selectionElement = (node: Node | null): Element | null =>
+        node instanceof Element ? node : node?.parentElement ?? null
+      const selectionInsideCode = Boolean(
+        selection && !selection.isCollapsed && (
+          selectionElement(selection.anchorNode)?.closest('.code-block') ||
+          selectionElement(selection.focusNode)?.closest('.code-block')
+        )
+      )
+      const selectsCode = selectionInsideCode || Boolean(
+        range && Array.from(body.querySelectorAll('.code-block')).some((block) => range.intersectsNode(block))
+      )
+
+      body.classList.toggle('markdown-body--selecting-code', selectsCode)
+      body.querySelectorAll<HTMLButtonElement>('.code-copy-button').forEach((button) => {
+        button.hidden = selectsCode
+      })
+    }
+
+    const handlePointerUp = (): void => {
+      window.setTimeout(handleSelectionChange)
+    }
+
+    document.addEventListener('selectionchange', handleSelectionChange)
+    window.addEventListener('pointerup', handlePointerUp)
+    window.addEventListener('keyup', handleSelectionChange)
+    return () => {
+      document.removeEventListener('selectionchange', handleSelectionChange)
+      window.removeEventListener('pointerup', handlePointerUp)
+      window.removeEventListener('keyup', handleSelectionChange)
+    }
   }, [])
 
   useEffect(() => {
@@ -71,7 +153,7 @@ export function Preview({ html, mdTheme, searchTerm, settings, className }: Prev
     })
     const nodes: Text[] = []
     while (walker.nextNode()) {
-      if (!(walker.currentNode.parentElement?.closest('style,script,svg,mark'))) {
+      if (!(walker.currentNode.parentElement?.closest('style,script,svg,mark,button'))) {
         nodes.push(walker.currentNode as Text)
       }
     }

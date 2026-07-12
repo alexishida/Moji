@@ -85,6 +85,10 @@
   "help": {
     "hint": "Open or drop a .md file, switch Preview/Editor from the top tabs, and use the outline to jump between headings."
   },
+  "preview": {
+    "copyCode": "Copy code",
+    "codeCopied": "Code copied"
+  },
   "welcome": {
     "tagline": "A lightweight, simple Markdown reader",
     "title": "Moji v0.1.2",
@@ -124,9 +128,47 @@
     "title": "Settings",
     "general": "General",
     "preview": "Preview",
+    "shortcuts": "Shortcuts",
     "fontFamily": "Font Family",
     "fontSize": "Font Size",
-    "lineHeight": "Line Height"
+    "lineHeight": "Line Height",
+    "shortcutSections": {
+      "file": "File",
+      "search": "Search",
+      "view": "View",
+      "font": "Font",
+      "tabs": "Tabs",
+      "editor": "Editor"
+    },
+    "shortcutActions": {
+      "newDocument": "New document",
+      "open": "Open file",
+      "save": "Save",
+      "saveAs": "Save as",
+      "closeTab": "Close current tab",
+      "quit": "Quit app",
+      "search": "Search",
+      "replace": "Replace",
+      "findNext": "Next match",
+      "findPrevious": "Previous match",
+      "toggleEdit": "Toggle editor/preview",
+      "export": "Export",
+      "settings": "Settings",
+      "fullscreen": "Fullscreen",
+      "closePanel": "Close active panel",
+      "increaseFont": "Increase font size",
+      "increaseFontAlt": "Increase font size",
+      "decreaseFont": "Decrease font size",
+      "resetFont": "Reset font size",
+      "nextTab": "Next tab",
+      "previousTab": "Previous tab",
+      "bold": "Bold",
+      "italic": "Italic",
+      "link": "Insert link",
+      "list": "Toggle list",
+      "checklist": "Toggle checklist",
+      "codeBlock": "Insert code block"
+    }
   },
   "aboutDialog": {
     "title": "About",

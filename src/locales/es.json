@@ -32,6 +32,7 @@
     "edit": "Editar",
     "view": "Ver",
     "preview": "Vista previa",
+    "shortcuts": "Atajos",
     "editor": "Editor",
     "viewMode": "Modo de vista",
     "newDocument": "Nuevo",
@@ -85,6 +86,10 @@
   "help": {
     "hint": "Abre o suelta un archivo .md, cambia entre Vista previa/Editor en las pestañas superiores y usa el esquema para saltar entre encabezados."
   },
+  "preview": {
+    "copyCode": "Copiar código",
+    "codeCopied": "Código copiado"
+  },
   "welcome": {
     "tagline": "Un lector de Markdown ligero y sencillo",
     "title": "Moji v0.1.2",
@@ -126,7 +131,44 @@
     "preview": "Vista previa",
     "fontFamily": "Fuente",
     "fontSize": "Tamaño de fuente",
-    "lineHeight": "Altura de línea"
+    "lineHeight": "Altura de línea",
+    "shortcutSections": {
+      "file": "Archivo",
+      "search": "Búsqueda",
+      "view": "Vista",
+      "font": "Fuente",
+      "tabs": "Pestañas",
+      "editor": "Editor"
+    },
+    "shortcutActions": {
+      "newDocument": "Nuevo documento",
+      "open": "Abrir archivo",
+      "save": "Guardar",
+      "saveAs": "Guardar como",
+      "closeTab": "Cerrar pestaña actual",
+      "quit": "Salir de la app",
+      "search": "Buscar",
+      "replace": "Reemplazar",
+      "findNext": "Siguiente coincidencia",
+      "findPrevious": "Coincidencia anterior",
+      "toggleEdit": "Alternar editor/vista previa",
+      "export": "Exportar",
+      "settings": "Ajustes",
+      "fullscreen": "Pantalla completa",
+      "closePanel": "Cerrar panel activo",
+      "increaseFont": "Aumentar fuente",
+      "increaseFontAlt": "Aumentar fuente",
+      "decreaseFont": "Disminuir fuente",
+      "resetFont": "Restablecer fuente",
+      "nextTab": "Siguiente pestaña",
+      "previousTab": "Pestaña anterior",
+      "bold": "Negrita",
+      "italic": "Cursiva",
+      "link": "Insertar enlace",
+      "list": "Alternar lista",
+      "checklist": "Alternar checklist",
+      "codeBlock": "Insertar bloque de código"
+    }
   },
   "aboutDialog": {
     "title": "Acerca de",

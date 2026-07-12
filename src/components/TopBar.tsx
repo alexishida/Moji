@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, type ChangeEvent, type FormEvent } from 'react'
+import { useState, useCallback, useEffect, useRef, type ChangeEvent, type FormEvent } from 'react'
 import { useTranslation } from 'react-i18next'
 import { SettingsButton } from './SettingsButton'
 import { FontSizeButton } from './FontSizeButton'
@@ -35,6 +35,9 @@ interface TopBarProps {
   previewFluidWidth: boolean
   canTogglePreviewWidth: boolean
   onTogglePreviewWidth: () => void
+  searchFocusRequest: number
+  replaceFocusRequest: number
+  dismissRequest: number
 }
 
 export function TopBar(props: TopBarProps): JSX.Element {
@@ -42,6 +45,8 @@ export function TopBar(props: TopBarProps): JSX.Element {
   const [searchTerm, setSearchTerm] = useState('')
   const [replaceTerm, setReplaceTerm] = useState('')
   const [replaceOpen, setReplaceOpen] = useState(false)
+  const searchInputRef = useRef<HTMLInputElement>(null)
+  const replaceInputRef = useRef<HTMLInputElement>(null)
   const canSearch = props.hasDoc && !props.exportOpen
   const canFind = canSearch && props.searchMatchCount > 0
   const canOpenReplace = props.hasDoc && props.mode === 'edit' && !props.exportOpen
@@ -81,6 +86,30 @@ export function TopBar(props: TopBarProps): JSX.Element {
   useEffect(() => {
     if (!canOpenReplace) setReplaceOpen(false)
   }, [canOpenReplace])
+
+  useEffect(() => {
+    if (!canSearch || props.searchFocusRequest === 0) return
+    searchInputRef.current?.focus()
+    searchInputRef.current?.select()
+  }, [canSearch, props.searchFocusRequest])
+
+  useEffect(() => {
+    if (!canOpenReplace || props.replaceFocusRequest === 0) return
+    setReplaceOpen(true)
+  }, [canOpenReplace, props.replaceFocusRequest])
+
+  useEffect(() => {
+    if (!replaceOpen || props.replaceFocusRequest === 0) return
+    replaceInputRef.current?.focus()
+    replaceInputRef.current?.select()
+  }, [replaceOpen, props.replaceFocusRequest])
+
+  useEffect(() => {
+    if (props.dismissRequest === 0) return
+    setReplaceOpen(false)
+    searchInputRef.current?.blur()
+    replaceInputRef.current?.blur()
+  }, [props.dismissRequest])
 
   useEffect(() => {
     if (props.hasDoc) return
@@ -136,6 +165,7 @@ export function TopBar(props: TopBarProps): JSX.Element {
               <IconReplace width={16} height={16} />
             </button>
             <input
+              ref={searchInputRef}
               className="topbar__search"
               type="search"
               placeholder={t('toolbar.search')}
@@ -148,6 +178,7 @@ export function TopBar(props: TopBarProps): JSX.Element {
               <form className="topbar__replace-popover" onSubmit={replaceOne}>
                 <div className="topbar__replace-row">
                   <input
+                    ref={replaceInputRef}
                     className="topbar__replace-input"
                     type="search"
                     placeholder={t('toolbar.replaceWith')}
