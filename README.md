@@ -8,7 +8,7 @@
 
 <p align="center">Built with Electron, React, TypeScript, and electron-vite.</p>
 
-<p align="center"><strong>Current version:</strong> v0.1.2</p>
+<p align="center"><strong>Current version:</strong> v0.1.3</p>
 
 ## Screenshots
 
@@ -24,19 +24,19 @@
 
 ## Name
 
-**Moji (文字)** literally means "letter", "character", or "writing" in Japanese. It fits an app focused on opening, editing, and exporting Markdown with as little friction as possible.
+**Moji (文字)** literally means "letter", "character", or "writing" in Japanese. Short and easy to remember, it evokes characters and writing. The name fits its purpose: opening, editing, previewing, and exporting Markdown smoothly—without distractions.
 
 ## Features
 
 - **Open Markdown files**: supports `.md` and `.markdown` through file dialog, drag and drop, CLI/file association entry points, and single-instance forwarding.
 - **Multi-document workspace**: horizontal tabs, dirty markers, close buttons, duplicate-file detection, and unsaved-change confirmation with clear action icons.
 - **Tab management**: close other tabs, tabs to the right, saved tabs, or all tabs from the document tab menu.
-- **Preview mode**: sanitized Markdown rendering with heading anchors, outline navigation, tables, task lists, footnotes, definition lists, subscript/superscript, highlight/insert marks, emoji shortcodes, LaTeX math via KaTeX (`$…$` and `$$…$$`), linkify, typographer, and syntax-highlighted code.
+- **Preview mode**: sanitized Markdown rendering with heading anchors, outline navigation, tables, task lists, footnotes, definition lists, subscript/superscript, highlight/insert marks, emoji shortcodes, LaTeX math via KaTeX (`$…$` and `$$…$$`), linkify, typographer, syntax-highlighted code, and copy buttons for code blocks.
 - **Outline navigation**: collapsible heading tree with scroll-spy that highlights the heading nearest the viewport top, plus smooth scroll-to-heading on click and anchor links.
 - **Search and replace**: top-bar search highlights matches in preview/editor, shows occurrence count, jumps to the next match, and replaces one match or all matches in the active document.
-- **Editor mode**: CodeMirror 6 Markdown editor with line numbers, history, wrapping, and save/save as flows.
-- **Export mode**: export the active document as HTML, PDF, or PNG. PDF supports A4, Letter, Legal, portrait, and landscape.
-- **Settings view**: centered in-workspace panel for language and preview typography controls.
+- **Editor mode**: CodeMirror 6 Markdown editor with line numbers, history, wrapping, localized untitled document names, Markdown formatting shortcuts, and save/save as flows.
+- **Export mode**: export the active document as HTML, PDF, or PNG. PDF supports A4, Letter, Legal, portrait, and landscape; long code lines wrap in PDF and PNG exports.
+- **Settings view**: centered in-workspace panel for language, preview typography, and a localized shortcut reference.
 - **About view**: in-workspace panel showing app name, version (from `package.json`), author, repository link, and the story behind the name.
 - **Markdown guide**: bundled localized reference documents (`samples/markdown-guide.<locale>.md`) opened from the status bar.
 - **Recent files**: Welcome screen shows recently opened Markdown files and lets you reopen or remove entries.
@@ -45,6 +45,7 @@
 - **Markdown themes**: dark/light toggle for rendered Markdown. App chrome remains dark; exports always use the light theme.
 - **Internationalization**: English, Portuguese (Brazil), Spanish, Japanese, Chinese, and Russian. Initial language follows the OS when possible and user choice is persisted.
 - **Security**: sandboxed renderer, context isolation, `nodeIntegration: false`, DOMPurify sanitization, and external links opened in the OS browser.
+- **Keyboard shortcuts**: common file, search, replace, tab, preview, export, fullscreen, and font-size actions; Settings lists every available shortcut.
 
 ## Requirements
 

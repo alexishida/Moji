@@ -75,6 +75,10 @@ Projeto atual: Moji, aplicativo desktop Electron + React + TypeScript para abrir
 - Lista de arquivos recentes usa `settings.recentFiles`, limite `MAX_RECENT_FILES` em `electron/shared.ts`, e deve manter caminhos deduplicados em ordem mais-recente primeiro.
 - Dialogos nativos de abrir, salvar como e exportar usam `settings.lastDialogDirectory`; lembrar diretorio apos operacao concluida ou caminho escolhido.
 - Guias Markdown em `samples/` abrem como documentos somente leitura; nao permitir edicao, salvar ou salvar como sobre recursos empacotados.
+- Novos documentos sem arquivo devem receber titulo localizado: o primeiro usa `app.untitled`; os seguintes usam o mesmo titulo com sequencia crescente.
+- Atalhos globais devem respeitar composicao de texto, prevenir comportamento padrao quando acionados e ter referencia localizada em Configuracoes.
+- Atalhos de formatacao Markdown pertencem ao keymap do CodeMirror; preservar selecao e foco apos aplicar a transformacao.
+- Exportacoes PDF e PNG devem quebrar linhas longas de blocos de codigo, sem cortar conteudo horizontalmente.
 
 ## Busca e Substituicao
 
@@ -99,6 +103,8 @@ O padrao visual esta documentado em `.ai-framework/DESIGN.md`.
 
 - `README.md` deve descrever uso, recursos e comandos reais do projeto.
 - `.ai-framework/DESIGN.md` deve espelhar tokens e componentes implementados.
+- Atualizar a versao exibida no README, `package.json`, `package-lock.json` e CHANGELOG ao preparar uma nova versao.
+- Atualizar referencias de versao visiveis no HTML e nos locales ao preparar uma nova versao, enquanto a tela Sobre continua lendo `package.json`.
 - Nao prometer recursos incompletos como prontos; se necessario, marcar como em andamento.
 - Atualizar README, DESIGN e regras quando mudar arquitetura, exportacao, temas, idiomas ou fluxo principal.
 

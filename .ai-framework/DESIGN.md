@@ -16,7 +16,7 @@ Fonte de verdade dos tokens: [`src/styles/theme.css`](../src/styles/theme.css). 
 
 O app Electron usa um shell em camadas:
 
-- **Top bar** (`.topbar`): duas linhas sobre `--chrome-bg`. Primeira linha contem acoes de arquivo (*Novo*, *Abrir*, *Salvar*) e campo de busca com botao de substituicao. Segunda linha contem o seletor segmentado *Preview / Editor / Exportar* e acoes de tema, configuracoes e sobre (icone de informacao).
+- **Top bar** (`.topbar`): duas linhas sobre `--chrome-bg`. Primeira linha contem acoes de arquivo (*Novo*, *Abrir*, *Salvar*) e campo de busca com botao de substituicao. Segunda linha contem o seletor segmentado *Preview / Editor / Exportar* e acoes de tema, configuracoes e sobre (icone de informacao). Atalhos globais focam busca/substituicao, alternam paineis ou executam acoes sem mudar o layout.
 - **Document tabs** (`.document-tabs`): barra horizontal abaixo da top bar, visivel quando ha documentos abertos. Cada aba tem largura estavel, marcador de alteracao e botao de fechar.
 - **Menu de abas** (`.document-tab__menu`): menu contextual compacto acionado por botao iconico na aba ativa; oferece fechar outras abas, fechar abas a direita, fechar salvas e fechar todas.
 - **Body** (`.body`): sidebar + area principal.
@@ -128,17 +128,17 @@ Nao usar `data-theme` no `<html>` para alternar a UI inteira; o estado atual alt
 - **Largura da leitura** (`.markdown-body--fluid`): botao iconico disponivel somente no preview alterna entre coluna fixa de 760px e coluna fluida que ocupa toda a largura disponivel do painel. Estado ativo usa `--accent`; escolha vale somente na sessao atual e cada inicializacao retorna a coluna fixa.
 - **Document tabs** (`.document-tabs`, `.document-tab`): altura 35px; aba ativa usa `--bg` e filete superior `--accent`; marcador de dirty usa `--accent`; menu da aba ativa usa popover em `--bg-elevated`, borda `--border`, sombra `--shadow` e acoes compactas de 30px.
 - **Sidebar / outline** (`.sidebar`, `.outline-tree`, `.outline-item`): outline aparece no modo preview como arvore aninhada por nivel de heading. Cada grupo (`.outline-tree__children`) tem linha-guia vertical `--border`. Headings com filhos sao colapsaveis por chevron; botao no topo do painel (`.outline-head__toggle`) expande/colapsa tudo. Prefixos `Requirement:`/`Scenario:` viram icones (`IconBlock`/`IconFlow`) e saem do texto; Requirement usa peso maior e `--text`, Scenario recua com `--text-muted`. Titulos longos quebram em ate 2 linhas com `title` completo no hover. Item ativo usa `--nav-active-text`, fundo tenue `--nav-active-bg` e barra `inset 2px --accent`. O item ativo acompanha a rolagem do preview via scroll-spy (`getActivePreviewHeadingId` em `src/lib/previewScroll.ts`); clicar rola suavemente ate o heading.
-- **Preview** (`.markdown-body`): largura fixa `--reading-width` ou responsiva `--reading-width-fluid`, conforme alternador da top bar; padding `--space-6 --space-5`, tipografia configuravel pelo painel de configuracoes (padrao 16px, linha 1.7), headings com hierarquia clara e codigo em `--code-bg`.
-- **Editor** (`.editor-pane`, `.cm-editor`): ocupa toda a area principal, fonte mono 14px, line wrapping e tema escuro CodeMirror no estado atual.
+- **Preview** (`.markdown-body`): largura fixa `--reading-width` ou responsiva `--reading-width-fluid`, conforme alternador da top bar; padding `--space-6 --space-5`, tipografia configuravel pelo painel de configuracoes (padrao 16px, linha 1.7), headings com hierarquia clara e codigo em `--code-bg`. Blocos de codigo usam `.code-block` e exibem `.code-copy-button` no hover/foco; botao some durante selecao de texto.
+- **Editor** (`.editor-pane`, `.cm-editor`): ocupa toda a area principal, fonte mono 14px, line wrapping e tema escuro CodeMirror no estado atual. Keymap inclui acoes de Markdown para negrito, italico, link, lista, checklist e bloco de codigo.
 - **Export dialog** (`.export-dialog`): dialogo inline centralizado, largura `min(760px, calc(100vw - 32px))`, lista de formatos PDF/HTML/PNG, configuracoes de pagina para PDF.
-- **Settings dialog** (`.settings-dialog`): painel inline centralizado no mesmo padrao do export. Cada grupo (`.settings-section`) e um cartao em `--bg-elevated` com cabecalho (`.settings-section__heading`) em `--bg-inset` e campos empilhados (`.settings-field`) separados por filete `--border`, rotulo a esquerda e controle de 36px a direita. Contem idioma e configuracoes de preview como familia de fonte, tamanho e altura de linha. Idiomas embarcados atuais: English, Portugues (Brasil), Espanol, Japones, Chines e Russo.
+- **Settings dialog** (`.settings-dialog`): painel inline centralizado no mesmo padrao do export, largura maxima 680px. Abas (`.settings-tabs`) separam Geral, Preview e Atalhos. Cada grupo (`.settings-section`) e um cartao em `--bg-elevated` com cabecalho (`.settings-section__heading`) em `--bg-inset`; Geral e Preview usam campos empilhados (`.settings-field`) separados por filete `--border`, rotulo a esquerda e controle de 36px a direita. Atalhos usam grade de duas colunas (`.settings-shortcuts`), reduzida a uma em telas estreitas, com teclas em `.settings-shortcut__key`. Idiomas embarcados atuais: English, Portugues (Brasil), Espanol, Japones, Chines e Russo.
 - **About dialog** (`.about-dialog`): painel inline centralizado que reutiliza a estrutura de `.export-dialog`; mostra nome do app, versao (de `package.json`), autor, e-mail, link do repositorio e a explicacao do nome. Rodape (`.about-dialog__update`) exibe estado do updater e botao com icone para procurar atualizacoes. Aberto pelo botao de informacao na top bar.
 - **Confirm dialog** (`.dialog`): modal com backdrop, largura `min(420px, 90vw)`, usado para alteracoes nao salvas.
 - **Notice** (`.notice`): toast inferior sobre a status bar; erro usa `--danger`.
 - **Update notice** (`.update-notice`): cartao compacto fixo acima da status bar, com estados de versao disponivel, progresso, reinicio e erro. Usa apenas tokens existentes, barra de progresso com `--accent` e erro com `--danger`.
 - **Button** (`.btn`, `.btn--primary`): botao padrao de acao usado no welcome. `.btn` tem borda `--border` e fundo `--bg-elevated`; `.btn--primary` usa `--accent`. Aceita icone + texto.
-- **Welcome** (`.welcome`): tela vazia centralizada exibida sem documento aberto. Empilha logo (`.welcome__logo`, `src/assets/logo-mark-light.png`), tagline (`.welcome__tagline`), titulo (`.welcome__title`), acoes de abrir/criar (`.welcome__actions` com `.btn`/`.btn--primary`), subtitulo (`.welcome__subtitle`), lista de arquivos recentes (`.welcome__recent`) e dica de arrastar arquivo (`.welcome__hint`).
-- **Arquivos recentes** (`.welcome__recent`): lista opcional no welcome com os documentos abertos recentemente (persistidos em `settings.recentFiles`, limite `MAX_RECENT_FILES`). Cada linha (`.welcome__recent-item`) tem botao de abrir (`.welcome__recent-open`: icone, nome do arquivo e caminho truncado) e botao de remover (`.welcome__recent-remove`, visivel no hover). So aparece quando ha entradas.
+- **Welcome** (`.welcome`): tela vazia centralizada exibida sem documento aberto. Empilha logo (`.welcome__logo`, `src/assets/logo-mark-light.png`), tagline (`.welcome__tagline`), titulo (`.welcome__title`), acoes de abrir/criar (`.welcome__actions` com `.btn`/`.btn--primary`), dica de arrastar arquivo (`.welcome__hint`) e lista de arquivos recentes quando existir.
+- **Arquivos recentes** (`.welcome__recent`): cartao opcional de largura maxima 480px, com fundo `--bg-elevated`, borda `--border`, raio `--radius` e padding `--space-3`. Lista documentos abertos recentemente (persistidos em `settings.recentFiles`, limite `MAX_RECENT_FILES`). Cada linha (`.welcome__recent-item`) tem botao de abrir (`.welcome__recent-open`: icone, nome do arquivo e caminho truncado) e botao de remover (`.welcome__recent-remove`, visivel no hover). So aparece quando ha entradas.
 - **Drop overlay** (`.drop-overlay`): sobreposicao em tela cheia ao arrastar arquivo Markdown para a janela.
 
 ## Markdown Renderizado
@@ -151,6 +151,7 @@ O preview deve manter suporte visual para:
 - tabelas com overflow horizontal
 - blockquotes
 - codigo inline e blocos com highlight.js
+- botao de copiar em blocos de codigo, oculto durante selecao do bloco
 - imagens responsivas
 - destaque de busca via `.search-highlight` quando a busca estiver conectada
 
@@ -158,6 +159,7 @@ O preview deve manter suporte visual para:
 
 - Janela minima atual: 640x480.
 - Export dialog vira uma coluna abaixo de 720px.
+- Grade de atalhos das configuracoes vira uma coluna abaixo de 720px.
 - Texto em abas e nome de arquivo deve truncar com ellipsis; no outline, headings longos quebram em ate 2 linhas.
 - Controles fixos nao devem mudar dimensao com hover, foco, dirty marker ou labels longos.
 

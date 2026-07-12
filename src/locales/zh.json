@@ -1,6 +1,6 @@
 {
   "app": {
-    "name": "Moji v0.1.2",
+    "name": "Moji v0.1.3",
     "untitled": "无标题",
     "modifiedMarker": "•"
   },
@@ -76,7 +76,7 @@
     "noDocument": "打开或创建一个文档以查看其大纲。"
   },
   "statusbar": {
-    "brand": "Moji v0.1.2",
+    "brand": "Moji v0.1.3",
     "guide": "Markdown 指南",
     "exportPdf": "导出 PDF",
     "lineCount": "行数：{{count}}",
@@ -92,7 +92,7 @@
   },
   "welcome": {
     "tagline": "轻量简洁的 Markdown 阅读器",
-    "title": "Moji v0.1.2",
+    "title": "Moji v0.1.3",
     "subtitle": "打开 Markdown 文件以清晰地阅读。",
     "openButton": "打开文件",
     "newButton": "新建文件",
@@ -189,7 +189,7 @@
     "updateFailed": "无法检查更新，请重试。",
     "updateUnsupported": "此构建不支持自动更新。",
     "whyNameTitle": "为什么叫 Moji？",
-    "whyNameBody": "Moji 被选为一个简短、易记且以文本为先的名称。它让人联想到文字与书写，正契合这款专注于以最小阻力打开、编辑和导出 Markdown 的应用。"
+    "whyNameBody": "Moji 简短、易记，让人联想到文字与书写。这个名字契合它的目标：流畅地打开、编辑、预览和导出 Markdown，远离干扰。"
   },
   "update": {
     "availableTitle": "Moji {{version}} 可用",

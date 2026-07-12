@@ -1,6 +1,6 @@
 {
   "app": {
-    "name": "Moji v0.1.2",
+    "name": "Moji v0.1.3",
     "untitled": "Sem título",
     "modifiedMarker": "•"
   },
@@ -75,7 +75,7 @@
     "noDocument": "Abra ou crie um documento para ver o sumário."
   },
   "statusbar": {
-    "brand": "Moji v0.1.2",
+    "brand": "Moji v0.1.3",
     "guide": "Guia de Markdown",
     "exportPdf": "Exportar PDF",
     "lineCount": "Linhas: {{count}}",
@@ -91,7 +91,7 @@
   },
   "welcome": {
     "tagline": "Um leitor de Markdown leve e simples",
-    "title": "Moji v0.1.2",
+    "title": "Moji v0.1.3",
     "subtitle": "Abra um Markdown para ler com clareza, sem distrações.",
     "openButton": "Abrir arquivo",
     "newButton": "Novo Arquivo",
@@ -189,7 +189,7 @@
     "updateFailed": "Não foi possível procurar atualizações. Tente novamente.",
     "updateUnsupported": "Atualizações automáticas não estão disponíveis nesta versão do pacote.",
     "whyNameTitle": "Por que Moji?",
-    "whyNameBody": "Moji nasce de uma ideia simples: um nome curto, memorável e com cara de texto. Ele soa leve, lembra caracteres e escrita, e combina com a proposta do app de abrir, editar e exportar Markdown sem atrito."
+    "whyNameBody": "Moji é curto, fácil de lembrar e remete a caracteres e escrita. O nome combina com sua proposta: abrir, editar, visualizar e exportar Markdown com fluidez — sem distrações."
   },
   "update": {
     "availableTitle": "Moji {{version}} está disponível",

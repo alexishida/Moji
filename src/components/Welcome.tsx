@@ -36,7 +36,6 @@ export function Welcome({ onOpen, onNew, recentFiles, onOpenRecent, onForgetRece
             {t('welcome.newButton')}
           </button>
         </div>
-        <p className="welcome__subtitle">{t('welcome.subtitle')}</p>
         <p className="welcome__hint">{t('welcome.dropHint')}</p>
 
         {recentFiles.length > 0 && (

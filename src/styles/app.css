@@ -950,25 +950,22 @@ body {
   text-shadow: 0 1px 0 var(--accent);
 }
 
-.welcome__subtitle {
-  font-size: 15px;
-  margin: 0 0 6px;
-  max-width: 420px;
-  color: color-mix(in srgb, var(--text) 70%, var(--accent) 30%);
-}
-
 .welcome__actions {
   display: flex;
   flex-wrap: wrap;
   justify-content: center;
   gap: var(--space-2);
-  margin-bottom: 16px;
+  margin: var(--space-2) 0 16px;
 }
 
 .welcome__recent {
   width: 100%;
-  max-width: 420px;
-  margin: 0 0 8px;
+  max-width: 480px;
+  margin: var(--space-3) 0 var(--space-2);
+  padding: var(--space-3);
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
   text-align: left;
 }
 
@@ -979,7 +976,6 @@ body {
   text-transform: uppercase;
   color: var(--text-muted);
   margin-bottom: var(--space-2);
-  padding: 0 var(--space-1);
 }
 
 .welcome__recent-list {
@@ -988,7 +984,7 @@ body {
   padding: 0;
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: var(--space-1);
 }
 
 .welcome__recent-item {

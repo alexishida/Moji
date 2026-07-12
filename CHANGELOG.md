@@ -4,6 +4,23 @@ All notable changes to this project will be documented in this file.
 
 Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.1.3] - 2026-07-12
+
+### Added
+
+- Keyboard shortcuts for document, search, view, font-size, tab navigation, and fullscreen actions.
+- Markdown editor shortcuts for bold, italic, links, lists, checklists, and fenced code blocks.
+- Shortcuts tab in Settings, localized for every supported language.
+- Copy button for fenced code blocks in the Markdown preview, with copied-state feedback.
+
+### Changed
+
+- PDF and PNG exports now wrap long code lines instead of clipping them.
+- Settings now separate General, Preview, and Shortcuts in tabs.
+- New untitled documents now receive localized, sequential names in their tabs.
+- Simplified Welcome content and refined the recent-files card layout.
+- Updated the About panel's explanation of the Moji name.
+
 ## [0.1.2] - 2026-07-10
 
 ### Added
