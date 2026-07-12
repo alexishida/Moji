@@ -13,14 +13,9 @@
 ## Screenshots
 
 <p align="center">
-  <img src="docs/scr-welcome.jpg" alt="Welcome" width="45%" />
-  <img src="docs/scr-main.jpg" alt="Preview" width="45%" />
+  <img src="docs/repository-open-graph.png" alt="reposytory-open-graph" width="100%" />
 </p>
 
-<p align="center">
-  <img src="docs/scr-edit.jpg" alt="Editor" width="45%" />
-  <img src="docs/scr-export.jpg" alt="Export" width="45%" />
-</p>
 
 ## Name
 
@@ -46,6 +41,19 @@
 - **Internationalization**: English, Portuguese (Brazil), Spanish, Japanese, Chinese, and Russian. Initial language follows the OS when possible and user choice is persisted.
 - **Security**: sandboxed renderer, context isolation, `nodeIntegration: false`, DOMPurify sanitization, and external links opened in the OS browser.
 - **Keyboard shortcuts**: common file, search, replace, tab, preview, export, fullscreen, and font-size actions; Settings lists every available shortcut.
+
+## Screenshots
+
+<p align="center">
+  <img src="docs/scr-welcome.jpg" alt="Welcome" width="45%" />
+  <img src="docs/scr-main.jpg" alt="Preview" width="45%" />
+</p>
+
+<p align="center">
+  <img src="docs/scr-edit.jpg" alt="Editor" width="45%" />
+  <img src="docs/scr-export.jpg" alt="Export" width="45%" />
+</p>
+
 
 ## Requirements
 
