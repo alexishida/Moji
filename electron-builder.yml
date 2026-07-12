@@ -29,6 +29,7 @@ fileAssociations:
     role: Editor
     mimeType: text/markdown
 win:
+  artifactName: ${productName}.Setup.${version}.${ext}
   target:
     - target: nsis
       arch:
