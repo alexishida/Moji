@@ -575,8 +575,10 @@ export function App(): JSX.Element {
   }, [])
 
   const doNew = useCallback(() => {
-    addDocuments([{ path: null, content: '' }], 'edit')
-  }, [addDocuments])
+    const documentCount = stateRef.current.documents.length
+    const title = documentCount === 0 ? t('app.untitled') : `${t('app.untitled')} ${documentCount + 1}`
+    addDocuments([{ path: null, title, content: '' }], 'edit')
+  }, [addDocuments, t])
 
   const doSearch = useCallback((term: string) => {
     setSearchTerm(term)
