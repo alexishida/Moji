@@ -42,6 +42,30 @@ export const IconInfo = (p: IconProps): JSX.Element => (
   </svg>
 )
 
+export const IconTextSize = (p: IconProps): JSX.Element => (
+  <svg {...base} {...p}>
+    <path d="M4 7V4h16v3M9 20h6M12 4v16" />
+  </svg>
+)
+
+export const IconLayoutWidth = (p: IconProps): JSX.Element => (
+  <svg {...base} {...p}>
+    <path d="M4 5v14M20 5v14M8 12h8M8 12l3-3M8 12l3 3M16 12l-3-3M16 12l-3 3" />
+  </svg>
+)
+
+export const IconMinus = (p: IconProps): JSX.Element => (
+  <svg {...base} {...p}>
+    <path d="M5 12h14" />
+  </svg>
+)
+
+export const IconPlus = (p: IconProps): JSX.Element => (
+  <svg {...base} {...p}>
+    <path d="M12 5v14M5 12h14" />
+  </svg>
+)
+
 export const IconAlertTriangle = (p: IconProps): JSX.Element => (
   <svg {...base} {...p}>
     <path d="M10.3 4.4 2.7 17.6A2.2 2.2 0 0 0 4.6 21h14.8a2.2 2.2 0 0 0 1.9-3.4L13.7 4.4a2.2 2.2 0 0 0-3.4 0Z" />

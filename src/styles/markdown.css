@@ -9,6 +9,11 @@
   word-wrap: break-word;
 }
 
+.markdown-body--fluid {
+  width: 100%;
+  max-width: var(--reading-width-fluid);
+}
+
 .markdown-body > *:first-child {
   margin-top: 0;
 }

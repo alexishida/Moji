@@ -18,6 +18,7 @@ export interface Settings {
   previewFontFamily: string
   previewFontSize: number
   previewLineHeight: number
+  previewFluidWidth: boolean
   /** Absolute paths of recently opened documents, most-recent first. */
   recentFiles: string[]
   lastDialogDirectory?: string

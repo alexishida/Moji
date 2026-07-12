@@ -102,7 +102,7 @@ export function Preview({ html, mdTheme, searchTerm, settings, className }: Prev
     <div className={`pane ${className ?? ''}`} data-md-theme={mdTheme}>
       <div
         ref={bodyRef}
-        className="markdown-body"
+        className={`markdown-body ${settings.previewFluidWidth ? 'markdown-body--fluid' : ''}`}
         style={{
           fontFamily: settings.previewFontFamily,
           fontSize: `${settings.previewFontSize}px`,

@@ -349,6 +349,52 @@ body {
   color: var(--accent);
 }
 
+.font-size-control {
+  position: relative;
+  display: inline-flex;
+}
+
+.font-size-popover {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 45;
+  display: grid;
+  grid-template-columns: 30px minmax(58px, auto) 30px;
+  align-items: center;
+  gap: var(--space-1);
+  padding: var(--space-2);
+  color: var(--text);
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+}
+
+.font-size-popover__button {
+  width: 30px;
+  height: 30px;
+}
+
+.font-size-popover__value {
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+  white-space: nowrap;
+}
+
+.font-size-popover__reset {
+  grid-column: 1 / -1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-1);
+  height: 30px;
+  padding: 0 var(--space-2);
+  font-size: 12px;
+  white-space: nowrap;
+}
+
 /* --- Body: sidebar + main ------------------------------------------------ */
 .body {
   flex: 1 1 auto;

@@ -6,6 +6,7 @@
   --font-mono: 'JetBrains Mono', 'SFMono-Regular', Menlo, Consolas, 'Liberation Mono', monospace;
 
   --reading-width: 760px;
+  --reading-width-fluid: 100%;
   --radius: 8px;
   --radius-sm: 5px;
 

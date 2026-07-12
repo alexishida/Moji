@@ -132,6 +132,7 @@ export function App(): JSX.Element {
     previewFontFamily: 'Inter',
     previewFontSize: 16,
     previewLineHeight: 1.7,
+    previewFluidWidth: false,
     recentFiles: []
   })
   const [documents, setDocuments] = useState<DocumentState[]>([])
@@ -868,6 +869,12 @@ export function App(): JSX.Element {
         searchMatchCount={searchMatchCount}
         activeSearchIndex={activeSearchIndex}
         canToggleTheme={canToggleMdTheme()}
+        previewFontSize={settings.previewFontSize}
+        canAdjustFontSize={canToggleMdTheme()}
+        onFontSizeChange={(previewFontSize) => changeSettings({ previewFontSize })}
+        previewFluidWidth={settings.previewFluidWidth}
+        canTogglePreviewWidth={canToggleMdTheme()}
+        onTogglePreviewWidth={() => changeSettings({ previewFluidWidth: !settings.previewFluidWidth })}
         onToggleTheme={toggleMdTheme}
         onExport={openExportDialog}
         onOpenSettings={openSettings}
