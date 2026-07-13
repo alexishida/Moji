@@ -8,7 +8,7 @@
 
 <p align="center">Built with Electron, React, TypeScript, and electron-vite.</p>
 
-<p align="center"><strong>Current version:</strong> v0.1.3</p>
+<p align="center"><strong>Current version:</strong> v0.1.4</p>
 
 <p align="center">
   <img src="docs/repository-open-graph.png" alt="reposytory-open-graph" width="100%" />
@@ -16,11 +16,11 @@
 
 <p align="center">
   <strong>Download:</strong>
-  <a href="https://github.com/alexishida/Moji/releases/download/v0.1.3/Moji.Setup.0.1.3.exe">Windows</a>
+  <a href="https://github.com/alexishida/Moji/releases/download/v0.1.4/Moji.Setup.0.1.4.exe">Windows</a>
   ·
-  <a href="https://github.com/alexishida/Moji/releases/download/v0.1.3/Moji-0.1.3-x86_64.AppImage">Linux (AppImage)</a>
+  <a href="https://github.com/alexishida/Moji/releases/download/v0.1.4/Moji-0.1.4-x86_64.AppImage">Linux (AppImage)</a>
   ·
-  <a href="https://github.com/alexishida/Moji/releases/download/v0.1.3/Moji-0.1.3-amd64.deb">Linux (DEB)</a>
+  <a href="https://github.com/alexishida/Moji/releases/download/v0.1.4/Moji-0.1.4-amd64.deb">Linux (DEB)</a>
 </p>
 
 
@@ -75,6 +75,7 @@
 npm install
 npm run dev
 npm run typecheck
+npm test
 npm run build
 ```
 
@@ -82,6 +83,7 @@ Useful scripts:
 
 - `npm run dev`: launch Electron with hot reload.
 - `npm run typecheck`: run TypeScript checks without emitting files.
+- `npm test`: run the Vitest suite once (`npm run test:watch` for watch mode).
 - `npm run build`: build main, preload, and renderer into `out/`.
 - `npm run preview`: run the built app preview.
 
@@ -121,11 +123,12 @@ electron/
   updater.ts     GitHub release checks, update download state, and NSIS/AppImage installation
   settings.ts    User settings persistence, window bounds, recent files, preview theme, and last dialog directory
   export.ts      HTML/PDF/PNG export implementation with remembered output directory
+  png.ts         Streaming PNG encoder used to keep tall-document exports within memory
 
 src/
   App.tsx        Renderer state, document actions, close guard wiring, mode switching
-  components/    Top bar, tabs, sidebar, outline tree, preview, editor, export/settings/about dialogs, confirm dialog, welcome view
-  lib/           Markdown rendering, outline extraction, preview scroll-spy, export HTML, hooks
+  components/    Top bar, tabs, sidebar, outline tree, preview, Mermaid viewer, editor, export/settings/about dialogs, confirm dialog, welcome view
+  lib/           Markdown rendering, Mermaid rendering, outline extraction, preview scroll-spy, export HTML, hooks
   locales/       en, pt-BR, es, ja, zh, ru translation files
   styles/        Theme tokens, app shell CSS, Markdown preview CSS
 

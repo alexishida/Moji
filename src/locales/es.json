@@ -1,6 +1,6 @@
 {
   "app": {
-    "name": "Moji v0.1.3",
+    "name": "Moji v0.1.4",
     "untitled": "Sin título",
     "modifiedMarker": "•"
   },
@@ -78,7 +78,7 @@
     "noDocument": "Abre o crea un documento para ver su esquema."
   },
   "statusbar": {
-    "brand": "Moji v0.1.3",
+    "brand": "Moji v0.1.4",
     "guide": "Guía de Markdown",
     "exportPdf": "Exportar PDF",
     "lineCount": "Líneas: {{count}}",
@@ -92,6 +92,27 @@
     "copyCode": "Copiar código",
     "codeCopied": "Código copiado",
     "diagramTitle": "Diagrama",
+    "diagramTypes": {
+      "flowchart": "Diagrama de flujo",
+      "sequenceDiagram": "Diagrama de secuencia",
+      "classDiagram": "Diagrama de clases",
+      "stateDiagram": "Diagrama de estados",
+      "erDiagram": "Diagrama entidad-relación",
+      "journey": "Recorrido del usuario",
+      "gantt": "Diagrama de Gantt",
+      "pie": "Gráfico circular",
+      "gitGraph": "Gráfico de Git",
+      "mindmap": "Mapa mental",
+      "timeline": "Línea de tiempo",
+      "quadrantChart": "Gráfico de cuadrantes",
+      "requirementDiagram": "Diagrama de requisitos",
+      "xyChart": "Gráfico XY",
+      "sankey": "Diagrama de Sankey",
+      "block": "Diagrama de bloques",
+      "architecture": "Diagrama de arquitectura",
+      "packet": "Diagrama de paquetes",
+      "kanban": "Tablero Kanban"
+    },
     "closeDiagram": "Cerrar diagrama",
     "zoomIn": "Acercar",
     "zoomOut": "Alejar",
@@ -105,7 +126,7 @@
   },
   "welcome": {
     "tagline": "Un lector de Markdown ligero y sencillo",
-    "title": "Moji v0.1.3",
+    "title": "Moji v0.1.4",
     "subtitle": "Abre un archivo Markdown para leerlo de forma limpia.",
     "openButton": "Abrir archivo",
     "newButton": "Nuevo archivo",

@@ -11,7 +11,7 @@ Projeto atual: Moji, aplicativo desktop Electron + React + TypeScript para abrir
 - Manter alteracoes pequenas e alinhadas ao pedido.
 - Preservar mudancas locais de usuario; nao reverter arquivos fora do escopo solicitado.
 - Preferir `rg` para localizar arquivos/texto.
-- Usar `npm run typecheck` para validar TypeScript quando houver alteracao em codigo.
+- Usar `npm run typecheck` para validar TypeScript e `npm test` (Vitest) para rodar a suite quando houver alteracao em codigo.
 
 ## Stack e Arquitetura
 
@@ -21,14 +21,15 @@ Projeto atual: Moji, aplicativo desktop Electron + React + TypeScript para abrir
 - `preload.ts`: expoe API segura ao renderer via `contextBridge` com tipagem completa (`RendererApi`).
 - `shared.ts`: tipos e constantes compartilhados entre main, preload e renderer (tipos de resultado IPC, `Settings`, `ExportFormat`, `SUPPORTED_LANGUAGES`, `IPC` channels).
 - `settings.ts`: persiste configuracoes do usuario em `settings.json` no `userData`; resolve idioma inicial a partir do locale do SO; aplica limites numericos (`boundedNumber`).
-- `export.ts`: exporta documento ativo como PDF (via `printToPDF` em `BrowserWindow` oculta), PNG (via `capturePage().toPNG()`) ou HTML (escrita direta). Suporta A4/Letter/Legal e portrait/landscape.
+- `export.ts`: exporta documento ativo como PDF (via `printToPDF` em `BrowserWindow` oculta), PNG ou HTML (escrita direta). Suporta A4/Letter/Legal e portrait/landscape; documentos altos sao capturados em fatias para respeitar o limite de textura do Chromium.
+- `png.ts`: encoder PNG em streaming que comprime cada fatia capturada ao chegar, mantendo o pico de memoria proporcional a fatia e nao a altura total do documento.
 - `updater.ts`: gerencia verificacao, download e instalacao de GitHub Releases com `electron-updater`; habilitado apenas em Windows NSIS empacotado e Linux AppImage.
 
 ### Renderer (`src/`)
 
 - `App.tsx`: estado principal (documentos, aba ativa, modo view/edit/search/export, tema Markdown, drag-drop, outline scroll-spy, contagem de palavras/linhas/tokens).
-- `src/components/`: 14 componentes React (`AboutDialog`, `ConfirmDialog`, `DocumentTabs`, `Editor`, `ExportDialog`, `icons`, `OutlineTree`, `Preview`, `SettingsButton`, `SettingsDialog`, `Sidebar`, `StatusBar`, `TopBar`, `Welcome`).
-- `src/lib/`: utilitarios (`exportHtml`, `markdown`, `outline`, `previewScroll`, `useDebounced`).
+- `src/components/`: 15 componentes React (`AboutDialog`, `ConfirmDialog`, `DocumentTabs`, `Editor`, `ExportDialog`, `icons`, `MermaidDiagramDialog`, `OutlineTree`, `Preview`, `SettingsButton`, `SettingsDialog`, `Sidebar`, `StatusBar`, `TopBar`, `Welcome`).
+- `src/lib/`: utilitarios (`exportHtml`, `markdown`, `mermaid`, `mermaidGuide`, `outline`, `previewScroll`, `useDebounced`).
 - `src/locales/`: arquivos JSON de traducao para `en`, `pt-BR`, `es`, `ja`, `zh`, `ru`.
 - `src/styles/`: `theme.css` (tokens), `markdown.css` (preview/exportacao), `app.css` (layout).
 - `src/types/`: `api.d.ts` (tipagem da API do preload), `vite-env.d.ts`.
@@ -43,9 +44,11 @@ Projeto atual: Moji, aplicativo desktop Electron + React + TypeScript para abrir
 ### Stack tecnica
 
 - Markdown renderizado por `markdown-it` com plugins (`markdown-it-anchor`, `markdown-it-task-lists`, `markdown-it-footnote`, `markdown-it-deflist`, `markdown-it-sub`, `markdown-it-sup`, `markdown-it-mark`, `markdown-it-ins`, `markdown-it-abbr`, `markdown-it-emoji`, `markdown-it-texmath`), formulas LaTeX via `katex`, codigo destacado com `highlight.js` e HTML sanitizado com `DOMPurify`.
+- Diagramas renderizados por `mermaid`, com cache de resultado e exportacao individual em PNG.
 - Editor baseado em CodeMirror 6 (`@codemirror/commands`, `@codemirror/lang-markdown`, `@codemirror/search`).
 - Internacionalizacao com `i18next` + `react-i18next`.
 - Build/desenvolvimento com `electron-vite`.
+- Testes com `vitest` (`npm test`).
 - Empacotamento com `electron-builder` (NSIS para Windows, AppImage/deb para Linux).
 - Atualizacao automatica com `electron-updater` e metadados publicados em GitHub Releases.
 
