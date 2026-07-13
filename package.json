@@ -28,6 +28,8 @@
     "dev": "node scripts/run-electron-vite.cjs dev",
     "build": "electron-vite build",
     "typecheck": "tsc --noEmit -p tsconfig.json",
+    "test": "vitest run",
+    "test:watch": "vitest",
     "preview": "node scripts/run-electron-vite.cjs preview",
     "dist": "electron-vite build && electron-builder",
     "dist:win": "electron-vite build && electron-builder --win",
@@ -72,7 +74,9 @@
     "electron": "^43.1.0",
     "electron-builder": "^26.15.6",
     "electron-vite": "^5.0.0",
+    "jsdom": "^29.1.1",
     "typescript": "^5.7.2",
-    "vite": "^7.3.6"
+    "vite": "^7.3.6",
+    "vitest": "^4.1.10"
   }
 }
