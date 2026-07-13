@@ -80,6 +80,25 @@ Projeto atual: Moji, aplicativo desktop Electron + React + TypeScript para abrir
 - Atalhos de formatacao Markdown pertencem ao keymap do CodeMirror; preservar selecao e foco apos aplicar a transformacao.
 - Exportacoes PDF e PNG devem quebrar linhas longas de blocos de codigo, sem cortar conteudo horizontalmente.
 
+## Modais e Dialogos
+
+- Todo modal, incluindo os atuais e futuros, segue o mesmo chrome escuro, superficie `--modal-surface`, borda `--modal-border`, sombra `--shadow` e controles compactos neutros. O tema de leitura so altera conteudo que representa o preview, nunca o chrome do modal.
+- Cabecalhos de modal usam titulo claro, icone sem cor de destaque, acao de fechar separada das demais acoes e espacos definidos por tokens. Controles de navegacao ou acoes auxiliares permanecem neutros ate hover/foco.
+- Todo modal deve aceitar arraste pelas quatro bordas e quatro cantos, respeitar tamanho minimo e limites da janela e manter a borda oposta fixa ao redimensionar por esquerda ou topo.
+- Quando houver backdrop, `Escape` e clique fora do conteudo fecham/cancelam somente quando isto for seguro para o fluxo; interacoes internas nao podem propagar para o backdrop.
+- Modais e dialogos devem ter `role="dialog"`, rotulo acessivel, botoes iconicos com `title`/`aria-label` e contraste AA.
+
+## Diagramas Mermaid
+
+- Todo bloco Mermaid valido deve renderizar no preview, sem filtro por tipo de diagrama; usar tema Mermaid `default` no preview claro e `dark` no preview escuro.
+- Clicar em um diagrama abre o visualizador `.diagram-modal`. O cabecalho mostra nome declarado do diagrama (ou seu tipo), icone neutro, navegacao central `< atual/total >` e controles de zoom, ajuste, download e fechamento.
+- A navegacao entre diagramas deve preservar posicao na colecao, desabilitar a seta quando nao houver anterior/proximo e nao aplicar cor de destaque a essas setas ou ao icone do titulo.
+- Zoom do visualizador usa apenas niveis fixos de 10% a 1000%, inclui `Fit to view`, permite pan livre por arraste e mostra o minimapa apenas acima de 100%.
+- O minimapa representa a area de trabalho (diagrama, viewport e margem vazia), aceita clique/arraste nos dois eixos e nao deve impor limites ao pan do canvas.
+- O visualizador herda o padrao global de modais e usa minimo de 480x360px.
+- Exportacao individual do diagrama gera PNG pelo IPC seguro e sugere nome `arquivo-nome-do-diagrama-n.png`; remover caracteres invalidos de nome de arquivo antes de enviar ao dialogo nativo.
+- A area de trabalho e o SVG seguem o tema atual do preview, sem alterar artificialmente cores do diagrama alem do tema Mermaid correspondente.
+
 ## Busca e Substituicao
 
 - Campos de busca e de substituir usam `type="search"` com botao X nativo para limpar o texto (estilizado via `::-webkit-search-cancel-button` em `src/styles/app.css`).

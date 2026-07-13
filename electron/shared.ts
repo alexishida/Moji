@@ -99,6 +99,13 @@ export interface ExportRequest {
   baseName: string
 }
 
+/** PNG generated from one rendered Mermaid diagram in the renderer. */
+export interface DiagramPngRequest {
+  dataUrl: string
+  /** Suggested base name (without extension) for the save dialog. */
+  baseName: string
+}
+
 /** IPC channel names. */
 export const IPC = {
   openDialog: 'file:open-dialog',
@@ -108,6 +115,7 @@ export const IPC = {
   save: 'file:save',
   saveAs: 'file:save-as',
   export: 'doc:export',
+  exportDiagramPng: 'diagram:export-png',
   getSettings: 'settings:get',
   setSettings: 'settings:set',
   confirmClose: 'app:confirm-close',

@@ -21,6 +21,7 @@ Each section shows the syntax and, where relevant, the rendered result.
 - [Escape characters](#escape-characters)
 - [Emojis and symbols](#emojis-and-symbols)
 - [Extended features](#extended-features)
+- [Mermaid diagrams](#mermaid-diagrams)
 - [Best practices](#best-practices)
 
 ---
@@ -482,6 +483,45 @@ KaTeX
 *[HTML]: HyperText Markup Language
 
 [^source]: Reference detail, displayed at the end of the document.
+
+---
+
+## Mermaid diagrams
+
+Moji renders Mermaid diagrams in the preview. Click a rendered diagram to open the viewer, zoom, pan, and export it as PNG.
+
+**Flowchart**:
+
+~~~markdown
+```mermaid
+flowchart LR
+  Draft --> Review --> Publish
+```
+~~~
+
+```mermaid
+flowchart LR
+  Draft --> Review --> Publish
+```
+
+**Sequence diagram**:
+
+```mermaid
+sequenceDiagram
+  Browser->>API: Request data
+  API-->>Browser: Response
+```
+
+**Pie chart**:
+
+```mermaid
+pie title Tasks
+  "Done" : 70
+  "In progress" : 20
+  "Planned" : 10
+```
+
+<!-- MERMAID_EXAMPLES -->
 
 ---
 

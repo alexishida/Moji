@@ -54,6 +54,14 @@
   --scrollbar-thumb: #4c9aff;
   --scrollbar-thumb-hover: #63a9ff;
 
+  /* modal chrome stays dark even while Markdown preview is light */
+  --modal-bg: #202021;
+  --modal-surface: #252526;
+  --modal-inset: #2b2b2b;
+  --modal-text: #e7e7e7;
+  --modal-text-muted: #9aa0a6;
+  --modal-border: #3a3a3a;
+
   /* highlight.js tokens (One Dark Pro) */
   --hl-comment: #5c6370;
   --hl-keyword: #c678dd;

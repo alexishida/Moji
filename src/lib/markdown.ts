@@ -26,7 +26,7 @@ const md = new MarkdownIt({
   breaks: false,
   highlight(str, lang): string {
     if (lang.toLowerCase() === 'mermaid') {
-      return `<pre class="hljs mermaid-flowchart"><code>${md.utils.escapeHtml(str)}</code></pre>`
+      return `<pre class="hljs mermaid-diagram-candidate"><code>${md.utils.escapeHtml(str)}</code></pre>`
     }
     if (lang && hljs.getLanguage(lang)) {
       try {

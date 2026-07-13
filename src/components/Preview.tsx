@@ -3,20 +3,38 @@ import { useTranslation } from 'react-i18next'
 import type { Settings, Theme } from '../../electron/shared'
 import { scrollPreviewHeadingIntoView } from '../lib/previewScroll'
 import { renderMermaidFlowcharts } from '../lib/mermaid'
+import { MermaidDiagramDialog } from './MermaidDiagramDialog'
 
 interface PreviewProps {
   html: string
+  documentName: string
   mdTheme: Theme
   searchTerm: string
   settings: Settings
   className?: string
 }
 
+interface ActiveDiagram {
+  svgMarkup: string
+  name: string
+  index: number
+  total: number
+}
+
 /** Renders sanitized Markdown HTML and resolves in-document heading anchors. */
-export function Preview({ html, mdTheme, searchTerm, settings, className }: PreviewProps): JSX.Element {
+export function Preview({ html, documentName, mdTheme, searchTerm, settings, className }: PreviewProps): JSX.Element {
   const { t } = useTranslation()
   const bodyRef = useRef<HTMLDivElement>(null)
   const [renderedHtml, setRenderedHtml] = useState(html)
+  const [activeDiagram, setActiveDiagram] = useState<ActiveDiagram | null>(null)
+
+  const openDiagramAt = useCallback((index: number): void => {
+    const diagrams = Array.from(bodyRef.current?.querySelectorAll<SVGSVGElement>('.mermaid-diagram svg') ?? [])
+    const svg = diagrams[index]
+    if (!svg) return
+    const name = svg.closest<HTMLElement>('.mermaid-diagram')?.dataset.mermaidName ?? t('preview.diagramTitle')
+    setActiveDiagram({ svgMarkup: svg.outerHTML, name, index: index + 1, total: diagrams.length })
+  }, [t])
 
   useEffect(() => {
     let canceled = false
@@ -49,6 +67,14 @@ export function Preview({ html, mdTheme, searchTerm, settings, className }: Prev
       return
     }
 
+    const diagram = target.closest('.mermaid-diagram')
+    const svg = diagram?.querySelector('svg')
+    if (svg) {
+      const diagrams = Array.from(bodyRef.current?.querySelectorAll<SVGSVGElement>('.mermaid-diagram svg') ?? [])
+      openDiagramAt(Math.max(diagrams.indexOf(svg), 0))
+      return
+    }
+
     const anchor = target.closest('a')
     if (!anchor) return
     const href = anchor.getAttribute('href') ?? ''
@@ -61,7 +87,7 @@ export function Preview({ html, mdTheme, searchTerm, settings, className }: Prev
     }
     // External http(s) links carry target="_blank"; the main process opens them
     // in the OS browser via the window-open handler.
-  }, [t])
+  }, [openDiagramAt, t])
 
   useEffect(() => {
     if (!bodyRef.current) return
@@ -207,6 +233,17 @@ export function Preview({ html, mdTheme, searchTerm, settings, className }: Prev
         }}
         onClick={handleClick}
         dangerouslySetInnerHTML={{ __html: renderedHtml }}
+      />
+      <MermaidDiagramDialog
+        svgMarkup={activeDiagram?.svgMarkup ?? null}
+        diagramName={activeDiagram?.name ?? t('preview.diagramTitle')}
+        diagramIndex={activeDiagram?.index ?? 0}
+        diagramCount={activeDiagram?.total ?? 0}
+        documentName={documentName}
+        mdTheme={mdTheme}
+        onPrevious={activeDiagram && activeDiagram.index > 1 ? () => openDiagramAt(activeDiagram.index - 2) : undefined}
+        onNext={activeDiagram && activeDiagram.index < activeDiagram.total ? () => openDiagramAt(activeDiagram.index) : undefined}
+        onClose={() => setActiveDiagram(null)}
       />
     </div>
   )

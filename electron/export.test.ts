@@ -6,6 +6,8 @@ const exportTempDirectory = join(tmpdir(), 'moji-export-tests')
 const selectedHtmlPath = join(exportTempDirectory, 'chosen', 'report.html')
 const selectedPdfPath = join(exportTempDirectory, 'chosen', 'report.pdf')
 const selectedPngPath = join(exportTempDirectory, 'chosen', 'report.png')
+const selectedDiagramPngPath = join(exportTempDirectory, 'chosen', 'mermaid-diagram.png')
+const pngDataUrl = `data:image/png;base64,${Buffer.from([137, 80, 78, 71, 13, 10, 26, 10, 0, 1]).toString('base64')}`
 
 const state = vi.hoisted(() => ({
   showSaveDialog: vi.fn(),
@@ -172,10 +174,39 @@ describe('exportDocument', () => {
   it('exports Mermaid fallback code without invoking a diagram renderer', async () => {
     state.showSaveDialog.mockResolvedValue({ canceled: false, filePath: selectedHtmlPath })
     state.writeFile.mockResolvedValue(undefined)
-    const fallback = '<pre class="hljs mermaid-flowchart"><code>flowchart invalid</code></pre>'
+    const fallback = '<pre class="hljs mermaid-diagram-candidate"><code>flowchart invalid</code></pre>'
     const { exportDocument } = await import('./export')
 
     await expect(exportDocument({ ...request, html: fallback })).resolves.toEqual({ ok: true, path: selectedHtmlPath })
     expect(state.writeFile).toHaveBeenCalledWith(selectedHtmlPath, fallback, 'utf-8')
+  })
+})
+
+describe('exportDiagramPng', () => {
+  it('writes a renderer-created diagram PNG through the native save dialog', async () => {
+    state.showSaveDialog.mockResolvedValue({ canceled: false, filePath: selectedDiagramPngPath })
+    state.writeFile.mockResolvedValue(undefined)
+    const { exportDiagramPng } = await import('./export')
+
+    await expect(exportDiagramPng({ dataUrl: pngDataUrl, baseName: 'mermaid-diagram' })).resolves.toEqual({
+      ok: true,
+      path: selectedDiagramPngPath
+    })
+
+    expect(state.showSaveDialog).toHaveBeenCalledWith({
+      defaultPath: join(exportTempDirectory, 'mermaid-diagram.png'),
+      filters: [{ name: 'PNG', extensions: ['png'] }]
+    })
+    expect(state.writeFile).toHaveBeenCalledWith(selectedDiagramPngPath, Buffer.from(pngDataUrl.split(',')[1], 'base64'))
+  })
+
+  it('rejects non-PNG data before opening the save dialog', async () => {
+    const { exportDiagramPng } = await import('./export')
+
+    await expect(exportDiagramPng({ dataUrl: 'data:image/png;base64,aGVsbG8=', baseName: 'diagram' })).resolves.toEqual({
+      ok: false,
+      error: 'Invalid diagram PNG data.'
+    })
+    expect(state.showSaveDialog).not.toHaveBeenCalled()
   })
 })

@@ -178,6 +178,14 @@ export const IconImage = (p: IconProps): JSX.Element => (
   </svg>
 )
 
+/** Four inward corners â€” fit content to the available viewer area. */
+export const IconFitToView = (p: IconProps): JSX.Element => (
+  <svg {...base} {...p}>
+    <path d="M8 4H4v4M16 4h4v4M4 16v4h4M20 16v4h-4" />
+    <path d="m9 9-5-5M15 9l5-5M9 15l-5 5M15 15l5 5" />
+  </svg>
+)
+
 export const IconSave = (p: IconProps): JSX.Element => (
   <svg {...base} {...p}>
     <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2Z" />
@@ -247,5 +255,13 @@ export const IconExpandAll = (p: IconProps): JSX.Element => (
 export const IconCollapseAll = (p: IconProps): JSX.Element => (
   <svg {...base} {...p}>
     <path d="m7 10 5-5 5 5M7 19l5-5 5 5" />
+  </svg>
+)
+
+/** Panel with a divided left column — toggles the outline sidebar. */
+export const IconSidebar = (p: IconProps): JSX.Element => (
+  <svg {...base} {...p}>
+    <rect x="3" y="4" width="18" height="16" rx="2" />
+    <path d="M9 4v16" />
   </svg>
 )

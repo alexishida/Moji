@@ -155,12 +155,13 @@
   line-height: 1.6;
 }
 
-/* Mermaid flowcharts stay readable at any preview width and print as one diagram. */
+/* Mermaid diagrams stay readable at any preview width and print as one diagram. */
 .markdown-body .mermaid-diagram {
   display: block;
   margin: 0 0 1em;
   overflow-x: auto;
   text-align: center;
+  cursor: zoom-in;
   break-inside: avoid;
 }
 
@@ -168,6 +169,7 @@
   display: inline-block;
   max-width: 100%;
   height: auto;
+  pointer-events: none;
 }
 
 .markdown-body img {

@@ -54,8 +54,8 @@ The system SHALL open bundled localized Markdown guides as read-only reference d
 - **WHEN** bundled guide is active
 - **THEN** preview, search, outline navigation, export, and tab closing remain available
 
-### Requirement: Render Mermaid flowcharts
-The system SHALL render a fenced code block tagged `mermaid` as a visual inline SVG when its definition uses Mermaid `flowchart` or legacy `graph` syntax. The rendered diagram SHALL fit within the preview width without obscuring surrounding Markdown content.
+### Requirement: Render Mermaid diagrams
+The system SHALL render each valid fenced code block tagged `mermaid` as a visual inline SVG using the bundled Mermaid runtime. Rendered diagrams SHALL fit within the preview width without obscuring surrounding Markdown content.
 
 #### Scenario: Render a valid flowchart
 - **WHEN** a loaded document contains a fenced `mermaid` block beginning with a valid `flowchart` declaration
@@ -65,14 +65,24 @@ The system SHALL render a fenced code block tagged `mermaid` as a visual inline 
 - **WHEN** a loaded document contains a fenced `mermaid` block beginning with a valid `graph` declaration
 - **THEN** the preview displays its Mermaid flowchart as a visual diagram
 
+#### Scenario: Render a non-flowchart Mermaid diagram
+- **WHEN** a loaded document contains a valid Mermaid sequence, Gantt, class, entity-relationship, state, or journey diagram
+- **THEN** the preview displays that diagram as a visual diagram instead of source code
+
+### Requirement: Inspect rendered Mermaid diagrams
+The system SHALL open a rendered Mermaid diagram in a resizable modal when the user clicks it. Modal chrome and diagram canvas background SHALL follow current Markdown preview theme, including Mermaid's light or dark diagram palette. The modal SHALL support zoom controls and mouse-wheel zoom from 25% through 800%, drag navigation, a minimap showing visible area only above 100% zoom, and saving that individual diagram as a PNG through native save dialog.
+
+#### Scenario: Navigate an enlarged diagram
+- **WHEN** the user clicks a rendered Mermaid flowchart
+- **THEN** the system opens a modal with the diagram, and the user can zoom, drag it, and use the minimap to reposition the visible area
+
+#### Scenario: Export an enlarged diagram
+- **WHEN** the user selects the PNG export action in the Mermaid diagram modal and chooses a destination
+- **THEN** the system writes a PNG image of only that diagram to the selected path
+
 ### Requirement: Preserve readable Mermaid fallback
-The system SHALL preserve a readable escaped code-block fallback when a Mermaid fence is malformed, fails to render, or declares a diagram type outside the supported flowchart scope. A failed diagram SHALL NOT prevent the rest of the document preview from rendering.
+The system SHALL preserve a readable escaped code-block fallback when a Mermaid fence is malformed or fails to render. A failed diagram SHALL NOT prevent the rest of the document preview from rendering.
 
 #### Scenario: Handle invalid flowchart source
 - **WHEN** a fenced `mermaid` block contains invalid flowchart syntax
 - **THEN** the preview shows the Mermaid source as a code-block fallback and renders the rest of the document
-
-#### Scenario: Handle unsupported Mermaid diagram type
-- **WHEN** a fenced `mermaid` block declares a supported-by-Mermaid but non-flowchart diagram type
-- **THEN** the preview shows that source as a code block rather than attempting to render it as a flowchart
-

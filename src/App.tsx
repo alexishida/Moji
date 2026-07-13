@@ -17,6 +17,7 @@ import { buildOutline } from './lib/outline'
 import { getActivePreviewHeadingId, scrollPreviewHeadingIntoView } from './lib/previewScroll'
 import { useDebounced } from './lib/useDebounced'
 import { buildStandaloneHtml } from './lib/exportHtml'
+import { getExtraMermaidGuideExamples } from './lib/mermaidGuide'
 import { renderMermaidFlowcharts } from './lib/mermaid'
 import { MAX_RECENT_FILES, type ExportFormat, type Settings, type Theme, type UpdateState } from '../electron/shared'
 import packageJson from '../package.json'
@@ -161,6 +162,7 @@ export function App(): JSX.Element {
   const [exportDialogFormat, setExportDialogFormat] = useState<ExportFormat | null>(null)
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [aboutOpen, setAboutOpen] = useState(false)
+  const [outlineVisible, setOutlineVisible] = useState(true)
   const [searchFocusRequest, setSearchFocusRequest] = useState(0)
   const [replaceFocusRequest, setReplaceFocusRequest] = useState(0)
   const [topBarDismissRequest, setTopBarDismissRequest] = useState(0)
@@ -663,11 +665,15 @@ export function App(): JSX.Element {
       'zh': 'markdown-guide.zh.md',
       'ru': 'markdown-guide.ru.md',
     }
-    const guideFile = guideFiles[i18n.language] ?? guideFiles['en']
+    const guideFile = guideFiles[settings.language] ?? guideFiles['en']
     const res = await window.api.readSample(guideFile)
-    if (res.ok) addDocuments([{ path: res.path, content: res.content, readOnly: true }])
+    if (res.ok) addDocuments([{
+      path: res.path,
+      content: res.content.replace('<!-- MERMAID_EXAMPLES -->', getExtraMermaidGuideExamples(settings.language)),
+      readOnly: true
+    }])
     else flash(t('notice.openFailed', { error: res.error }), true)
-  }, [addDocuments, flash, i18n.language, t])
+  }, [addDocuments, flash, settings.language, t])
 
   const selectDocument = useCallback((docId: string) => {
     const selected = stateRef.current.documents.find((doc) => doc.id === docId)
@@ -789,6 +795,11 @@ export function App(): JSX.Element {
     const s = stateRef.current
     return s.hasDoc && s.mode === 'view' && !s.exportDialogOpen && !s.settingsOpen && !s.aboutOpen
   }, [])
+
+  const toggleOutline = useCallback(() => {
+    if (!canToggleMdTheme()) return
+    setOutlineVisible((prev) => !prev)
+  }, [canToggleMdTheme])
 
   const toggleMdTheme = useCallback(() => {
     if (!canToggleMdTheme()) return
@@ -1123,6 +1134,9 @@ export function App(): JSX.Element {
         previewFluidWidth={settings.previewFluidWidth}
         canTogglePreviewWidth={canToggleMdTheme()}
         onTogglePreviewWidth={() => changeSettings({ previewFluidWidth: !settings.previewFluidWidth })}
+        outlineVisible={outlineVisible}
+        canToggleOutline={canToggleMdTheme()}
+        onToggleOutline={toggleOutline}
         onToggleTheme={toggleMdTheme}
         onExport={openExportDialog}
         onOpenSettings={toggleSettings}
@@ -1146,7 +1160,7 @@ export function App(): JSX.Element {
       )}
 
       <div className="body">
-        {hasDoc && mode === 'view' && !exportDialogFormat && !settingsOpen && !aboutOpen && (
+        {hasDoc && mode === 'view' && !exportDialogFormat && !settingsOpen && !aboutOpen && outlineVisible && (
           <Sidebar
             hasDoc={hasDoc}
             outline={outline}
@@ -1201,7 +1215,13 @@ export function App(): JSX.Element {
                 onChange={updateActiveContent}
               />
             ) : (
-              <Preview html={html} mdTheme={mdTheme} searchTerm={searchTerm} settings={settings} />
+              <Preview
+                html={html}
+                documentName={activeDoc ? documentName(activeDoc, t('app.untitled')) : t('app.untitled')}
+                mdTheme={mdTheme}
+                searchTerm={searchTerm}
+                settings={settings}
+              />
             )}
           </div>
         </main>

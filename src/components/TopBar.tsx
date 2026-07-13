@@ -2,7 +2,7 @@ import { useState, useCallback, useEffect, useRef, type ChangeEvent, type FormEv
 import { useTranslation } from 'react-i18next'
 import { SettingsButton } from './SettingsButton'
 import { FontSizeButton } from './FontSizeButton'
-import { IconMoon, IconSun, IconEye, IconPencil, IconDownload, IconOpen, IconFilePlus, IconSave, IconInfo, IconReplace, IconReplaceAll, IconSearch, IconX, IconLayoutWidth } from './icons'
+import { IconMoon, IconSun, IconEye, IconPencil, IconDownload, IconOpen, IconFilePlus, IconSave, IconInfo, IconReplace, IconReplaceAll, IconSearch, IconX, IconLayoutWidth, IconSidebar } from './icons'
 import type { ExportFormat, Theme } from '../../electron/shared'
 
 interface TopBarProps {
@@ -35,6 +35,9 @@ interface TopBarProps {
   previewFluidWidth: boolean
   canTogglePreviewWidth: boolean
   onTogglePreviewWidth: () => void
+  outlineVisible: boolean
+  canToggleOutline: boolean
+  onToggleOutline: () => void
   searchFocusRequest: number
   replaceFocusRequest: number
   dismissRequest: number
@@ -265,6 +268,18 @@ export function TopBar(props: TopBarProps): JSX.Element {
         </div>
 
         <div className="topbar__right">
+          <button
+            className={`iconbtn ${props.outlineVisible && props.canToggleOutline ? 'iconbtn--active' : ''}`}
+            type="button"
+            onClick={props.onToggleOutline}
+            disabled={!props.canToggleOutline}
+            title={props.outlineVisible ? t('toolbar.hideOutline') : t('toolbar.showOutline')}
+            aria-label={props.outlineVisible ? t('toolbar.hideOutline') : t('toolbar.showOutline')}
+            aria-pressed={props.outlineVisible}
+          >
+            <IconSidebar />
+          </button>
+
           <button
             className={`iconbtn ${props.previewFluidWidth ? 'iconbtn--active' : ''}`}
             type="button"

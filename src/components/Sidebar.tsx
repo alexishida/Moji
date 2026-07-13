@@ -50,9 +50,9 @@ export function Sidebar(props: SidebarProps): JSX.Element {
         {props.showOutline && (
           <>
             <div className="outline-head">
-              <div className="navitem navitem--active navitem--static outline-head__title">
-                <IconList />
-                <span className="navitem__label">{t('sidebar.outline')}</span>
+              <div className="outline-head__title">
+                <IconList width={14} height={14} />
+                <span className="outline-head__label">{t('sidebar.outline')}</span>
               </div>
               {collapsibleIds.length > 0 && (
                 <button

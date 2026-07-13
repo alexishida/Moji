@@ -1,6 +1,7 @@
 import { contextBridge, ipcRenderer, webUtils } from 'electron'
 import {
   IPC,
+  type DiagramPngRequest,
   type DocumentPayload,
   type ExportRequest,
   type ImageDataResult,
@@ -23,6 +24,8 @@ const api = {
   saveAs: (content: string, suggestedName?: string): Promise<WriteResult> =>
     ipcRenderer.invoke(IPC.saveAs, content, suggestedName),
   exportAs: (request: ExportRequest): Promise<WriteResult> => ipcRenderer.invoke(IPC.export, request),
+  exportDiagramPng: (request: DiagramPngRequest): Promise<WriteResult> =>
+    ipcRenderer.invoke(IPC.exportDiagramPng, request),
   confirmClose: (shouldClose: boolean): Promise<void> => ipcRenderer.invoke(IPC.confirmClose, shouldClose),
   getUpdateState: (): Promise<UpdateState> => ipcRenderer.invoke(IPC.getUpdateState),
   checkForUpdate: (): Promise<UpdateState> => ipcRenderer.invoke(IPC.checkForUpdate),

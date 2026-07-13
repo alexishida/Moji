@@ -21,6 +21,7 @@
 - [转义字符](#%E8%BD%AC%E4%B9%89%E5%AD%97%E7%AC%A6)
 - [表情与符号](#%E8%A1%A8%E6%83%85%E4%B8%8E%E7%AC%A6%E5%8F%B7)
 - [扩展功能](#%E6%89%A9%E5%B1%95%E5%8A%9F%E8%83%BD)
+- [Mermaid 图表](#mermaid-%E5%9B%BE%E8%A1%A8)
 - [最佳实践](#%E6%9C%80%E4%BD%B3%E5%AE%9E%E8%B7%B5)
 
 ---
@@ -482,6 +483,45 @@ KaTeX
 *[HTML]: HyperText Markup Language
 
 [^来源]: 参考详细信息，显示在文档末尾。
+
+---
+
+## Mermaid 图表
+
+Moji 会在预览中渲染 Mermaid 图表。点击已渲染的图表，可在查看器中缩放、拖动并导出 PNG。
+
+**流程图**：
+
+~~~markdown
+```mermaid
+flowchart LR
+  草稿 --> 审核 --> 发布
+```
+~~~
+
+```mermaid
+flowchart LR
+  草稿 --> 审核 --> 发布
+```
+
+**时序图**：
+
+```mermaid
+sequenceDiagram
+  浏览器->>API: 请求数据
+  API-->>浏览器: 响应
+```
+
+**饼图**：
+
+```mermaid
+pie title 任务
+  "已完成" : 70
+  "进行中" : 20
+  "计划中" : 10
+```
+
+<!-- MERMAID_EXAMPLES -->
 
 ---
 

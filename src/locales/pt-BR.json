@@ -56,6 +56,8 @@
     "resetFontSize": "Padrão",
     "useFixedWidth": "Usar largura fixa na leitura",
     "useFluidWidth": "Usar largura fluida na leitura",
+    "showOutline": "Mostrar sumário",
+    "hideOutline": "Ocultar sumário",
     "settings": "Configurações",
     "about": "Sobre",
     "more": "Mais ações",
@@ -87,7 +89,18 @@
   },
   "preview": {
     "copyCode": "Copiar código",
-    "codeCopied": "Código copiado"
+    "codeCopied": "Código copiado",
+    "diagramTitle": "Diagrama",
+    "closeDiagram": "Fechar diagrama",
+    "zoomIn": "Aumentar zoom",
+    "zoomOut": "Diminuir zoom",
+    "fitToView": "Ajustar à visualização",
+    "previousDiagram": "Diagrama anterior",
+    "nextDiagram": "Próximo diagrama",
+    "zoomLevel": "Zoom: {{value}}%",
+    "minimap": "Minimapa do diagrama",
+    "exportDiagramPng": "Exportar diagrama como PNG",
+    "diagramExportFailed": "Não foi possível exportar o diagrama como PNG"
   },
   "welcome": {
     "tagline": "Um leitor de Markdown leve e simples",

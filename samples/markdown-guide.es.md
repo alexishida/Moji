@@ -21,6 +21,7 @@ Cada sección muestra la sintaxis y, cuando corresponde, el resultado ya renderi
 - [Caracteres de escape](#caracteres-de-escape)
 - [Emojis y símbolos](#emojis-y-s%C3%ADmbolos)
 - [Funciones extendidas](#funciones-extendidas)
+- [Diagramas Mermaid](#diagramas-mermaid)
 - [Buenas prácticas](#buenas-pr%C3%A1cticas)
 
 ---
@@ -482,6 +483,45 @@ KaTeX
 *[HTML]: HyperText Markup Language
 
 [^fuente]: Detalle de la referencia, mostrado al final del documento.
+
+---
+
+## Diagramas Mermaid
+
+Moji renderiza diagramas Mermaid en la vista previa. Haz clic en un diagrama renderizado para abrir el visor, aplicar zoom, arrastrar y exportarlo como PNG.
+
+**Diagrama de flujo**:
+
+~~~markdown
+```mermaid
+flowchart LR
+  Borrador --> Revisión --> Publicación
+```
+~~~
+
+```mermaid
+flowchart LR
+  Borrador --> Revisión --> Publicación
+```
+
+**Diagrama de secuencia**:
+
+```mermaid
+sequenceDiagram
+  Navegador->>API: Solicita datos
+  API-->>Navegador: Respuesta
+```
+
+**Gráfico circular**:
+
+```mermaid
+pie title Tareas
+  "Completadas" : 70
+  "En progreso" : 20
+  "Planificadas" : 10
+```
+
+<!-- MERMAID_EXAMPLES -->
 
 ---
 

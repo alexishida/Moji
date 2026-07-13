@@ -472,11 +472,37 @@ body {
   display: flex;
   align-items: center;
   gap: var(--space-1);
+  padding-bottom: var(--space-1);
+  margin-bottom: var(--space-1);
+  border-bottom: 1px solid var(--border);
 }
 
+/* Section label, not a nav item: quiet framing header above the tree. */
 .outline-head__title {
   flex: 1 1 auto;
   min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 4px var(--space-2);
+  color: var(--text-muted);
+}
+
+.outline-head__title svg {
+  flex: 0 0 auto;
+  opacity: 0.8;
+}
+
+.outline-head__label {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
 }
 
 .outline-head__toggle {
@@ -1724,6 +1750,297 @@ body {
   display: flex;
   justify-content: center;
   gap: var(--space-2);
+}
+
+/* --- Mermaid diagram viewer -------------------------------------------- */
+.diagram-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-4);
+  background: rgba(0, 0, 0, 0.64);
+}
+
+.diagram-modal {
+  position: relative;
+  width: min(1120px, calc(100vw - 32px));
+  height: min(760px, calc(100vh - 32px));
+  min-width: 480px;
+  min-height: 360px;
+  max-width: calc(100vw - 32px);
+  max-height: calc(100vh - 32px);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  resize: none;
+  color: var(--modal-text);
+  background: var(--modal-bg);
+  border: 1px solid var(--modal-border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+}
+
+.diagram-modal__header {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  min-height: 52px;
+  padding: var(--space-2) var(--space-3) var(--space-2) var(--space-4);
+  background: var(--modal-surface);
+  border-bottom: 1px solid var(--modal-border);
+}
+
+.diagram-modal__title {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.diagram-modal__title svg {
+  flex: 0 0 auto;
+  color: inherit;
+}
+
+.diagram-modal__count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 42px;
+  height: 28px;
+  padding: 0 var(--space-2);
+  color: var(--modal-text);
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+
+.diagram-modal__navigation {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  display: inline-flex;
+  align-items: center;
+  padding: 1px;
+  background: var(--modal-bg);
+  border: 1px solid var(--modal-border);
+  border-radius: var(--radius-sm);
+  transform: translate(-50%, -50%);
+}
+
+.diagram-modal__navigation-button {
+  width: 30px;
+  height: 30px;
+}
+
+.diagram-modal__navigation-button svg {
+  color: inherit;
+}
+
+.diagram-modal__previous-icon {
+  transform: rotate(180deg);
+}
+
+.diagram-modal__actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.diagram-modal__zoom-select {
+  width: 72px;
+  height: 30px;
+  padding: 0 var(--space-1);
+  font: inherit;
+  font-size: 12px;
+  color: var(--modal-text-muted);
+  cursor: pointer;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  font-variant-numeric: tabular-nums;
+}
+
+.diagram-modal__zoom-select:hover,
+.diagram-modal__zoom-select:focus-visible {
+  color: var(--modal-text);
+  background: var(--modal-inset);
+  outline: none;
+}
+
+.diagram-modal__stage {
+  position: relative;
+  min-height: 0;
+  flex: 1;
+  overflow: hidden;
+  touch-action: none;
+  user-select: none;
+  color: var(--text);
+  background-color: var(--bg);
+  background-image: radial-gradient(color-mix(in srgb, var(--border) 20%, transparent) 1px, transparent 1px);
+  background-size: 18px 18px;
+  cursor: grab;
+}
+
+.diagram-modal__stage--dragging,
+.diagram-modal__stage:active {
+  cursor: grabbing;
+}
+
+.diagram-modal__canvas,
+.diagram-minimap__canvas {
+  position: absolute;
+  transform-origin: center;
+}
+
+.diagram-modal__canvas {
+  top: 50%;
+  left: 50%;
+}
+
+.diagram-modal__canvas svg,
+.diagram-minimap__canvas svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.diagram-modal .iconbtn {
+  color: var(--modal-text-muted);
+}
+
+.diagram-modal .iconbtn:hover {
+  color: var(--modal-text);
+  background: var(--modal-inset);
+}
+
+.diagram-modal .iconbtn:disabled:hover {
+  color: var(--modal-text-muted);
+  background: none;
+}
+
+.diagram-modal__close {
+  margin-left: var(--space-3);
+}
+
+.diagram-modal__resize-handle {
+  position: absolute;
+  z-index: 5;
+  touch-action: none;
+}
+
+.diagram-modal__resize-handle--n,
+.diagram-modal__resize-handle--s {
+  right: 10px;
+  left: 10px;
+  height: 8px;
+}
+
+.diagram-modal__resize-handle--n {
+  top: 0;
+  cursor: n-resize;
+}
+
+.diagram-modal__resize-handle--s {
+  bottom: 0;
+  cursor: s-resize;
+}
+
+.diagram-modal__resize-handle--e,
+.diagram-modal__resize-handle--w {
+  top: 10px;
+  bottom: 10px;
+  width: 8px;
+}
+
+.diagram-modal__resize-handle--e {
+  right: 0;
+  cursor: e-resize;
+}
+
+.diagram-modal__resize-handle--w {
+  left: 0;
+  cursor: w-resize;
+}
+
+.diagram-modal__resize-handle--ne,
+.diagram-modal__resize-handle--nw,
+.diagram-modal__resize-handle--se,
+.diagram-modal__resize-handle--sw {
+  width: 12px;
+  height: 12px;
+}
+
+.diagram-modal__resize-handle--ne {
+  top: 0;
+  right: 0;
+  cursor: ne-resize;
+}
+
+.diagram-modal__resize-handle--nw {
+  top: 0;
+  left: 0;
+  cursor: nw-resize;
+}
+
+.diagram-modal__resize-handle--se {
+  right: 0;
+  bottom: 0;
+  cursor: se-resize;
+}
+
+.diagram-modal__resize-handle--sw {
+  bottom: 0;
+  left: 0;
+  cursor: sw-resize;
+}
+
+.diagram-modal__export {
+  margin-left: var(--space-2);
+}
+
+.diagram-minimap {
+  position: absolute;
+  right: var(--space-4);
+  bottom: var(--space-4);
+  width: 160px;
+  height: 110px;
+  overflow: hidden;
+  background: color-mix(in srgb, var(--bg) 88%, transparent);
+  border: 1px solid var(--modal-border);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow);
+  cursor: crosshair;
+  touch-action: none;
+}
+
+.diagram-minimap__canvas {
+  transform-origin: top left;
+  pointer-events: none;
+}
+
+.diagram-minimap__viewport {
+  position: absolute;
+  pointer-events: none;
+  border: 1px solid var(--accent);
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+}
+
+.diagram-modal__error {
+  margin: 0;
+  padding: var(--space-2) var(--space-4);
+  font-size: 13px;
+  color: var(--danger);
+  background: var(--modal-surface);
+  border-top: 1px solid var(--modal-border);
 }
 
 /* --- Editor -------------------------------------------------------------- */

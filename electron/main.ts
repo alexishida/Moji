@@ -16,7 +16,7 @@ import {
   type WriteResult
 } from './shared'
 import { getSettings, updateSettings } from './settings'
-import { exportDocument } from './export'
+import { exportDiagramPng, exportDocument } from './export'
 import { createUpdateController, type UpdateController } from './updater'
 
 let mainWindow: BrowserWindow | null = null
@@ -361,6 +361,7 @@ function registerIpc(): void {
   })
 
   ipcMain.handle(IPC.export, (_e, request: unknown): Promise<WriteResult> => exportDocument(request))
+  ipcMain.handle(IPC.exportDiagramPng, (_e, request: unknown): Promise<WriteResult> => exportDiagramPng(request))
 
   ipcMain.handle(IPC.getUpdateState, (): UpdateState => updateController?.getState() ?? unavailableUpdateState())
 

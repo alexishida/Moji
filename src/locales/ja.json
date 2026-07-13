@@ -57,6 +57,8 @@
     "resetFontSize": "標準",
     "useFixedWidth": "閲覧幅を固定する",
     "useFluidWidth": "閲覧幅を可変にする",
+    "showOutline": "目次を表示",
+    "hideOutline": "目次を非表示",
     "settings": "設定",
     "about": "このアプリについて",
     "more": "その他の操作",
@@ -88,7 +90,18 @@
   },
   "preview": {
     "copyCode": "コードをコピー",
-    "codeCopied": "コードをコピーしました"
+    "codeCopied": "コードをコピーしました",
+    "diagramTitle": "図",
+    "closeDiagram": "図を閉じる",
+    "zoomIn": "拡大",
+    "zoomOut": "縮小",
+    "fitToView": "画面に合わせる",
+    "previousDiagram": "前の図",
+    "nextDiagram": "次の図",
+    "zoomLevel": "ズーム: {{value}}%",
+    "minimap": "図のミニマップ",
+    "exportDiagramPng": "図を PNG として書き出す",
+    "diagramExportFailed": "図を PNG として書き出せませんでした"
   },
   "welcome": {
     "tagline": "軽くてシンプルな Markdown リーダー",

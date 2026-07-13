@@ -57,6 +57,8 @@
     "resetFontSize": "默认",
     "useFixedWidth": "使用固定阅读宽度",
     "useFluidWidth": "使用流式阅读宽度",
+    "showOutline": "显示大纲",
+    "hideOutline": "隐藏大纲",
     "settings": "设置",
     "about": "关于",
     "more": "更多操作",
@@ -88,7 +90,18 @@
   },
   "preview": {
     "copyCode": "复制代码",
-    "codeCopied": "代码已复制"
+    "codeCopied": "代码已复制",
+    "diagramTitle": "图表",
+    "closeDiagram": "关闭图表",
+    "zoomIn": "放大",
+    "zoomOut": "缩小",
+    "fitToView": "适应视图",
+    "previousDiagram": "上一张图表",
+    "nextDiagram": "下一张图表",
+    "zoomLevel": "缩放：{{value}}%",
+    "minimap": "图表小地图",
+    "exportDiagramPng": "导出图表为 PNG",
+    "diagramExportFailed": "无法将图表导出为 PNG"
   },
   "welcome": {
     "tagline": "轻量简洁的 Markdown 阅读器",

@@ -59,10 +59,10 @@ describe('renderMarkdown', () => {
     expect(html).toContain('<sup>up</sup>')
   })
 
-  it('marks Mermaid fences as escaped flowchart candidates', () => {
+  it('marks Mermaid fences as escaped diagram candidates', () => {
     const html = renderMarkdown('```mermaid\nflowchart TD\n  Start --> End\n```')
 
-    expect(html).toContain('<pre class="hljs mermaid-flowchart">')
+    expect(html).toContain('<pre class="hljs mermaid-diagram-candidate">')
     expect(html).toContain('<code>flowchart TD')
   })
 })

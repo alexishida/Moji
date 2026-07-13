@@ -3,6 +3,7 @@ import { writeFile } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
 import {
   EXPORT_PAGE_SIZES,
+  type DiagramPngRequest,
   type ExportFormat,
   type ExportPageOrientation,
   type ExportPageSize,
@@ -95,6 +96,38 @@ export async function exportDocument(request: unknown): Promise<WriteResult> {
       const png = await htmlToPng(html, pageSize, pageOrientation, assetBaseUrl)
       await writeFile(filePath, png)
     }
+    return { ok: true, path: filePath }
+  } catch (err) {
+    return { ok: false, error: (err as Error).message }
+  }
+}
+
+function isDiagramPngRequest(request: unknown): request is DiagramPngRequest {
+  if (!request || typeof request !== 'object') return false
+  const raw = request as Record<string, unknown>
+  return typeof raw['dataUrl'] === 'string' && typeof raw['baseName'] === 'string'
+}
+
+/** Save one renderer-created Mermaid PNG through Electron's native save dialog. */
+export async function exportDiagramPng(request: unknown): Promise<WriteResult> {
+  if (!isDiagramPngRequest(request)) return { ok: false, error: 'Invalid diagram PNG request.' }
+
+  const match = /^data:image\/png;base64,([A-Za-z0-9+/]+={0,2})$/.exec(request.dataUrl)
+  if (!match) return { ok: false, error: 'Invalid diagram PNG data.' }
+
+  const png = Buffer.from(match[1], 'base64')
+  const isPng = png.length >= 8 && png.subarray(0, 8).equals(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]))
+  if (!isPng) return { ok: false, error: 'Invalid diagram PNG data.' }
+
+  const { canceled, filePath } = await dialog.showSaveDialog({
+    defaultPath: exportDefaultPath(request.baseName, 'png'),
+    filters: [FILTERS.png]
+  })
+  if (canceled || !filePath) return { ok: false, canceled: true }
+  rememberDialogDirectory(filePath)
+
+  try {
+    await writeFile(filePath, png)
     return { ok: true, path: filePath }
   } catch (err) {
     return { ok: false, error: (err as Error).message }
