@@ -9,6 +9,7 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ### Fixed
 
 - Exported HTML, PDF, and PNG now use the preview's font family, size, and line height. Exports previously declared no font family at all and fell back to the browser's default serif at a different size.
+- PNG export no longer fails on documents taller than roughly 8000 pixels. The capture exceeded Chromium's 16384-pixel texture limit and aborted with `UnknownVizError`; tall documents are now captured in slices and stitched into one image.
 
 ## [0.1.3] - 2026-07-12
 
