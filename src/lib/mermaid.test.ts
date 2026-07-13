@@ -60,4 +60,25 @@ describe('renderMermaidFlowcharts', () => {
 
     await expect(renderMermaidFlowcharts(flowchart, 'light')).resolves.toBe(flowchart)
   })
+
+  it('reuses the cached SVG for an identical source and theme', async () => {
+    const source = '<pre class="hljs mermaid-flowchart"><code>flowchart LR\n  Cache --&gt; Hit</code></pre>'
+
+    const first = await renderMermaidFlowcharts(source, 'dark')
+    const second = await renderMermaidFlowcharts(source, 'dark')
+
+    expect(state.render).toHaveBeenCalledTimes(1)
+    expect(state.initialize).toHaveBeenCalledTimes(1)
+    expect(second).toBe(first)
+  })
+
+  it('does not retry a source Mermaid already rejected', async () => {
+    state.render.mockRejectedValue(new Error('Invalid syntax'))
+    const source = '<pre class="hljs mermaid-flowchart"><code>flowchart TD\n  Broken --&gt;</code></pre>'
+
+    await expect(renderMermaidFlowcharts(source, 'dark')).resolves.toBe(source)
+    await expect(renderMermaidFlowcharts(source, 'dark')).resolves.toBe(source)
+
+    expect(state.render).toHaveBeenCalledTimes(1)
+  })
 })
