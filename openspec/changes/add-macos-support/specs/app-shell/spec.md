@@ -42,3 +42,7 @@ The system SHALL treat quitting the application as distinct from closing its win
 #### Scenario: Quit with no unsaved documents
 - **WHEN** the user quits and no document has unsaved changes
 - **THEN** the application process terminates rather than leaving a windowless app running
+
+#### Scenario: The guard survives a window being closed and reopened
+- **WHEN** the user closes the window on macOS, leaving the app running, then reopens it from the Dock and makes an unsaved edit
+- **THEN** closing that window raises the unsaved-changes confirmation again, rather than discarding the work silently

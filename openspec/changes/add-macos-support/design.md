@@ -41,6 +41,12 @@ This leaves the pre-existing `Native application menu` requirement in `app-shell
 
 `forceQuit` remains the single escape hatch that lets the second, real quit through without re-prompting.
 
+### Re-arm the guard on every new window
+
+`forceQuit` is raised once a close is approved and was never lowered. On Windows and Linux the process dies with the window, so the flag never outlives its purpose. On macOS the app survives its last window, so a window opened afterwards inherited the raised flag and closed **without ever asking about unsaved changes**: work was discarded in silence.
+
+The flag is therefore cleared in `createWindow`, so every window starts with the guard armed. This is a pre-existing defect that only becomes reachable once the app correctly stays alive on macOS, which is why it is fixed here rather than left for later.
+
 ### Leave automatic updates unsupported on macOS
 
 Squirrel.Mac refuses to replace an unsigned bundle, so enabling the updater would surface a permanently failing flow. `supportsAutomaticUpdates()` already returns false on darwin; the behavior is now documented rather than incidental. macOS users update by downloading a new DMG.
