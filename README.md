@@ -11,16 +11,16 @@
 <p align="center"><strong>Current version:</strong> v0.1.3</p>
 
 <p align="center">
+  <img src="docs/repository-open-graph.png" alt="reposytory-open-graph" width="100%" />
+</p>
+
+<p align="center">
   <strong>Download:</strong>
   <a href="https://github.com/alexishida/Moji/releases/download/v0.1.3/Moji.Setup.0.1.3.exe">Windows</a>
   ·
   <a href="https://github.com/alexishida/Moji/releases/download/v0.1.3/Moji-0.1.3-x86_64.AppImage">Linux (AppImage)</a>
   ·
   <a href="https://github.com/alexishida/Moji/releases/download/v0.1.3/Moji-0.1.3-amd64.deb">Linux (DEB)</a>
-</p>
-
-<p align="center">
-  <img src="docs/repository-open-graph.png" alt="reposytory-open-graph" width="100%" />
 </p>
 
 
