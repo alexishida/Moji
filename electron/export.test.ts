@@ -5,6 +5,7 @@ import { dirname, join } from 'node:path'
 const exportTempDirectory = join(tmpdir(), 'moji-export-tests')
 const selectedHtmlPath = join(exportTempDirectory, 'chosen', 'report.html')
 const selectedPdfPath = join(exportTempDirectory, 'chosen', 'report.pdf')
+const selectedPngPath = join(exportTempDirectory, 'chosen', 'report.png')
 
 const state = vi.hoisted(() => ({
   showSaveDialog: vi.fn(),
@@ -14,6 +15,9 @@ const state = vi.hoisted(() => ({
   loadURL: vi.fn(),
   executeJavaScript: vi.fn(),
   printToPDF: vi.fn(),
+  capturePage: vi.fn(),
+  setContentSize: vi.fn(),
+  toPNG: vi.fn(),
   destroy: vi.fn(),
   windows: [] as unknown[]
 }))
@@ -22,7 +26,8 @@ vi.mock('electron', () => ({
   BrowserWindow: class {
     webContents = {
       executeJavaScript: state.executeJavaScript,
-      printToPDF: state.printToPDF
+      printToPDF: state.printToPDF,
+      capturePage: state.capturePage
     }
 
     constructor(options: unknown) {
@@ -30,9 +35,12 @@ vi.mock('electron', () => ({
     }
 
     loadURL = state.loadURL
+    setContentSize = state.setContentSize
     destroy = state.destroy
   },
-  dialog: { showSaveDialog: state.showSaveDialog }
+  dialog: { showSaveDialog: state.showSaveDialog },
+  nativeImage: { createFromBitmap: vi.fn(() => ({ toPNG: state.toPNG })) },
+  screen: { getPrimaryDisplay: vi.fn(() => ({ scaleFactor: 1 })) }
 }))
 
 vi.mock('node:fs/promises', () => ({ writeFile: state.writeFile }))
@@ -46,7 +54,7 @@ const request = {
   format: 'html' as const,
   pageSize: 'A4' as const,
   pageOrientation: 'portrait' as const,
-  html: '<article>Content</article>',
+  html: '<article><div class="mermaid-diagram"><svg id="flowchart"><rect /></svg></div></article>',
   baseName: 'Report'
 }
 
@@ -135,7 +143,39 @@ describe('exportDocument', () => {
       webPreferences: expect.objectContaining({ sandbox: true, contextIsolation: true, nodeIntegration: false })
     })])
     expect(state.printToPDF).toHaveBeenCalledWith(expect.objectContaining({ pageSize: 'A4', landscape: true }))
+    expect(state.loadURL).toHaveBeenCalledWith(expect.stringContaining(encodeURIComponent(request.html)), expect.anything())
     expect(state.writeFile).toHaveBeenCalledWith(selectedPdfPath, Buffer.from('pdf'))
     expect(state.destroy).toHaveBeenCalledOnce()
+  })
+
+  it('renders PNG from HTML containing a Mermaid SVG', async () => {
+    state.showSaveDialog.mockResolvedValue({ canceled: false, filePath: selectedPngPath })
+    state.writeFile.mockResolvedValue(undefined)
+    state.executeJavaScript
+      .mockResolvedValueOnce(undefined)
+      .mockResolvedValueOnce(undefined)
+      .mockResolvedValueOnce(100)
+      .mockResolvedValueOnce(0)
+    state.capturePage.mockResolvedValue({
+      getSize: () => ({ width: 100, height: 100 }),
+      toBitmap: () => Buffer.from('pixels')
+    })
+    state.toPNG.mockReturnValue(Buffer.from('png'))
+    const { exportDocument } = await import('./export')
+
+    await expect(exportDocument({ ...request, format: 'png' })).resolves.toEqual({ ok: true, path: selectedPngPath })
+
+    expect(state.loadURL).toHaveBeenCalledWith(expect.stringContaining(encodeURIComponent(request.html)), expect.anything())
+    expect(state.writeFile).toHaveBeenCalledWith(selectedPngPath, Buffer.from('png'))
+  })
+
+  it('exports Mermaid fallback code without invoking a diagram renderer', async () => {
+    state.showSaveDialog.mockResolvedValue({ canceled: false, filePath: selectedHtmlPath })
+    state.writeFile.mockResolvedValue(undefined)
+    const fallback = '<pre class="hljs mermaid-flowchart"><code>flowchart invalid</code></pre>'
+    const { exportDocument } = await import('./export')
+
+    await expect(exportDocument({ ...request, html: fallback })).resolves.toEqual({ ok: true, path: selectedHtmlPath })
+    expect(state.writeFile).toHaveBeenCalledWith(selectedHtmlPath, fallback, 'utf-8')
   })
 })
