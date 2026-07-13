@@ -1,7 +1,8 @@
-import { useCallback, useEffect, useRef, type MouseEvent } from 'react'
+import { useCallback, useEffect, useRef, useState, type MouseEvent } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { Settings, Theme } from '../../electron/shared'
 import { scrollPreviewHeadingIntoView } from '../lib/previewScroll'
+import { renderMermaidFlowcharts } from '../lib/mermaid'
 
 interface PreviewProps {
   html: string
@@ -15,6 +16,20 @@ interface PreviewProps {
 export function Preview({ html, mdTheme, searchTerm, settings, className }: PreviewProps): JSX.Element {
   const { t } = useTranslation()
   const bodyRef = useRef<HTMLDivElement>(null)
+  const [renderedHtml, setRenderedHtml] = useState(html)
+
+  useEffect(() => {
+    let canceled = false
+    setRenderedHtml(html)
+
+    void renderMermaidFlowcharts(html, mdTheme).then((nextHtml) => {
+      if (!canceled) setRenderedHtml(nextHtml)
+    })
+
+    return () => {
+      canceled = true
+    }
+  }, [html, mdTheme])
 
   const handleClick = useCallback((e: MouseEvent<HTMLDivElement>) => {
     const target = e.target as HTMLElement
@@ -68,7 +83,7 @@ export function Preview({ html, mdTheme, searchTerm, settings, className }: Prev
       button.title = t('preview.copyCode')
       wrapper.append(button)
     })
-  }, [html, t])
+  }, [renderedHtml, t])
 
   useEffect(() => {
     const body = bodyRef.current
@@ -129,7 +144,7 @@ export function Preview({ html, mdTheme, searchTerm, settings, className }: Prev
     return () => {
       canceled = true
     }
-  }, [html])
+  }, [renderedHtml])
 
   useEffect(() => {
     if (!bodyRef.current) return
@@ -178,7 +193,7 @@ export function Preview({ html, mdTheme, searchTerm, settings, className }: Prev
         node.parentNode?.replaceChild(frag, node)
       }
     }
-  }, [html, searchTerm])
+  }, [renderedHtml, searchTerm])
 
   return (
     <div className={`pane ${className ?? ''}`} data-md-theme={mdTheme}>
@@ -191,7 +206,7 @@ export function Preview({ html, mdTheme, searchTerm, settings, className }: Prev
           lineHeight: settings.previewLineHeight
         }}
         onClick={handleClick}
-        dangerouslySetInnerHTML={{ __html: html }}
+        dangerouslySetInnerHTML={{ __html: renderedHtml }}
       />
     </div>
   )

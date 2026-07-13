@@ -42,3 +42,63 @@ The system SHALL inform the user whether an export succeeded or failed.
 - **WHEN** an export fails (e.g. the destination is not writable)
 - **THEN** the application shows an error message describing the failure and does not leave a partial file presented as successful
 
+### Requirement: PNG export handles documents of any height
+The system SHALL export a PNG containing the whole document regardless of its rendered height, and SHALL NOT fail or silently crop when the document exceeds the platform's single-capture limit.
+
+#### Scenario: Export a document taller than the capture limit
+- **WHEN** the user exports a document whose rendered height exceeds what one screen capture can hold
+- **THEN** a PNG is written containing the entire document, top to bottom
+
+#### Scenario: Stitched image contains no repeated content
+- **WHEN** a tall document is captured in more than one pass
+- **THEN** the resulting image contains each band of the document exactly once, in order, and its height matches the rendered document
+
+#### Scenario: Export a short document
+- **WHEN** the user exports a document that fits within a single capture
+- **THEN** the PNG is produced as before, in one pass
+
+#### Scenario: Scrollbars stay out of the image
+- **WHEN** a tall document is captured on a platform with classic scrollbars
+- **THEN** no scrollbar appears in the exported image and the content keeps its full width
+
+### Requirement: Exports reproduce the preview typography
+The system SHALL render exported documents with the same font family, font size, and line height configured for the Markdown preview, and SHALL declare a font family in the exported document so it never falls back to the browser default serif. The requirement applies to HTML, PDF, and PNG, which share one generated document.
+
+#### Scenario: Export with the default typography
+- **WHEN** the user exports a document without having changed the preview typography
+- **THEN** the exported file renders in the default sans-serif family at the default size and line height, matching the preview
+
+#### Scenario: Export after changing the preview typography
+- **WHEN** the user selects a different preview font family, size, or line height in Settings and then exports
+- **THEN** the exported file renders with the selected family, size, and line height
+
+#### Scenario: Chosen font is unavailable
+- **WHEN** the exported document is opened where the configured font family cannot be resolved
+- **THEN** it falls back to the shared sans-serif stack rather than to the browser default serif
+
+#### Scenario: Code blocks keep their monospace font
+- **WHEN** an exported document contains fenced code
+- **THEN** the code keeps the monospace family, independent of the configured preview font
+
+### Requirement: Export rendered Mermaid flowcharts
+The system SHALL include each successfully rendered Mermaid flowchart as self-contained SVG markup in every supported export format: HTML, PDF, and PNG. Exports SHALL use the same current Markdown content as preview, including unsaved edits.
+
+#### Scenario: Export flowchart to HTML
+- **WHEN** a document with a valid Mermaid flowchart is exported as HTML
+- **THEN** the saved HTML contains a visible self-contained rendering of the flowchart without requiring Mermaid to be loaded at open time
+
+#### Scenario: Export flowchart to PDF
+- **WHEN** a document with a valid Mermaid flowchart is exported as PDF
+- **THEN** the PDF contains the rendered flowchart within the printed document layout
+
+#### Scenario: Export flowchart to PNG
+- **WHEN** a document with a valid Mermaid flowchart is exported as PNG
+- **THEN** the PNG contains the rendered flowchart within the captured document layout
+
+### Requirement: Export Mermaid fallback safely
+The system SHALL export the same readable code-block fallback for a Mermaid definition that is malformed, fails to render, or is outside the supported flowchart scope.
+
+#### Scenario: Export invalid flowchart source
+- **WHEN** a document with invalid Mermaid flowchart source is exported in any supported format
+- **THEN** the export contains its readable code-block fallback and the export completes without a Mermaid rendering error
+

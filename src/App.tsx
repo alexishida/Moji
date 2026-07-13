@@ -17,6 +17,7 @@ import { buildOutline } from './lib/outline'
 import { getActivePreviewHeadingId, scrollPreviewHeadingIntoView } from './lib/previewScroll'
 import { useDebounced } from './lib/useDebounced'
 import { buildStandaloneHtml } from './lib/exportHtml'
+import { renderMermaidFlowcharts } from './lib/mermaid'
 import { MAX_RECENT_FILES, type ExportFormat, type Settings, type Theme, type UpdateState } from '../electron/shared'
 import packageJson from '../package.json'
 
@@ -539,7 +540,8 @@ export function App(): JSX.Element {
         flash(t('notice.noDocument'), true)
         return
       }
-      const rendered = renderMarkdown(s.activeDoc.content, { documentPath: s.activeDoc.path })
+      const renderedMarkdown = renderMarkdown(s.activeDoc.content, { documentPath: s.activeDoc.path })
+      const rendered = await renderMermaidFlowcharts(renderedMarkdown, 'light')
       const name = documentName(s.activeDoc, t('app.untitled'))
       // Exports (HTML/PDF/PNG) always use the light theme, regardless of the preview theme.
       const doc = buildStandaloneHtml(rendered, 'light', name, {
