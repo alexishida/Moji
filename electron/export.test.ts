@@ -7,6 +7,16 @@ const selectedHtmlPath = join(exportTempDirectory, 'chosen', 'report.html')
 const selectedPdfPath = join(exportTempDirectory, 'chosen', 'report.pdf')
 const selectedPngPath = join(exportTempDirectory, 'chosen', 'report.png')
 
+/** Side of the square page the fake capture stands in for, in device pixels. */
+const capturedSize = 100
+/** A captured pixel is blue, green, red, alpha: the BGRA layout `toBitmap` returns. */
+const BYTES_PER_PIXEL = 4
+
+const PNG_SIGNATURE = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])
+// The IHDR chunk opens the file: signature (8), length (4), type (4), then width and height.
+const IHDR_WIDTH_OFFSET = 16
+const IHDR_HEIGHT_OFFSET = 20
+
 const state = vi.hoisted(() => ({
   showSaveDialog: vi.fn(),
   writeFile: vi.fn(),
@@ -154,11 +164,11 @@ describe('exportDocument', () => {
     state.executeJavaScript
       .mockResolvedValueOnce(undefined)
       .mockResolvedValueOnce(undefined)
-      .mockResolvedValueOnce(100)
+      .mockResolvedValueOnce(capturedSize)
       .mockResolvedValueOnce(0)
     state.capturePage.mockResolvedValue({
-      getSize: () => ({ width: 100, height: 100 }),
-      toBitmap: () => Buffer.alloc(100 * 100 * 4)
+      getSize: () => ({ width: capturedSize, height: capturedSize }),
+      toBitmap: () => Buffer.alloc(capturedSize * capturedSize * BYTES_PER_PIXEL)
     })
     const { exportDocument } = await import('./export')
 
@@ -170,9 +180,9 @@ describe('exportDocument', () => {
     // so assert on the written file: a PNG signature, then an IHDR of the captured size.
     const [writtenPath, written] = state.writeFile.mock.calls[0] as [string, Buffer]
     expect(writtenPath).toBe(selectedPngPath)
-    expect(written.subarray(0, 8)).toEqual(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]))
-    expect(written.readUInt32BE(16)).toBe(100)
-    expect(written.readUInt32BE(20)).toBe(100)
+    expect(written.subarray(0, PNG_SIGNATURE.length)).toEqual(PNG_SIGNATURE)
+    expect(written.readUInt32BE(IHDR_WIDTH_OFFSET)).toBe(capturedSize)
+    expect(written.readUInt32BE(IHDR_HEIGHT_OFFSET)).toBe(capturedSize)
   })
 
   it('exports Mermaid fallback code without invoking a diagram renderer', async () => {
