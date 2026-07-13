@@ -23,7 +23,7 @@ export function Welcome({ onOpen, onNew, recentFiles, onOpenRecent, onForgetRece
   return (
     <div className="pane">
       <div className="welcome">
-        <img className="welcome__logo" src={logoMark} alt="Moji" />
+        <img className="welcome__logo" src={logoMark} alt="Moji" draggable={false} />
         <h1 className="welcome__title">{t('welcome.title')}</h1>
         <p className="welcome__tagline">{t('welcome.tagline')}</p>
         <div className="welcome__actions">

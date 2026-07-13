@@ -147,6 +147,7 @@ export function App(): JSX.Element {
   const [activeSearchIndex, setActiveSearchIndex] = useState<number | null>(null)
   const [replaceActive, setReplaceActive] = useState(false)
   const [dragging, setDragging] = useState(false)
+  const dragDepth = useRef(0)
   const [notice, setNotice] = useState<{ text: string; error?: boolean } | null>(null)
   const [updateState, setUpdateState] = useState<UpdateState>({
     status: 'idle',
@@ -1061,6 +1062,7 @@ export function App(): JSX.Element {
   const onDrop = useCallback(
     (e: React.DragEvent) => {
       e.preventDefault()
+      dragDepth.current = 0
       setDragging(false)
       const paths = Array.from(e.dataTransfer.files)
         .map((file) => window.api.getDroppedPath(file))
@@ -1077,12 +1079,15 @@ export function App(): JSX.Element {
   return (
     <div
       className="app"
-      onDragOver={(e) => {
+      onDragEnter={(e) => {
         e.preventDefault()
+        dragDepth.current += 1
         setDragging(true)
       }}
-      onDragLeave={(e) => {
-        if (e.currentTarget === e.target) setDragging(false)
+      onDragOver={(e) => e.preventDefault()}
+      onDragLeave={() => {
+        dragDepth.current = Math.max(0, dragDepth.current - 1)
+        if (dragDepth.current === 0) setDragging(false)
       }}
       onDrop={onDrop}
     >
