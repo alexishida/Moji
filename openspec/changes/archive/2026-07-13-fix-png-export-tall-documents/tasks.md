@@ -9,4 +9,4 @@
 
 - [x] 2.1 Run TypeScript typecheck
 - [x] 2.2 Exercise the real `exportDocument` across document heights from 1500 to 60000 pixels, asserting exact image height and monotonic content (no duplicated slice)
-- [ ] 2.3 Export PNG from the running app for the document that originally failed
+- [x] 2.3 Export PNG from the running app for the document that originally failed

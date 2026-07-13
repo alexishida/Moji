@@ -11,4 +11,4 @@
 - [x] 2.2 Confirm the generated document computes to the configured family, size, and line height, and that code blocks stay monospace
 - [x] 2.3 Confirm `markdown.css` alone no longer resolves to a serif, so the defect cannot return through another consumer
 - [x] 2.4 Export HTML from the running app and confirm it matches the preview
-- [ ] 2.5 Export PDF and PNG from the running app and confirm they match the preview
+- [x] 2.5 Export PDF and PNG and confirm they match the preview: the exported PDF embeds `Inter-Regular` and no serif face
