@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 
 Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [Unreleased]
+
+### Fixed
+
+- Exported HTML, PDF, and PNG now use the preview's font family, size, and line height. Exports previously declared no font family at all and fell back to the browser's default serif at a different size.
+
 ## [0.1.3] - 2026-07-12
 
 ### Added

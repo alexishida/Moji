@@ -3,6 +3,9 @@
   max-width: var(--reading-width);
   margin: 0 auto;
   padding: var(--space-6) var(--space-5);
+  /* Base font. In the app this is inherited from body, but exports do not inline app.css,
+     so without it here a rendered document falls back to the browser default serif. */
+  font-family: var(--font-sans);
   font-size: 15px;
   line-height: 1.7;
   color: var(--text);
