@@ -542,7 +542,11 @@ export function App(): JSX.Element {
       const rendered = renderMarkdown(s.activeDoc.content, { documentPath: s.activeDoc.path })
       const name = documentName(s.activeDoc, t('app.untitled'))
       // Exports (HTML/PDF/PNG) always use the light theme, regardless of the preview theme.
-      const doc = buildStandaloneHtml(rendered, 'light', name)
+      const doc = buildStandaloneHtml(rendered, 'light', name, {
+        fontFamily: settings.previewFontFamily,
+        fontSize: settings.previewFontSize,
+        lineHeight: settings.previewLineHeight
+      })
       const base = name.replace(/\.[^.]+$/, '')
       const res = await window.api.exportAs({
         format,
@@ -555,7 +559,7 @@ export function App(): JSX.Element {
       if (res.ok) flash(t('notice.exportSuccess', { path: res.path }))
       else if (!res.canceled) flash(t('notice.exportFailed', { error: res.error }), true)
     },
-    [flash, t]
+    [flash, settings.previewFontFamily, settings.previewFontSize, settings.previewLineHeight, t]
   )
 
   const confirmExport = useCallback(
