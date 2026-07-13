@@ -31,6 +31,19 @@ if (process.platform === 'linux') {
   app.setDesktopName('moji.desktop')
 }
 
+/**
+ * macOS spells `app.name` throughout the application menu: "About …", "Hide …", "Quit …".
+ * That name comes from the lowercase npm package name, so the menu would read "Quit moji".
+ *
+ * `app.name` also decides where `userData` lives, so renaming the app would move the
+ * settings directory and orphan the preferences of everyone already running Moji, on every
+ * platform. The name is corrected for display and the settings directory is pinned to the
+ * one shipped builds already use.
+ */
+const SETTINGS_DIRECTORY = 'moji'
+app.setName('Moji')
+app.setPath('userData', join(app.getPath('appData'), SETTINGS_DIRECTORY))
+
 const IMAGE_EXTENSIONS = new Set(['.avif', '.bmp', '.gif', '.ico', '.jpeg', '.jpg', '.png', '.svg', '.webp'])
 const SAMPLE_FILES = new Set([
   'markdown-guide.en.md',
