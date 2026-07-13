@@ -66,7 +66,7 @@
 
 ## Requirements
 
-- Node.js 18+ (developed on Node 22)
+- Node.js `^20.19.0 || >=22.12.0` (required by Vite 7 and electron-vite 5; packaging also needs `require()` of ES modules, unflagged since Node 22.12)
 - npm
 
 ## Development
@@ -91,6 +91,7 @@ Useful scripts:
 npm run dist
 npm run dist:win
 npm run dist:linux
+npm run dist:mac
 ```
 
 Artifacts are written to `release/`.
@@ -99,8 +100,18 @@ Current packaging targets:
 
 - Windows: NSIS installer, x64, with automatic updates.
 - Linux: AppImage with automatic updates, plus deb for manual installation.
+- macOS: universal (Apple Silicon + Intel) DMG and ZIP, without automatic updates.
 
 File associations for `.md` and `.markdown` are declared in `electron-builder.yml`.
+
+### macOS builds
+
+macOS releases are **not code-signed or notarized**, because that requires a paid Apple Developer account. Consequences:
+
+- Gatekeeper quarantines the app when the DMG is downloaded from the web. Users must either right-click the app and choose *Open*, or clear the quarantine flag: `xattr -dr com.apple.quarantine /Applications/Moji.app`.
+- Automatic updates stay disabled on macOS. Squirrel.Mac refuses to replace an unsigned bundle, so `updater.ts` reports `unsupported` there and users update by downloading a new DMG.
+
+To sign locally, install an Apple Developer ID certificate in the keychain and drop the `CSC_IDENTITY_AUTO_DISCOVERY=false` override; `build/entitlements.mac.plist` and `hardenedRuntime` are already configured for notarization.
 
 ### Publishing a release
 
@@ -115,7 +126,7 @@ File associations for `.md` and `.markdown` are declared in `electron-builder.ym
 
 ```text
 electron/
-  main.ts        Window lifecycle, persisted bounds, file opening, single-instance flow, close guard, IPC registration
+  main.ts        Window lifecycle, persisted bounds, file opening, single-instance flow, close guard, macOS application menu, IPC registration
   preload.ts     Safe renderer API exposed through contextBridge
   shared.ts      Shared IPC names, settings, export types, languages, recent-file limits, supported extensions
   updater.ts     GitHub release checks, update download state, and NSIS/AppImage installation
