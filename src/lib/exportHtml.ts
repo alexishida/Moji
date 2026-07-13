@@ -12,6 +12,10 @@ const PRINT_CSS = `
     overflow-wrap: anywhere;
   }
   html.export-png pre code { white-space: inherit; }
+  /* PNG capture scrolls a viewport shorter than the document. Classic scrollbars (Windows,
+     Linux) would take layout width and land in the image; macOS overlay ones would not. */
+  html.export-png { scrollbar-width: none; }
+  html.export-png::-webkit-scrollbar { display: none; }
   @page { margin: 16mm; }
   @media print {
     a { color: inherit; text-decoration: underline; }

@@ -1,4 +1,4 @@
-import { BrowserWindow, dialog } from 'electron'
+import { BrowserWindow, dialog, nativeImage, screen } from 'electron'
 import { writeFile } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
 import {
@@ -153,6 +153,14 @@ async function htmlToPdf(
   }
 }
 
+/**
+ * Chromium composes a page capture into a single GPU texture, which tops out at 16384px.
+ * A capture taller than that fails outright with `UnknownVizError`, and a capture rect
+ * taller than the window is silently truncated. Tall documents are therefore captured in
+ * slices that stay under the cap and stitched back together.
+ */
+const MAX_CAPTURE_DEVICE_PX = 16384
+
 async function htmlToPng(
   html: string,
   pageSize: ExportPageSize,
@@ -166,11 +174,44 @@ async function htmlToPng(
     const documentHeight = (await win.webContents.executeJavaScript(
       'Math.ceil(Math.max(document.body.scrollHeight, document.documentElement.scrollHeight))'
     )) as number
-    const height = Math.max(size.height, documentHeight)
-    win.setContentSize(size.width, height)
+    const totalHeight = Math.max(size.height, documentHeight)
+
+    // The capture comes back in device pixels, so the usable slice shrinks as the display
+    // scale grows: 8192 CSS pixels on a 2x screen, 16384 on a 1x one.
+    const sliceHeight = Math.max(1, Math.floor(MAX_CAPTURE_DEVICE_PX / screen.getPrimaryDisplay().scaleFactor))
+
+    win.setContentSize(size.width, Math.min(totalHeight, sliceHeight))
     await new Promise((r) => setTimeout(r, 50))
-    const image = await win.webContents.capturePage({ x: 0, y: 0, width: size.width, height })
-    return image.toPNG()
+
+    const slices: Buffer[] = []
+    let deviceWidth = 0
+    let deviceHeight = 0
+
+    for (let top = 0; top < totalHeight; top += sliceHeight) {
+      const height = Math.min(sliceHeight, totalHeight - top)
+      // The page cannot scroll past `totalHeight - viewport`, so the final scrollTo is
+      // clamped. Capture from where the page actually landed, or the last slice repeats a
+      // band already captured.
+      const scrollY = (await win.webContents.executeJavaScript(
+        `window.scrollTo(0, ${top}); Math.round(window.scrollY)`
+      )) as number
+      await new Promise((r) => setTimeout(r, 50))
+
+      const image = await win.webContents.capturePage({
+        x: 0,
+        y: top - scrollY,
+        width: size.width,
+        height
+      })
+      const captured = image.getSize()
+      deviceWidth = captured.width
+      deviceHeight += captured.height
+      slices.push(image.toBitmap())
+    }
+
+    return nativeImage
+      .createFromBitmap(Buffer.concat(slices), { width: deviceWidth, height: deviceHeight, scaleFactor: 1 })
+      .toPNG()
   } finally {
     win.destroy()
   }
