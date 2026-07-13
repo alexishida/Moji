@@ -266,6 +266,13 @@ function schedulePersistWindowBounds(win: BrowserWindow): void {
 }
 
 function createWindow(): void {
+  // `forceQuit` is what lets an approved close through the guard. On Windows and Linux the
+  // process ends with the window, so it never outlives its purpose. On macOS the app stays
+  // alive, so a window opened afterwards would inherit the raised flag and close without
+  // ever asking about unsaved changes. Every new window starts with the guard armed.
+  forceQuit = false
+  pendingQuit = false
+
   const iconPath = app.isPackaged ? join(process.resourcesPath, 'icon.png') : join(app.getAppPath(), 'build', 'icon.png')
   mainWindow = new BrowserWindow({
     ...windowOptionsFromSettings(),
