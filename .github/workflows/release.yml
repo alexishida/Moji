@@ -74,7 +74,11 @@ jobs:
 
   publish:
     name: Publish complete release
-    needs: macos
+    # Waits for macOS so the release is never made public while the DMG is still uploading,
+    # but does not require it: macOS is unsigned and secondary, and a failure there must not
+    # hold back a good Windows and Linux release. The macOS job still fails loudly.
+    needs: [linux, macos]
+    if: always() && needs.linux.result == 'success'
     runs-on: ubuntu-latest
     env:
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
