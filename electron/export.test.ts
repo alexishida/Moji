@@ -9,6 +9,16 @@ const selectedPngPath = join(exportTempDirectory, 'chosen', 'report.png')
 const selectedDiagramPngPath = join(exportTempDirectory, 'chosen', 'mermaid-diagram.png')
 const pngDataUrl = `data:image/png;base64,${Buffer.from([137, 80, 78, 71, 13, 10, 26, 10, 0, 1]).toString('base64')}`
 
+/** Side of the square page the fake capture stands in for, in device pixels. */
+const capturedSize = 100
+/** A captured pixel is blue, green, red, alpha: the BGRA layout `toBitmap` returns. */
+const BYTES_PER_PIXEL = 4
+
+const PNG_SIGNATURE = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])
+// The IHDR chunk opens the file: signature (8), length (4), type (4), then width and height.
+const IHDR_WIDTH_OFFSET = 16
+const IHDR_HEIGHT_OFFSET = 20
+
 const state = vi.hoisted(() => ({
   showSaveDialog: vi.fn(),
   writeFile: vi.fn(),
@@ -156,19 +166,25 @@ describe('exportDocument', () => {
     state.executeJavaScript
       .mockResolvedValueOnce(undefined)
       .mockResolvedValueOnce(undefined)
-      .mockResolvedValueOnce(100)
+      .mockResolvedValueOnce(capturedSize)
       .mockResolvedValueOnce(0)
     state.capturePage.mockResolvedValue({
-      getSize: () => ({ width: 100, height: 100 }),
-      toBitmap: () => Buffer.from('pixels')
+      getSize: () => ({ width: capturedSize, height: capturedSize }),
+      toBitmap: () => Buffer.alloc(capturedSize * capturedSize * BYTES_PER_PIXEL)
     })
-    state.toPNG.mockReturnValue(Buffer.from('png'))
     const { exportDocument } = await import('./export')
 
     await expect(exportDocument({ ...request, format: 'png' })).resolves.toEqual({ ok: true, path: selectedPngPath })
 
     expect(state.loadURL).toHaveBeenCalledWith(expect.stringContaining(encodeURIComponent(request.html)), expect.anything())
-    expect(state.writeFile).toHaveBeenCalledWith(selectedPngPath, Buffer.from('png'))
+
+    // The capture is encoded straight to PNG rather than assembled into a bitmap first,
+    // so assert on the written file: a PNG signature, then an IHDR of the captured size.
+    const [writtenPath, written] = state.writeFile.mock.calls[0] as [string, Buffer]
+    expect(writtenPath).toBe(selectedPngPath)
+    expect(written.subarray(0, PNG_SIGNATURE.length)).toEqual(PNG_SIGNATURE)
+    expect(written.readUInt32BE(IHDR_WIDTH_OFFSET)).toBe(capturedSize)
+    expect(written.readUInt32BE(IHDR_HEIGHT_OFFSET)).toBe(capturedSize)
   })
 
   it('exports Mermaid fallback code without invoking a diagram renderer', async () => {
