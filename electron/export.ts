@@ -1,4 +1,4 @@
-import { BrowserWindow, dialog, nativeImage, screen } from 'electron'
+import { BrowserWindow, dialog, screen } from 'electron'
 import { writeFile } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
 import {
@@ -10,12 +10,28 @@ import {
   type WriteResult
 } from './shared'
 import { getSettings, updateSettings } from './settings'
+import { createPngEncoder } from './png'
 
 const FILTERS: Record<ExportFormat, Electron.FileFilter> = {
   html: { name: 'HTML', extensions: ['html'] },
   pdf: { name: 'PDF', extensions: ['pdf'] },
   png: { name: 'PNG', extensions: ['png'] }
 }
+
+/**
+ * Chromium composes a page capture into a single GPU texture, which tops out at 16384px.
+ * A capture taller than that fails outright with `UnknownVizError`, and a capture rect
+ * taller than the window is silently truncated. Tall documents are therefore captured in
+ * slices that stay under the cap.
+ */
+const MAX_CAPTURE_DEVICE_PX = 16384
+
+/**
+ * Height of one capture, in CSS pixels. The texture limit above only bounds this; it is
+ * not a target. Since each slice is compressed and released as it is captured, a smaller
+ * slice simply costs less memory, at the price of one more scroll and capture.
+ */
+const CAPTURE_SLICE_CSS_PX = 2048
 
 function isExportFormat(format: unknown): format is ExportFormat {
   return format === 'pdf' || format === 'html' || format === 'png'
@@ -153,13 +169,11 @@ async function htmlToPdf(
   }
 }
 
-/**
- * Chromium composes a page capture into a single GPU texture, which tops out at 16384px.
- * A capture taller than that fails outright with `UnknownVizError`, and a capture rect
- * taller than the window is silently truncated. Tall documents are therefore captured in
- * slices that stay under the cap and stitched back together.
- */
-const MAX_CAPTURE_DEVICE_PX = 16384
+/** Height of one capture, in CSS pixels, honouring both the texture cap and the display scale. */
+function captureSliceHeight(): number {
+  const withinTexture = Math.floor(MAX_CAPTURE_DEVICE_PX / screen.getPrimaryDisplay().scaleFactor)
+  return Math.max(1, Math.min(CAPTURE_SLICE_CSS_PX, withinTexture))
+}
 
 async function htmlToPng(
   html: string,
@@ -174,21 +188,22 @@ async function htmlToPng(
     const documentHeight = (await win.webContents.executeJavaScript(
       'Math.ceil(Math.max(document.body.scrollHeight, document.documentElement.scrollHeight))'
     )) as number
-    const totalHeight = Math.max(size.height, documentHeight)
 
-    // The capture comes back in device pixels, so the usable slice shrinks as the display
-    // scale grows: 8192 CSS pixels on a 2x screen, 16384 on a 1x one.
-    const sliceHeight = Math.max(1, Math.floor(MAX_CAPTURE_DEVICE_PX / screen.getPrimaryDisplay().scaleFactor))
+    const totalHeight = Math.max(size.height, documentHeight)
+    const sliceHeight = captureSliceHeight()
 
     win.setContentSize(size.width, Math.min(totalHeight, sliceHeight))
     await new Promise((r) => setTimeout(r, 50))
 
-    const slices: Buffer[] = []
-    let deviceWidth = 0
-    let deviceHeight = 0
+    // Each slice is compressed and released as it is captured, so peak memory follows the
+    // slice height rather than the height of the document.
+    const encoder = createPngEncoder()
+    let width = 0
+    let height = 0
 
     for (let top = 0; top < totalHeight; top += sliceHeight) {
-      const height = Math.min(sliceHeight, totalHeight - top)
+      const remaining = Math.min(sliceHeight, totalHeight - top)
+
       // The page cannot scroll past `totalHeight - viewport`, so the final scrollTo is
       // clamped. Capture from where the page actually landed, or the last slice repeats a
       // band already captured.
@@ -201,17 +216,16 @@ async function htmlToPng(
         x: 0,
         y: top - scrollY,
         width: size.width,
-        height
+        height: remaining
       })
+
       const captured = image.getSize()
-      deviceWidth = captured.width
-      deviceHeight += captured.height
-      slices.push(image.toBitmap())
+      width = captured.width
+      height += captured.height
+      await encoder.addSlice(image.toBitmap(), captured.width, captured.height)
     }
 
-    return nativeImage
-      .createFromBitmap(Buffer.concat(slices), { width: deviceWidth, height: deviceHeight, scaleFactor: 1 })
-      .toPNG()
+    return encoder.finish(width, height)
   } finally {
     win.destroy()
   }
