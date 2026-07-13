@@ -28,6 +28,25 @@ fileAssociations:
     description: Markdown Document
     role: Editor
     mimeType: text/markdown
+mac:
+  category: public.app-category.productivity
+  darkModeSupport: true
+  artifactName: ${productName}-${version}-${arch}.${ext}
+  # Signing is driven by electron-builder's CSC_* environment variables. Unsigned
+  # local builds still run; Gatekeeper only blocks copies downloaded from the web.
+  hardenedRuntime: true
+  gatekeeperAssess: false
+  entitlements: build/entitlements.mac.plist
+  entitlementsInherit: build/entitlements.mac.plist
+  target:
+    - target: dmg
+      arch:
+        - universal
+    - target: zip
+      arch:
+        - universal
+dmg:
+  artifactName: ${productName}-${version}-${arch}.${ext}
 win:
   artifactName: ${productName}.Setup.${version}.${ext}
   target:
