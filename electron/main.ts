@@ -22,6 +22,7 @@ import { createUpdateController, type UpdateController } from './updater'
 let mainWindow: BrowserWindow | null = null
 let pendingOpenPath: string | null = null
 let forceQuit = false
+let pendingQuit = false
 let pendingUpdateInstall = false
 let updateController: UpdateController | null = null
 let persistWindowBoundsTimer: NodeJS.Timeout | null = null
@@ -178,6 +179,51 @@ async function openDocument(filePath: string): Promise<void> {
 
 function requestClose(): void {
   mainWindow?.webContents.send(IPC.requestClose)
+}
+
+/** Quit the whole app, not just the window. On macOS closing the last window keeps the app alive. */
+function requestQuit(): void {
+  if (!mainWindow) {
+    forceQuit = true
+    app.quit()
+    return
+  }
+  pendingQuit = true
+  requestClose()
+}
+
+/**
+ * macOS routes clipboard and window shortcuts through the application menu: with no
+ * menu installed, Cmd+C/V/X/A never reach the renderer. Windows and Linux keep no menu
+ * at all, since every action lives in the in-app top bar.
+ */
+function installApplicationMenu(): void {
+  if (process.platform !== 'darwin') {
+    Menu.setApplicationMenu(null)
+    return
+  }
+
+  Menu.setApplicationMenu(
+    Menu.buildFromTemplate([
+      {
+        label: app.name,
+        submenu: [
+          { role: 'about' },
+          { type: 'separator' },
+          { role: 'services' },
+          { type: 'separator' },
+          { role: 'hide' },
+          { role: 'hideOthers' },
+          { role: 'unhide' },
+          { type: 'separator' },
+          // Custom quit so the unsaved-changes guard runs before the app exits.
+          { label: `Quit ${app.name}`, accelerator: 'Command+Q', click: () => requestQuit() }
+        ]
+      },
+      { role: 'editMenu' },
+      { role: 'windowMenu' }
+    ])
+  )
 }
 
 function unavailableUpdateState(): UpdateState {
@@ -387,11 +433,15 @@ function registerIpc(): void {
       if (pendingUpdateInstall) {
         pendingUpdateInstall = false
         if (!updateController?.quitAndInstall()) mainWindow.close()
+      } else if (pendingQuit) {
+        pendingQuit = false
+        app.quit()
       } else {
         mainWindow.close()
       }
     } else if (shouldClose === false) {
       pendingUpdateInstall = false
+      pendingQuit = false
     }
   })
 }
@@ -417,10 +467,17 @@ if (!gotLock) {
     void openDocument(filePath)
   })
 
+  // Dock "Quit" and Cmd+Q must pass through the unsaved-changes guard like any other exit.
+  app.on('before-quit', (e) => {
+    if (forceQuit || !mainWindow) return
+    e.preventDefault()
+    requestQuit()
+  })
+
   app.whenReady().then(() => {
     pendingOpenPath = fileFromArgv(process.argv)
     registerIpc()
-    Menu.setApplicationMenu(null)
+    installApplicationMenu()
     createWindow()
     initializeUpdater()
 
