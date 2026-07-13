@@ -117,8 +117,10 @@ To sign locally, install an Apple Developer ID certificate in the keychain and d
 
 1. Update `version` in `package.json` and `package-lock.json`.
 2. Commit changes, then create and push matching tag such as `v0.2.0`.
-3. `.github/workflows/release.yml` validates tag, builds Windows first, then Linux, and publishes draft artifacts.
-4. Workflow makes GitHub Release public only after NSIS/AppImage binaries and `latest.yml`/`latest-linux.yml` are uploaded.
+3. `.github/workflows/release.yml` validates tag, then builds Windows, Linux, and macOS in that order, uploading each platform's artifacts to a draft release. No binary is attached by hand.
+4. Workflow makes GitHub Release public only after every platform succeeds: NSIS, AppImage, DEB, the macOS DMG and ZIP, and the `latest.yml` / `latest-linux.yml` update metadata.
+
+A failure on any platform leaves the release as a draft, so a broken macOS build holds back the Windows and Linux binaries rather than shipping an incomplete release. That is deliberate.
 
 `electron-updater` runs only in packaged Windows NSIS builds and Linux AppImages. Development and deb builds do not self-update. AppImage must live in a user-writable directory to be replaced successfully. Windows production releases should use an Authenticode certificate through electron-builder signing environment variables; never store certificate credentials in repository.
 
