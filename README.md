@@ -26,6 +26,27 @@
 </p>
 
 
+## Installing on macOS
+
+macOS will refuse to open Moji the first time, with a message saying it is damaged, or that Apple cannot check it for malicious software. **The app is fine.** Signing an app requires a paid Apple Developer account, and Moji does not have one yet, so macOS treats it as coming from an unidentified developer.
+
+To open it:
+
+1. Drag **Moji** from the DMG into your **Applications** folder.
+2. Double-click it. macOS blocks it. Dismiss the dialog.
+3. Open **System Settings > Privacy & Security**, scroll to the **Security** section, and click **Open Anyway** next to the message about Moji.
+4. Confirm. macOS remembers the choice, so this is a one-time step per version.
+
+> On macOS 15 (Sequoia) and later, Control-clicking the app and choosing *Open* **no longer works**: [Apple removed that override](https://developer.apple.com/news/?id=saqachfa). System Settings is now the only route through the interface.
+
+If you prefer the terminal, this clears the quarantine flag and skips the prompts entirely:
+
+```bash
+xattr -dr com.apple.quarantine /Applications/Moji.app
+```
+
+Because the app is unsigned, macOS also keeps automatic updates disabled: download a new DMG to upgrade. Both limitations disappear the day the app is signed and notarized.
+
 ## Name
 
 **Moji (文字)** literally means "letter", "character", or "writing" in Japanese. Short and easy to remember, it evokes characters and writing. The name fits its purpose: opening, editing, previewing, and exporting Markdown smoothly—without distractions.
@@ -112,7 +133,7 @@ File associations for `.md` and `.markdown` are declared in `electron-builder.ym
 
 macOS releases are **not code-signed or notarized**, because that requires a paid Apple Developer account. Consequences:
 
-- Gatekeeper quarantines the app when the DMG is downloaded from the web. Users must either right-click the app and choose *Open*, or clear the quarantine flag: `xattr -dr com.apple.quarantine /Applications/Moji.app`.
+- Gatekeeper blocks the app when the DMG is downloaded from the web. Users open it through **System Settings > Privacy & Security > Open Anyway**, or by clearing the quarantine flag with `xattr -dr com.apple.quarantine /Applications/Moji.app`. Control-clicking the app and choosing *Open* stopped working in macOS 15 (Sequoia), where [Apple removed that override](https://developer.apple.com/news/?id=saqachfa). See [Installing on macOS](#installing-on-macos).
 - Automatic updates stay disabled on macOS. Squirrel.Mac refuses to replace an unsigned bundle, so `updater.ts` reports `unsupported` there and users update by downloading a new DMG.
 
 To sign locally, install an Apple Developer ID certificate in the keychain and drop the `CSC_IDENTITY_AUTO_DISCOVERY=false` override; `build/entitlements.mac.plist` and `hardenedRuntime` are already configured for notarization.
