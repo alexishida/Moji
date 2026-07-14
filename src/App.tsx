@@ -157,6 +157,7 @@ export function App(): JSX.Element {
   })
   const [dismissedUpdate, setDismissedUpdate] = useState<string | null>(null)
   const [activeHeadingId, setActiveHeadingId] = useState<string | null>(null)
+  const [editorHeadingRequest, setEditorHeadingRequest] = useState<{ id: string; request: number } | null>(null)
 
   const [dialogOpen, setDialogOpen] = useState(false)
   const [exportDialogFormat, setExportDialogFormat] = useState<ExportFormat | null>(null)
@@ -785,21 +786,31 @@ export function App(): JSX.Element {
   }, [closeDocuments])
 
   const scrollToHeading = useCallback((id: string) => {
+    if (mode === 'edit') {
+      setEditorHeadingRequest((previous) => ({ id, request: (previous?.request ?? 0) + 1 }))
+      setActiveHeadingId(id)
+      return
+    }
     const target = document.getElementById(id)
     if (!target) return
     scrollPreviewHeadingIntoView(target)
     setActiveHeadingId(id)
-  }, [])
+  }, [mode])
 
   const canToggleMdTheme = useCallback(() => {
     const s = stateRef.current
     return s.hasDoc && s.mode === 'view' && !s.exportDialogOpen && !s.settingsOpen && !s.aboutOpen
   }, [])
 
+  const canToggleOutline = useCallback(() => {
+    const s = stateRef.current
+    return s.hasDoc && !s.exportDialogOpen && !s.settingsOpen && !s.aboutOpen
+  }, [])
+
   const toggleOutline = useCallback(() => {
-    if (!canToggleMdTheme()) return
+    if (!canToggleOutline()) return
     setOutlineVisible((prev) => !prev)
-  }, [canToggleMdTheme])
+  }, [canToggleOutline])
 
   const toggleMdTheme = useCallback(() => {
     if (!canToggleMdTheme()) return
@@ -1135,7 +1146,7 @@ export function App(): JSX.Element {
         canTogglePreviewWidth={canToggleMdTheme()}
         onTogglePreviewWidth={() => changeSettings({ previewFluidWidth: !settings.previewFluidWidth })}
         outlineVisible={outlineVisible}
-        canToggleOutline={canToggleMdTheme()}
+        canToggleOutline={canToggleOutline()}
         onToggleOutline={toggleOutline}
         onToggleTheme={toggleMdTheme}
         onExport={openExportDialog}
@@ -1160,12 +1171,12 @@ export function App(): JSX.Element {
       )}
 
       <div className="body">
-        {hasDoc && mode === 'view' && !exportDialogFormat && !settingsOpen && !aboutOpen && outlineVisible && (
+        {hasDoc && !exportDialogFormat && !settingsOpen && !aboutOpen && outlineVisible && (
           <Sidebar
             hasDoc={hasDoc}
             outline={outline}
             activeId={activeHeadingId}
-            showOutline={mode === 'view' && !exportDialogFormat}
+            showOutline={!exportDialogFormat}
             onSelectHeading={scrollToHeading}
           />
         )}
@@ -1212,6 +1223,7 @@ export function App(): JSX.Element {
                 searchTerm={searchTerm}
                 activeSearchIndex={activeSearchIndex}
                 highlightActive={replaceActive}
+                headingToReveal={editorHeadingRequest}
                 onChange={updateActiveContent}
               />
             ) : (

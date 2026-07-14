@@ -103,6 +103,14 @@ export function documentAssetBaseUrl(documentPath: string | null | undefined): s
   return `${filePathToFileUrl(normalized.slice(0, lastSlash + 1))}/`.replace(/\/+$/, '/')
 }
 
+/** Returns zero-based source line for an anchored Markdown heading. */
+export function findMarkdownHeadingLine(source: string, headingId: string): number | null {
+  const token = md.parse(source ?? '', {}).find((item) =>
+    item.type === 'heading_open' && item.attrGet('id') === headingId && item.map
+  )
+  return token?.map?.[0] ?? null
+}
+
 function resolveImageSources(
   html: string,
   documentPath: string | null | undefined,
