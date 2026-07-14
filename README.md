@@ -65,6 +65,11 @@
   <img src="docs/scr-export.jpg" alt="Export" width="45%" />
 </p>
 
+<p align="center">
+  <img src="docs/scr-mermaid.jpg" alt="Mermaid diagrams" width="45%" />
+  <img src="docs/scr-mermaid-dialog.jpg" alt="Mermaid diagram viewer" width="45%" />
+</p>
+
 
 ## Installation
 
