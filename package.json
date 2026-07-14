@@ -24,6 +24,9 @@
   },
   "license": "MIT",
   "main": "out/main/main.js",
+  "engines": {
+    "node": "^20.19.0 || >=22.12.0"
+  },
   "scripts": {
     "dev": "node scripts/run-electron-vite.cjs dev",
     "build": "electron-vite build",
@@ -33,7 +36,8 @@
     "preview": "node scripts/run-electron-vite.cjs preview",
     "dist": "electron-vite build && electron-builder",
     "dist:win": "electron-vite build && electron-builder --win",
-    "dist:linux": "electron-vite build && electron-builder --linux"
+    "dist:linux": "electron-vite build && electron-builder --linux",
+    "dist:mac": "electron-vite build && electron-builder --mac"
   },
   "dependencies": {
     "@codemirror/commands": "^6.7.1",

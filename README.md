@@ -18,6 +18,8 @@
   <strong>Download:</strong>
   <a href="https://github.com/alexishida/Moji/releases/download/v0.1.4/Moji.Setup.0.1.4.exe">Windows</a>
   ·
+  <a href="https://github.com/alexishida/Moji/releases/download/v0.1.4/Moji-0.1.4-universal.dmg">macOS (DMG)</a>
+  ·
   <a href="https://github.com/alexishida/Moji/releases/download/v0.1.4/Moji-0.1.4-x86_64.AppImage">Linux (AppImage)</a>
   ·
   <a href="https://github.com/alexishida/Moji/releases/download/v0.1.4/Moji-0.1.4-amd64.deb">Linux (DEB)</a>
@@ -66,7 +68,7 @@
 
 ## Requirements
 
-- Node.js 18+ (developed on Node 22)
+- Node.js `^20.19.0 || >=22.12.0` (required by Vite 7 and electron-vite 5; packaging also needs `require()` of ES modules, unflagged since Node 22.12)
 - npm
 
 ## Development
@@ -93,6 +95,7 @@ Useful scripts:
 npm run dist
 npm run dist:win
 npm run dist:linux
+npm run dist:mac
 ```
 
 Artifacts are written to `release/`.
@@ -101,15 +104,27 @@ Current packaging targets:
 
 - Windows: NSIS installer, x64, with automatic updates.
 - Linux: AppImage with automatic updates, plus deb for manual installation.
+- macOS: universal (Apple Silicon + Intel) DMG and ZIP, without automatic updates.
 
 File associations for `.md` and `.markdown` are declared in `electron-builder.yml`.
+
+### macOS builds
+
+macOS releases are **not code-signed or notarized**, because that requires a paid Apple Developer account. Consequences:
+
+- Gatekeeper quarantines the app when the DMG is downloaded from the web. Users must either right-click the app and choose *Open*, or clear the quarantine flag: `xattr -dr com.apple.quarantine /Applications/Moji.app`.
+- Automatic updates stay disabled on macOS. Squirrel.Mac refuses to replace an unsigned bundle, so `updater.ts` reports `unsupported` there and users update by downloading a new DMG.
+
+To sign locally, install an Apple Developer ID certificate in the keychain and drop the `CSC_IDENTITY_AUTO_DISCOVERY=false` override; `build/entitlements.mac.plist` and `hardenedRuntime` are already configured for notarization.
 
 ### Publishing a release
 
 1. Update `version` in `package.json` and `package-lock.json`.
 2. Commit changes, then create and push matching tag such as `v0.2.0`.
-3. `.github/workflows/release.yml` validates tag, builds Windows first, then Linux, and publishes draft artifacts.
-4. Workflow makes GitHub Release public only after NSIS/AppImage binaries and `latest.yml`/`latest-linux.yml` are uploaded.
+3. `.github/workflows/release.yml` validates tag, then builds Windows, Linux, and macOS in that order, uploading each platform's artifacts to a draft release. No binary is attached by hand.
+4. Workflow makes GitHub Release public once Windows and Linux have succeeded: NSIS, AppImage, DEB, and the `latest.yml` / `latest-linux.yml` update metadata.
+
+A Windows or Linux failure leaves the release as a draft. A macOS failure does not: the publish step waits for the macOS job to finish, so the release is never made public while the DMG is still uploading, but it does not require it to have succeeded. macOS is unsigned and secondary, and a broken DMG should not hold back a good Windows and Linux release. The macOS job still fails visibly in the workflow.
 
 `electron-updater` runs only in packaged Windows NSIS builds and Linux AppImages. Development and deb builds do not self-update. AppImage must live in a user-writable directory to be replaced successfully. Windows production releases should use an Authenticode certificate through electron-builder signing environment variables; never store certificate credentials in repository.
 
@@ -117,7 +132,7 @@ File associations for `.md` and `.markdown` are declared in `electron-builder.ym
 
 ```text
 electron/
-  main.ts        Window lifecycle, persisted bounds, file opening, single-instance flow, close guard, IPC registration
+  main.ts        Window lifecycle, persisted bounds, file opening, single-instance flow, close guard, macOS application menu, IPC registration
   preload.ts     Safe renderer API exposed through contextBridge
   shared.ts      Shared IPC names, settings, export types, languages, recent-file limits, supported extensions
   updater.ts     GitHub release checks, update download state, and NSIS/AppImage installation
