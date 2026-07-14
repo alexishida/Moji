@@ -49,9 +49,36 @@ jobs:
       - name: Build and publish AppImage and DEB
         run: npx electron-builder --linux --x64 --publish always
 
+  macos:
+    name: Build macOS
+    needs: linux
+    runs-on: macos-latest
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      # No Apple Developer certificate configured: publish an unsigned build rather than
+      # failing when electron-builder finds no signing identity in the keychain.
+      CSC_IDENTITY_AUTO_DISCOVERY: false
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Validate tag version
+        run: node -e "const p=require('./package.json'); if(process.env.GITHUB_REF_NAME !== 'v'+p.version) throw new Error('Tag must equal v'+p.version)"
+      - run: npm run typecheck
+      - run: npm run build
+      - name: Build and publish universal DMG and ZIP
+        run: npx electron-builder --mac --publish always
+
   publish:
     name: Publish complete release
-    needs: linux
+    # Waits for macOS so the release is never made public while the DMG is still uploading,
+    # but does not require it: macOS is unsigned and secondary, and a failure there must not
+    # hold back a good Windows and Linux release. The macOS job still fails loudly.
+    needs: [linux, macos]
+    if: always() && needs.linux.result == 'success'
     runs-on: ubuntu-latest
     env:
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

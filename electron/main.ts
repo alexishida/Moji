@@ -22,6 +22,7 @@ import { createUpdateController, type UpdateController } from './updater'
 let mainWindow: BrowserWindow | null = null
 let pendingOpenPath: string | null = null
 let forceQuit = false
+let pendingQuit = false
 let pendingUpdateInstall = false
 let updateController: UpdateController | null = null
 let persistWindowBoundsTimer: NodeJS.Timeout | null = null
@@ -29,6 +30,19 @@ let persistWindowBoundsTimer: NodeJS.Timeout | null = null
 if (process.platform === 'linux') {
   app.setDesktopName('moji.desktop')
 }
+
+/**
+ * macOS spells `app.name` throughout the application menu: "About …", "Hide …", "Quit …".
+ * That name comes from the lowercase npm package name, so the menu would read "Quit moji".
+ *
+ * `app.name` also decides where `userData` lives, so renaming the app would move the
+ * settings directory and orphan the preferences of everyone already running Moji, on every
+ * platform. The name is corrected for display and the settings directory is pinned to the
+ * one shipped builds already use.
+ */
+const SETTINGS_DIRECTORY = 'moji'
+app.setName('Moji')
+app.setPath('userData', join(app.getPath('appData'), SETTINGS_DIRECTORY))
 
 const IMAGE_EXTENSIONS = new Set(['.avif', '.bmp', '.gif', '.ico', '.jpeg', '.jpg', '.png', '.svg', '.webp'])
 const SAMPLE_FILES = new Set([
@@ -180,6 +194,51 @@ function requestClose(): void {
   mainWindow?.webContents.send(IPC.requestClose)
 }
 
+/** Quit the whole app, not just the window. On macOS closing the last window keeps the app alive. */
+function requestQuit(): void {
+  if (!mainWindow) {
+    forceQuit = true
+    app.quit()
+    return
+  }
+  pendingQuit = true
+  requestClose()
+}
+
+/**
+ * macOS routes clipboard and window shortcuts through the application menu: with no
+ * menu installed, Cmd+C/V/X/A never reach the renderer. Windows and Linux keep no menu
+ * at all, since every action lives in the in-app top bar.
+ */
+function installApplicationMenu(): void {
+  if (process.platform !== 'darwin') {
+    Menu.setApplicationMenu(null)
+    return
+  }
+
+  Menu.setApplicationMenu(
+    Menu.buildFromTemplate([
+      {
+        label: app.name,
+        submenu: [
+          { role: 'about' },
+          { type: 'separator' },
+          { role: 'services' },
+          { type: 'separator' },
+          { role: 'hide' },
+          { role: 'hideOthers' },
+          { role: 'unhide' },
+          { type: 'separator' },
+          // Custom quit so the unsaved-changes guard runs before the app exits.
+          { label: `Quit ${app.name}`, accelerator: 'Command+Q', click: () => requestQuit() }
+        ]
+      },
+      { role: 'editMenu' },
+      { role: 'windowMenu' }
+    ])
+  )
+}
+
 function unavailableUpdateState(): UpdateState {
   return { status: 'unsupported', currentVersion: app.getVersion() }
 }
@@ -220,6 +279,13 @@ function schedulePersistWindowBounds(win: BrowserWindow): void {
 }
 
 function createWindow(): void {
+  // `forceQuit` is what lets an approved close through the guard. On Windows and Linux the
+  // process ends with the window, so it never outlives its purpose. On macOS the app stays
+  // alive, so a window opened afterwards would inherit the raised flag and close without
+  // ever asking about unsaved changes. Every new window starts with the guard armed.
+  forceQuit = false
+  pendingQuit = false
+
   const iconPath = app.isPackaged ? join(process.resourcesPath, 'icon.png') : join(app.getAppPath(), 'build', 'icon.png')
   mainWindow = new BrowserWindow({
     ...windowOptionsFromSettings(),
@@ -388,11 +454,15 @@ function registerIpc(): void {
       if (pendingUpdateInstall) {
         pendingUpdateInstall = false
         if (!updateController?.quitAndInstall()) mainWindow.close()
+      } else if (pendingQuit) {
+        pendingQuit = false
+        app.quit()
       } else {
         mainWindow.close()
       }
     } else if (shouldClose === false) {
       pendingUpdateInstall = false
+      pendingQuit = false
     }
   })
 }
@@ -418,10 +488,17 @@ if (!gotLock) {
     void openDocument(filePath)
   })
 
+  // Dock "Quit" and Cmd+Q must pass through the unsaved-changes guard like any other exit.
+  app.on('before-quit', (e) => {
+    if (forceQuit || !mainWindow) return
+    e.preventDefault()
+    requestQuit()
+  })
+
   app.whenReady().then(() => {
     pendingOpenPath = fileFromArgv(process.argv)
     registerIpc()
-    Menu.setApplicationMenu(null)
+    installApplicationMenu()
     createWindow()
     initializeUpdater()
 
