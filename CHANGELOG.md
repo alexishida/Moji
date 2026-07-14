@@ -4,24 +4,33 @@ All notable changes to this project will be documented in this file.
 
 Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
-## [Unreleased]
+## [0.1.4] - 2026-07-13
 
 ### Added
 
-- macOS packaging: universal (Apple Silicon + Intel) DMG and ZIP targets, a `dist:mac` script, and a macOS job in the tagged release workflow.
-- Native application menu on macOS, providing the standard Edit roles so clipboard shortcuts reach the renderer.
+- Mermaid diagram rendering: every valid fenced `mermaid` block renders in the preview (flowcharts, sequence, Gantt, class, ER, state, journey, and more), following the current light/dark reading theme. Render results are cached so repeated previews reuse the last diagram, and malformed blocks stay readable as code.
+- Mermaid diagram viewer: clicking a diagram opens a modal with fixed zoom levels (10%–1000%), fit-to-view, free-drag panning, a minimap above 100%, `< current/total >` navigation across all diagrams in the document, and per-diagram PNG export named `file-diagram-name-n.png`.
+- Mermaid diagrams embedded as self-contained SVG in HTML, PDF, and PNG exports.
+- Mermaid section added to the bundled Markdown guide for every supported language.
+- Vitest test suite covering Markdown rendering, Mermaid parsing, export, PNG streaming, settings, outline, and preview scroll-spy (`npm test`).
+- macOS support: universal (Apple Silicon + Intel) DMG and ZIP, a `dist:mac` script, and a macOS job in the tagged release workflow.
+- Native application menu on macOS, carrying the standard Edit roles, without which the system never delivers Cmd+C, Cmd+V, Cmd+X or Cmd+A to the app.
 
 ### Fixed
 
 - Exported HTML, PDF, and PNG now use the preview's font family, size, and line height. Exports previously declared no font family at all and fell back to the browser's default serif at a different size.
 - PNG export no longer fails on documents taller than roughly 8000 pixels. The capture exceeded Chromium's 16384-pixel texture limit and aborted with `UnknownVizError`; tall documents are now captured in slices and stitched into one image.
+- Drag-and-drop overlay no longer stays stuck when the pointer leaves the window over a nested element during a drag.
+- Mermaid diagram viewer title now shows the diagram type name in the active language instead of a fixed English string; an author-provided diagram `title` is still kept verbatim.
 - Quitting on macOS now exits the application instead of only closing the window, while still running the unsaved-changes guard. Dock Quit and Cmd+Q both route through it.
+- The unsaved-changes guard is re-armed on every new window, so a window reopened after the app outlived its last one no longer closes without asking.
+- The macOS application menu now shows the product name (`Moji`, `Quit Moji`) rather than the lowercase package name, without moving the settings directory.
 
 ### Changed
 
 - PNG export now compresses each captured slice as it arrives instead of assembling the whole bitmap in memory first. Peak memory follows the slice height rather than the height of the document: exporting the bundled guide dropped from roughly 500 MB to 165 MB, and a 30000 pixel document no longer approaches a gigabyte. Exports are around 15% slower and the files around 30% larger.
+- Windows installer artifact now uses a dotted version in its filename (`Moji.Setup.0.1.4.exe`).
 - Documented the real Node.js requirement (`^20.19.0 || >=22.12.0`) and declared it in `package.json`; the previous "Node.js 18+" claim did not match Vite 7 and electron-vite 5.
->>>>>>> ea38901 (docs: document macOS distribution and correct Node requirement)
 
 ## [0.1.3] - 2026-07-12
 

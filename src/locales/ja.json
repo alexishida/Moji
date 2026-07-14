@@ -1,6 +1,6 @@
 {
   "app": {
-    "name": "Moji v0.1.3",
+    "name": "Moji v0.1.4",
     "untitled": "無題",
     "modifiedMarker": "•"
   },
@@ -78,7 +78,7 @@
     "noDocument": "ドキュメントを開くか新規作成するとアウトラインが表示されます。"
   },
   "statusbar": {
-    "brand": "Moji v0.1.3",
+    "brand": "Moji v0.1.4",
     "guide": "Markdown ガイド",
     "exportPdf": "PDF をエクスポート",
     "lineCount": "行数: {{count}}",
@@ -92,6 +92,27 @@
     "copyCode": "コードをコピー",
     "codeCopied": "コードをコピーしました",
     "diagramTitle": "図",
+    "diagramTypes": {
+      "flowchart": "フローチャート",
+      "sequenceDiagram": "シーケンス図",
+      "classDiagram": "クラス図",
+      "stateDiagram": "状態遷移図",
+      "erDiagram": "ER図",
+      "journey": "ユーザージャーニー",
+      "gantt": "ガントチャート",
+      "pie": "円グラフ",
+      "gitGraph": "Gitグラフ",
+      "mindmap": "マインドマップ",
+      "timeline": "タイムライン",
+      "quadrantChart": "四象限チャート",
+      "requirementDiagram": "要件図",
+      "xyChart": "XYチャート",
+      "sankey": "サンキー図",
+      "block": "ブロック図",
+      "architecture": "アーキテクチャ図",
+      "packet": "パケット図",
+      "kanban": "カンバンボード"
+    },
     "closeDiagram": "図を閉じる",
     "zoomIn": "拡大",
     "zoomOut": "縮小",
@@ -105,7 +126,7 @@
   },
   "welcome": {
     "tagline": "軽くてシンプルな Markdown リーダー",
-    "title": "Moji v0.1.3",
+    "title": "Moji v0.1.4",
     "subtitle": "Markdown ファイルを開いて、すっきり読めます。",
     "openButton": "ファイルを開く",
     "newButton": "新規ファイル",

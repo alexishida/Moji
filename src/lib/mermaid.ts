@@ -70,36 +70,42 @@ function cacheSvg(key: string, svg: string | null): void {
   svgCache.set(key, svg)
 }
 
-function diagramName(source: string): string {
-  const title = source.match(/^\s*title\s*:?\s*(.+?)\s*$/im)?.[1]
-    ?? source.match(/^\s*pie(?:\s+showData)?\s+title\s+(.+?)\s*$/im)?.[1]
-  if (title) return title
+/** Canonical type keys, translated at display time under `preview.diagramTypes`. */
+const DIAGRAM_TYPE_KEYS: Record<string, string> = {
+  flowchart: 'flowchart',
+  graph: 'flowchart',
+  sequencediagram: 'sequenceDiagram',
+  classdiagram: 'classDiagram',
+  statediagram: 'stateDiagram',
+  'statediagram-v2': 'stateDiagram',
+  erdiagram: 'erDiagram',
+  journey: 'journey',
+  gantt: 'gantt',
+  pie: 'pie',
+  gitgraph: 'gitGraph',
+  mindmap: 'mindmap',
+  timeline: 'timeline',
+  quadrantchart: 'quadrantChart',
+  requirementdiagram: 'requirementDiagram',
+  'xychart-beta': 'xyChart',
+  'sankey-beta': 'sankey',
+  'block-beta': 'block',
+  'architecture-beta': 'architecture',
+  'packet-beta': 'packet',
+  kanban: 'kanban'
+}
 
+/** Explicit author-provided title, kept verbatim and never translated. */
+function diagramTitle(source: string): string | null {
+  return source.match(/^\s*title\s*:?\s*(.+?)\s*$/im)?.[1]
+    ?? source.match(/^\s*pie(?:\s+showData)?\s+title\s+(.+?)\s*$/im)?.[1]
+    ?? null
+}
+
+/** Canonical type key (`classDiagram`, `flowchart`, …); `diagram` when unknown. */
+function diagramType(source: string): string {
   const declaration = source.trimStart().match(/^([\w-]+)/)?.[1]?.toLowerCase()
-  const names: Record<string, string> = {
-    flowchart: 'Flowchart',
-    graph: 'Flowchart',
-    sequencediagram: 'Sequence diagram',
-    classdiagram: 'Class diagram',
-    statediagram: 'State diagram',
-    'statediagram-v2': 'State diagram',
-    erdiagram: 'Entity relationship diagram',
-    journey: 'User journey',
-    gantt: 'Gantt chart',
-    pie: 'Pie chart',
-    gitgraph: 'Git graph',
-    mindmap: 'Mindmap',
-    timeline: 'Timeline',
-    quadrantchart: 'Quadrant chart',
-    requirementdiagram: 'Requirement diagram',
-    'xychart-beta': 'XY chart',
-    'sankey-beta': 'Sankey diagram',
-    'block-beta': 'Block diagram',
-    'architecture-beta': 'Architecture diagram',
-    'packet-beta': 'Packet diagram',
-    kanban: 'Kanban board'
-  }
-  return (declaration && names[declaration]) ?? 'Diagram'
+  return (declaration && DIAGRAM_TYPE_KEYS[declaration]) ?? 'diagram'
 }
 
 /**
@@ -133,7 +139,9 @@ export function renderMermaidFlowcharts(html: string, theme: Theme): Promise<str
       const diagram = document.createElement('div')
       diagram.className = 'mermaid-diagram'
       diagram.dataset.mermaidRendered = 'true'
-      diagram.dataset.mermaidName = diagramName(source)
+      diagram.dataset.mermaidType = diagramType(source)
+      const title = diagramTitle(source)
+      if (title) diagram.dataset.mermaidTitle = title
       diagram.innerHTML = safeSvg
       candidate.replaceWith(diagram)
       changed = true

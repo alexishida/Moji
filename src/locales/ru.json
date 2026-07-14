@@ -1,6 +1,6 @@
 {
   "app": {
-    "name": "Moji v0.1.3",
+    "name": "Moji v0.1.4",
     "untitled": "Без названия",
     "modifiedMarker": "•"
   },
@@ -78,7 +78,7 @@
     "noDocument": "Откройте или создайте документ, чтобы увидеть его структуру."
   },
   "statusbar": {
-    "brand": "Moji v0.1.3",
+    "brand": "Moji v0.1.4",
     "guide": "Руководство по Markdown",
     "exportPdf": "Экспорт в PDF",
     "lineCount": "Строк: {{count}}",
@@ -92,6 +92,27 @@
     "copyCode": "Копировать код",
     "codeCopied": "Код скопирован",
     "diagramTitle": "Диаграмма",
+    "diagramTypes": {
+      "flowchart": "Блок-схема",
+      "sequenceDiagram": "Диаграмма последовательности",
+      "classDiagram": "Диаграмма классов",
+      "stateDiagram": "Диаграмма состояний",
+      "erDiagram": "ER-диаграмма",
+      "journey": "Путь пользователя",
+      "gantt": "Диаграмма Ганта",
+      "pie": "Круговая диаграмма",
+      "gitGraph": "График Git",
+      "mindmap": "Интеллект-карта",
+      "timeline": "Временная шкала",
+      "quadrantChart": "Квадрантная диаграмма",
+      "requirementDiagram": "Диаграмма требований",
+      "xyChart": "XY-диаграмма",
+      "sankey": "Диаграмма Санки",
+      "block": "Блочная диаграмма",
+      "architecture": "Архитектурная диаграмма",
+      "packet": "Диаграмма пакетов",
+      "kanban": "Доска канбан"
+    },
     "closeDiagram": "Закрыть диаграмму",
     "zoomIn": "Увеличить",
     "zoomOut": "Уменьшить",
@@ -105,7 +126,7 @@
   },
   "welcome": {
     "tagline": "Лёгкая и простая программа для чтения Markdown",
-    "title": "Moji v0.1.3",
+    "title": "Moji v0.1.4",
     "subtitle": "Откройте файл Markdown, чтобы читать его в удобном виде.",
     "openButton": "Открыть файл",
     "newButton": "Новый файл",

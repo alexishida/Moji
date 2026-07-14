@@ -33,7 +33,7 @@ describe('renderMermaidFlowcharts', () => {
     }))
     expect(state.render).toHaveBeenCalledWith(expect.stringMatching(/^moji-mermaid-/), 'flowchart TD\n  Start --> End')
     expect(html).toContain('data-mermaid-rendered="true"')
-    expect(html).toContain('data-mermaid-name="Flowchart"')
+    expect(html).toContain('data-mermaid-type="flowchart"')
     expect(html).toContain('<svg class="mermaid">')
     expect(html).toContain('<style>.node{fill:red}</style>')
     expect(html).not.toContain('onclick')
@@ -49,13 +49,24 @@ describe('renderMermaidFlowcharts', () => {
     expect(html).toContain('<svg class="mermaid"')
   })
 
-  it('uses a Mermaid title as the diagram name', async () => {
+  it('keeps a Mermaid title verbatim as the diagram name', async () => {
     const html = await renderMermaidFlowcharts(
       '<pre class="hljs mermaid-diagram-candidate"><code>pie title Vendas\n  "Produto" : 10</code></pre>',
       'light'
     )
 
-    expect(html).toContain('data-mermaid-name="Vendas"')
+    expect(html).toContain('data-mermaid-title="Vendas"')
+    expect(html).toContain('data-mermaid-type="pie"')
+  })
+
+  it('emits a canonical type key for translation', async () => {
+    const html = await renderMermaidFlowcharts(
+      '<pre class="hljs mermaid-diagram-candidate"><code>classDiagram\n  Account --&gt; Ledger</code></pre>',
+      'light'
+    )
+
+    expect(html).toContain('data-mermaid-type="classDiagram"')
+    expect(html).not.toContain('data-mermaid-title')
   })
 
   it.each([

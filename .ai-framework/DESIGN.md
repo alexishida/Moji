@@ -154,6 +154,7 @@ O preview deve manter suporte visual para:
 - blockquotes
 - codigo inline e blocos com highlight.js
 - botao de copiar em blocos de codigo, oculto durante selecao do bloco
+- diagramas Mermaid renderizados no tema atual, clicaveis para abrir o visualizador `.diagram-modal`
 - imagens responsivas
 - destaque de busca via `.search-highlight` quando a busca estiver conectada
 
