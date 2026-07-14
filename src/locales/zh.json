@@ -1,6 +1,6 @@
 {
   "app": {
-    "name": "Moji v0.1.3",
+    "name": "Moji v0.1.4",
     "untitled": "无标题",
     "modifiedMarker": "•"
   },
@@ -78,7 +78,7 @@
     "noDocument": "打开或创建一个文档以查看其大纲。"
   },
   "statusbar": {
-    "brand": "Moji v0.1.3",
+    "brand": "Moji v0.1.4",
     "guide": "Markdown 指南",
     "exportPdf": "导出 PDF",
     "lineCount": "行数：{{count}}",
@@ -92,6 +92,27 @@
     "copyCode": "复制代码",
     "codeCopied": "代码已复制",
     "diagramTitle": "图表",
+    "diagramTypes": {
+      "flowchart": "流程图",
+      "sequenceDiagram": "时序图",
+      "classDiagram": "类图",
+      "stateDiagram": "状态图",
+      "erDiagram": "实体关系图",
+      "journey": "用户旅程图",
+      "gantt": "甘特图",
+      "pie": "饼图",
+      "gitGraph": "Git 图",
+      "mindmap": "思维导图",
+      "timeline": "时间线",
+      "quadrantChart": "象限图",
+      "requirementDiagram": "需求图",
+      "xyChart": "XY 图",
+      "sankey": "桑基图",
+      "block": "块图",
+      "architecture": "架构图",
+      "packet": "数据包图",
+      "kanban": "看板"
+    },
     "closeDiagram": "关闭图表",
     "zoomIn": "放大",
     "zoomOut": "缩小",
@@ -105,7 +126,7 @@
   },
   "welcome": {
     "tagline": "轻量简洁的 Markdown 阅读器",
-    "title": "Moji v0.1.3",
+    "title": "Moji v0.1.4",
     "subtitle": "打开 Markdown 文件以清晰地阅读。",
     "openButton": "打开文件",
     "newButton": "新建文件",

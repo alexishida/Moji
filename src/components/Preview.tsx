@@ -32,7 +32,11 @@ export function Preview({ html, documentName, mdTheme, searchTerm, settings, cla
     const diagrams = Array.from(bodyRef.current?.querySelectorAll<SVGSVGElement>('.mermaid-diagram svg') ?? [])
     const svg = diagrams[index]
     if (!svg) return
-    const name = svg.closest<HTMLElement>('.mermaid-diagram')?.dataset.mermaidName ?? t('preview.diagramTitle')
+    const container = svg.closest<HTMLElement>('.mermaid-diagram')
+    const type = container?.dataset.mermaidType
+    // Author-provided titles stay verbatim; type names are localized.
+    const name = container?.dataset.mermaidTitle
+      ?? (type ? t(`preview.diagramTypes.${type}`, { defaultValue: t('preview.diagramTitle') }) : t('preview.diagramTitle'))
     setActiveDiagram({ svgMarkup: svg.outerHTML, name, index: index + 1, total: diagrams.length })
   }, [t])
 
