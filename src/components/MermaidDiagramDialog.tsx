@@ -3,8 +3,12 @@ import { useTranslation } from 'react-i18next'
 import type { Theme } from '../../electron/shared'
 import { IconChevronRight, IconDownload, IconFitToView, IconImage, IconMinus, IconPlus, IconX } from './icons'
 
+export type DiagramContent =
+  | { type: 'svg'; svgMarkup: string }
+  | { type: 'image'; imageSrc: string; imageSize: DiagramSize }
+
 interface MermaidDiagramDialogProps {
-  svgMarkup: string | null
+  content: DiagramContent | null
   diagramName: string
   diagramIndex: number
   diagramCount: number
@@ -96,9 +100,26 @@ async function svgToPngDataUrl(svgMarkup: string): Promise<string> {
   return canvas.toDataURL('image/png')
 }
 
-/** Full-screen Mermaid viewer with pan, zoom, minimap, and PNG export. */
+async function imageToPngDataUrl(imageSrc: string, size: DiagramSize): Promise<string> {
+  const scale = Math.min(2, 8192 / Math.max(size.width, size.height))
+  const image = new Image()
+  await new Promise<void>((resolve, reject) => {
+    image.onload = () => resolve()
+    image.onerror = () => reject(new Error('Could not render diagram image.'))
+    image.src = imageSrc
+  })
+  const canvas = document.createElement('canvas')
+  canvas.width = Math.ceil(size.width * scale)
+  canvas.height = Math.ceil(size.height * scale)
+  const context = canvas.getContext('2d')
+  if (!context) throw new Error('Could not create image canvas.')
+  context.drawImage(image, 0, 0, canvas.width, canvas.height)
+  return canvas.toDataURL('image/png')
+}
+
+/** Full-screen graphic viewer with pan, zoom, minimap, and PNG export. */
 export function MermaidDiagramDialog({
-  svgMarkup,
+  content,
   diagramName,
   diagramIndex,
   diagramCount,
@@ -120,7 +141,10 @@ export function MermaidDiagramDialog({
   const [exportError, setExportError] = useState<string | null>(null)
   const [exporting, setExporting] = useState(false)
 
-  const sourceSize = useMemo(() => svgMarkup ? diagramSize(svgMarkup) : null, [svgMarkup])
+  const sourceSize = useMemo(() => {
+    if (!content) return null
+    return content.type === 'svg' ? diagramSize(content.svgMarkup) : content.imageSize
+  }, [content])
   const contentSize = useMemo<DiagramSize>(() => {
     if (!sourceSize || !stageSize.width || !stageSize.height) return { width: 0, height: 0 }
     const scale = Math.min(
@@ -134,28 +158,28 @@ export function MermaidDiagramDialog({
   useEffect(() => {
     setView({ zoom: 1, x: 0, y: 0 })
     setExportError(null)
-  }, [svgMarkup])
+  }, [content])
 
   useEffect(() => {
-    if (!svgMarkup) return
+    if (!content) return
     const handleKeyDown = (event: KeyboardEvent): void => {
       if (event.key === 'Escape') onClose()
     }
     document.addEventListener('keydown', handleKeyDown)
     return () => document.removeEventListener('keydown', handleKeyDown)
-  }, [onClose, svgMarkup])
+  }, [content, onClose])
 
   useEffect(() => {
     const stage = stageRef.current
-    if (!stage || !svgMarkup) return
+    if (!stage || !content) return
     const update = (): void => setStageSize({ width: stage.clientWidth, height: stage.clientHeight })
     update()
     const observer = new ResizeObserver(update)
     observer.observe(stage)
     return () => observer.disconnect()
-  }, [svgMarkup])
+  }, [content])
 
-  if (!svgMarkup || !sourceSize) return null
+  if (!content || !sourceSize) return null
 
   const updateZoom = (zoom: number): void => {
     setView((current) => {
@@ -343,7 +367,9 @@ export function MermaidDiagramDialog({
     setExportError(null)
     setExporting(true)
     try {
-      const dataUrl = await svgToPngDataUrl(svgMarkup)
+      const dataUrl = content.type === 'svg'
+        ? await svgToPngDataUrl(content.svgMarkup)
+        : await imageToPngDataUrl(content.imageSrc, content.imageSize)
       const fileName = exportNamePart(documentName.replace(/\.[^.]+$/, ''), 'document')
       const name = exportNamePart(diagramName, 'diagram')
       const result = await window.api.exportDiagramPng({ dataUrl, baseName: `${fileName}-${name}-${diagramIndex}` })
@@ -423,8 +449,11 @@ export function MermaidDiagramDialog({
               height: contentSize.height,
               transform: `translate(-50%, -50%) translate(${view.x}px, ${view.y}px) scale(${view.zoom})`
             }}
-            dangerouslySetInnerHTML={{ __html: svgMarkup }}
-          />
+          >
+            {content.type === 'svg'
+              ? <div dangerouslySetInnerHTML={{ __html: content.svgMarkup }} />
+              : <img src={content.imageSrc} alt="" draggable={false} />}
+          </div>
           {view.zoom > 1 && (
             <div
               className="diagram-minimap"
@@ -443,8 +472,11 @@ export function MermaidDiagramDialog({
                   top: minimapDiagramY,
                   transform: `scale(${minimapScale})`
                 }}
-                dangerouslySetInnerHTML={{ __html: svgMarkup }}
-              />
+              >
+                {content.type === 'svg'
+                  ? <div dangerouslySetInnerHTML={{ __html: content.svgMarkup }} />
+                  : <img src={content.imageSrc} alt="" draggable={false} />}
+              </div>
               <div className="diagram-minimap__viewport" style={{ left: viewportX, top: viewportY, width: viewportWidth, height: viewportHeight }} />
             </div>
           )}

@@ -1906,8 +1906,14 @@ body {
   left: 50%;
 }
 
-.diagram-modal__canvas svg,
-.diagram-minimap__canvas svg {
+.diagram-modal__canvas > svg,
+.diagram-modal__canvas > div,
+.diagram-modal__canvas > div > svg,
+.diagram-modal__canvas img,
+.diagram-minimap__canvas > svg,
+.diagram-minimap__canvas > div,
+.diagram-minimap__canvas > div > svg,
+.diagram-minimap__canvas img {
   display: block;
   width: 100%;
   height: 100%;

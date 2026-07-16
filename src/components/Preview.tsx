@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next'
 import type { Settings, Theme } from '../../electron/shared'
 import { scrollPreviewHeadingIntoView } from '../lib/previewScroll'
 import { renderMermaidFlowcharts } from '../lib/mermaid'
-import { MermaidDiagramDialog } from './MermaidDiagramDialog'
+import { MermaidDiagramDialog, type DiagramContent } from './MermaidDiagramDialog'
 
 interface PreviewProps {
   html: string
@@ -15,10 +15,35 @@ interface PreviewProps {
 }
 
 interface ActiveDiagram {
-  svgMarkup: string
+  content: DiagramContent
   name: string
   index: number
   total: number
+}
+
+type PreviewGraphic = SVGSVGElement | HTMLImageElement
+
+function previewGraphics(body: HTMLDivElement | null): PreviewGraphic[] {
+  if (!body) return []
+  return Array.from(body.querySelectorAll<PreviewGraphic>('svg, img')).filter((graphic) =>
+    !graphic.closest('.katex') &&
+    (graphic instanceof HTMLImageElement || !graphic.parentElement?.closest('svg'))
+  )
+}
+
+function graphicContent(graphic: PreviewGraphic): DiagramContent {
+  if (graphic instanceof SVGSVGElement) {
+    return { type: 'svg', svgMarkup: graphic.outerHTML }
+  }
+
+  return {
+    type: 'image',
+    imageSrc: graphic.currentSrc || graphic.src,
+    imageSize: {
+      width: graphic.naturalWidth || graphic.clientWidth || 1000,
+      height: graphic.naturalHeight || graphic.clientHeight || 700
+    }
+  }
 }
 
 /** Renders sanitized Markdown HTML and resolves in-document heading anchors. */
@@ -29,15 +54,18 @@ export function Preview({ html, documentName, mdTheme, searchTerm, settings, cla
   const [activeDiagram, setActiveDiagram] = useState<ActiveDiagram | null>(null)
 
   const openDiagramAt = useCallback((index: number): void => {
-    const diagrams = Array.from(bodyRef.current?.querySelectorAll<SVGSVGElement>('.mermaid-diagram svg') ?? [])
-    const svg = diagrams[index]
-    if (!svg) return
-    const container = svg.closest<HTMLElement>('.mermaid-diagram')
+    const diagrams = previewGraphics(bodyRef.current)
+    const graphic = diagrams[index]
+    if (!graphic) return
+    const container = graphic.closest<HTMLElement>('.mermaid-diagram')
     const type = container?.dataset.mermaidType
+    const graphicName = graphic instanceof SVGSVGElement
+      ? graphic.querySelector('title')?.textContent?.trim()
+      : graphic.alt.trim()
     // Author-provided titles stay verbatim; type names are localized.
-    const name = container?.dataset.mermaidTitle
-      ?? (type ? t(`preview.diagramTypes.${type}`, { defaultValue: t('preview.diagramTitle') }) : t('preview.diagramTitle'))
-    setActiveDiagram({ svgMarkup: svg.outerHTML, name, index: index + 1, total: diagrams.length })
+    const name = (container?.dataset.mermaidTitle ?? graphicName)
+      || (type ? t(`preview.diagramTypes.${type}`, { defaultValue: t('preview.diagramTitle') }) : t('preview.diagramTitle'))
+    setActiveDiagram({ content: graphicContent(graphic), name, index: index + 1, total: diagrams.length })
   }, [t])
 
   useEffect(() => {
@@ -71,11 +99,11 @@ export function Preview({ html, documentName, mdTheme, searchTerm, settings, cla
       return
     }
 
-    const diagram = target.closest('.mermaid-diagram')
-    const svg = diagram?.querySelector('svg')
-    if (svg) {
-      const diagrams = Array.from(bodyRef.current?.querySelectorAll<SVGSVGElement>('.mermaid-diagram svg') ?? [])
-      openDiagramAt(Math.max(diagrams.indexOf(svg), 0))
+    const mermaidGraphic = target.closest('.mermaid-diagram')?.querySelector<SVGSVGElement>('svg')
+    const graphic = mermaidGraphic ?? target.closest<SVGSVGElement>('svg') ?? target.closest<HTMLImageElement>('img')
+    if (graphic && !graphic.closest('.katex')) {
+      const diagrams = previewGraphics(bodyRef.current)
+      openDiagramAt(Math.max(diagrams.indexOf(graphic), 0))
       return
     }
 
@@ -239,7 +267,7 @@ export function Preview({ html, documentName, mdTheme, searchTerm, settings, cla
         dangerouslySetInnerHTML={{ __html: renderedHtml }}
       />
       <MermaidDiagramDialog
-        svgMarkup={activeDiagram?.svgMarkup ?? null}
+        content={activeDiagram?.content ?? null}
         diagramName={activeDiagram?.name ?? t('preview.diagramTitle')}
         diagramIndex={activeDiagram?.index ?? 0}
         diagramCount={activeDiagram?.total ?? 0}
