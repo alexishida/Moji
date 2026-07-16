@@ -174,6 +174,15 @@
 
 .markdown-body img {
   max-width: 100%;
+  cursor: zoom-in;
+}
+
+.markdown-body svg {
+  cursor: zoom-in;
+}
+
+.markdown-body .katex svg {
+  cursor: auto;
 }
 
 .markdown-body hr {

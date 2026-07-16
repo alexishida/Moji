@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, expect, it } from 'vitest'
-import { documentAssetBaseUrl, renderMarkdown } from './markdown'
+import { documentAssetBaseUrl, findMarkdownHeadingLine, renderMarkdown } from './markdown'
 
 describe('documentAssetBaseUrl', () => {
   it('converts Windows paths to an encoded file URL', () => {
@@ -64,5 +64,19 @@ describe('renderMarkdown', () => {
 
     expect(html).toContain('<pre class="hljs mermaid-diagram-candidate">')
     expect(html).toContain('<code>flowchart TD')
+  })
+})
+
+describe('findMarkdownHeadingLine', () => {
+  it('locates an anchored heading in Markdown source', () => {
+    expect(findMarkdownHeadingLine('# Intro\n\n## Next section', 'next-section')).toBe(2)
+  })
+
+  it('distinguishes repeated heading IDs', () => {
+    expect(findMarkdownHeadingLine('# Same\n\n# Same', 'same-1')).toBe(2)
+  })
+
+  it('returns null when no matching heading exists', () => {
+    expect(findMarkdownHeadingLine('# Intro', 'missing')).toBeNull()
   })
 })
