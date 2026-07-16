@@ -1,4 +1,8 @@
+import { join } from 'node:path'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+
+const USER_DATA = 'C:/test-user-data'
+const SETTINGS_FILE = join(USER_DATA, 'settings.json')
 
 const state = vi.hoisted(() => ({ files: new Map<string, string>() }))
 
@@ -32,7 +36,7 @@ describe('settings', () => {
   })
 
   it('sanitizes persisted preferences and keeps recent files unique', async () => {
-    state.files.set('C:\\test-user-data\\settings.json', JSON.stringify({
+    state.files.set(SETTINGS_FILE, JSON.stringify({
       language: 'invalid',
       previewTheme: 'light',
       previewLineHeight: 8,
@@ -56,13 +60,13 @@ describe('settings', () => {
     const updated = updateSettings({ previewFontSize: 99, previewLineHeight: 0, recentFiles: ['a.md', 'a.md'] })
 
     expect(updated).toMatchObject({ previewFontSize: 24, previewLineHeight: 1.2, recentFiles: ['a.md'] })
-    const persisted = JSON.parse(state.files.get('C:\\test-user-data\\settings.json') ?? '{}')
+    const persisted = JSON.parse(state.files.get(SETTINGS_FILE) ?? '{}')
     expect(persisted).not.toHaveProperty('previewFontSize')
     expect(persisted).not.toHaveProperty('previewFluidWidth')
   })
 
   it('falls back to defaults when settings file is invalid JSON', async () => {
-    state.files.set('C:\\test-user-data\\settings.json', '{ invalid')
+    state.files.set(SETTINGS_FILE, '{ invalid')
     const { getSettings } = await import('./settings')
 
     expect(getSettings()).toMatchObject({
