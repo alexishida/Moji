@@ -75,6 +75,16 @@
 
 Windows and Linux install from the downloads above with no extra steps.
 
+### Arch Linux
+
+Moji can be installed from the AUR binary package:
+
+```bash
+yay -S moji-bin
+```
+
+The AUR recipe lives in `aur/moji-bin/` and installs the GitHub Releases AppImage with desktop integration.
+
 ### macOS
 
 macOS refuses to open Moji the first time, saying it is damaged or that Apple cannot check it for malicious software. **The app is fine.** Signing an app requires a paid Apple Developer account, which Moji does not have yet, so macOS treats it as coming from an unidentified developer.
@@ -176,6 +186,7 @@ src/
   styles/        Theme tokens, app shell CSS, Markdown preview CSS
 
 samples/         Bundled Markdown documents (full Markdown guide)
+aur/moji-bin/    AUR binary package recipe for yay/pacman installation
 ```
 
 ## Documentation

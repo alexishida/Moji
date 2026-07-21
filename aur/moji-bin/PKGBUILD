@@ -1,0 +1,43 @@
+# Maintainer: Alex Ishida <alexishida@gmail.com>
+
+pkgname=moji-bin
+pkgver=0.1.4
+pkgrel=1
+pkgdesc='Clean Markdown viewer and editor'
+arch=('x86_64')
+url='https://github.com/alexishida/Moji'
+license=('MIT')
+depends=('bash' 'fuse2' 'hicolor-icon-theme' 'zlib')
+provides=('moji')
+conflicts=('moji')
+options=('!strip' '!debug')
+
+_appimage="Moji-${pkgver}-${CARCH}.AppImage"
+source_x86_64=(
+  "${_appimage}::${url}/releases/download/v${pkgver}/${_appimage}"
+  "LICENSE::${url}/raw/v${pkgver}/LICENSE"
+)
+sha256sums_x86_64=(
+  '3cb66cf761178dcef5c99b3d321342f2e4506ce04660c509523be9fcf91c2017'
+  '1f9e1485d9d027196dc04363fc1e58aed158b7745f00c1818394abcb6e401e6d'
+)
+
+prepare() {
+  chmod +x "${_appimage}"
+  "./${_appimage}" --appimage-extract >/dev/null
+  sed -i 's|^Exec=.*|Exec=moji %U|' squashfs-root/moji.desktop
+}
+
+package() {
+  install -Dm755 "${_appimage}" "${pkgdir}/usr/lib/moji/moji.AppImage"
+  install -Dm644 LICENSE "${pkgdir}/usr/share/licenses/${pkgname}/LICENSE"
+  install -Dm644 squashfs-root/moji.desktop "${pkgdir}/usr/share/applications/moji.desktop"
+  install -Dm644 squashfs-root/usr/share/mime/packages/moji.xml "${pkgdir}/usr/share/mime/packages/moji.xml"
+  cp -dr --no-preserve=ownership squashfs-root/usr/share/icons "${pkgdir}/usr/share/"
+  chmod -R u=rwX,go=rX "${pkgdir}/usr/share/icons"
+
+  install -Dm755 /dev/stdin "${pkgdir}/usr/bin/moji" <<'EOF'
+#!/bin/sh
+exec /usr/lib/moji/moji.AppImage --no-sandbox "$@"
+EOF
+}

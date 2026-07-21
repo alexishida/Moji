@@ -1,0 +1,21 @@
+pkgbase = moji-bin
+	pkgdesc = Clean Markdown viewer and editor
+	pkgver = 0.1.4
+	pkgrel = 1
+	url = https://github.com/alexishida/Moji
+	arch = x86_64
+	license = MIT
+	depends = bash
+	depends = fuse2
+	depends = hicolor-icon-theme
+	depends = zlib
+	provides = moji
+	conflicts = moji
+	options = !strip
+	options = !debug
+	source_x86_64 = Moji-0.1.4-x86_64.AppImage::https://github.com/alexishida/Moji/releases/download/v0.1.4/Moji-0.1.4-x86_64.AppImage
+	source_x86_64 = LICENSE::https://github.com/alexishida/Moji/raw/v0.1.4/LICENSE
+	sha256sums_x86_64 = 3cb66cf761178dcef5c99b3d321342f2e4506ce04660c509523be9fcf91c2017
+	sha256sums_x86_64 = 1f9e1485d9d027196dc04363fc1e58aed158b7745f00c1818394abcb6e401e6d
+
+pkgname = moji-bin
