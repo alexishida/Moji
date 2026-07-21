@@ -32,13 +32,14 @@
 
 ## Features
 
-- **Open Markdown files**: supports `.md` and `.markdown` through file dialog, drag and drop, CLI/file association entry points, and single-instance forwarding.
+- **Open Markdown files and folders**: supports `.md` and `.markdown` through file dialog, folder dialog, drag and drop, CLI/file association entry points, and single-instance forwarding.
+- **Folder workspace**: open a folder without loading every file at once, browse its Markdown files from the sidebar, and open files into tabs on demand.
 - **Multi-document workspace**: horizontal tabs, dirty markers, close buttons, duplicate-file detection, and unsaved-change confirmation with clear action icons.
 - **Tab management**: close other tabs, tabs to the right, saved tabs, or all tabs from the document tab menu.
 - **Preview mode**: sanitized Markdown rendering with heading anchors, outline navigation, tables, task lists, footnotes, definition lists, subscript/superscript, highlight/insert marks, emoji shortcodes, LaTeX math via KaTeX (`$…$` and `$$…$$`), linkify, typographer, syntax-highlighted code, and copy buttons for code blocks.
 - **Graphics and Mermaid diagrams**: every valid fenced `mermaid` block supported by bundled Mermaid renders as a responsive diagram, including flowcharts, sequence, Gantt, class, ER, state, and journey diagrams. Click any rendered SVG or Markdown image to inspect it in a modal with zoom, drag navigation, a minimap, and individual PNG export; malformed Mermaid blocks remain readable code blocks.
 - **Outline navigation**: collapsible heading tree available in Preview and Editor modes. Preview uses scroll-spy; clicking any heading scrolls preview or moves editor cursor to its Markdown source.
-- **Search and replace**: top-bar search highlights matches in preview/editor, shows occurrence count, jumps to the next match, and replaces one match or all matches in the active document.
+- **Search and replace**: top-bar search highlights matches in preview/editor, shows occurrence count, jumps to the next match, and replaces one match or all matches in the active document. Folder workspaces add sidebar search across Markdown files.
 - **Editor mode**: CodeMirror 6 Markdown editor with line numbers, history, wrapping, localized untitled document names, Markdown formatting shortcuts, and save/save as flows.
 - **Command Palette**: press `Ctrl+Shift+P` or `F1` to run file, search, view, export, tab, and Markdown editing commands by name.
 - **Export mode**: export the active document as HTML, PDF, or PNG. PDF supports A4, Letter, Legal, portrait, and landscape; long code lines wrap in PDF and PNG exports.

@@ -1,17 +1,24 @@
 import { app, BrowserWindow, dialog, ipcMain, Menu, shell } from 'electron'
-import { readFile, writeFile } from 'node:fs/promises'
-import { existsSync } from 'node:fs'
-import { dirname, extname, isAbsolute, join } from 'node:path'
+import { readFile, readdir, stat, writeFile } from 'node:fs/promises'
+import { existsSync, statSync } from 'node:fs'
+import { basename, dirname, extname, isAbsolute, join, relative, resolve, sep } from 'node:path'
 import {
   IPC,
   MARKDOWN_EXTENSIONS,
+  MAX_WORKSPACE_SEARCH_RESULTS,
   SUPPORTED_LANGUAGES,
   type ImageDataResult,
   type Language,
+  type OpenFolderResult,
   type OpenManyResult,
+  type OpenPathResult,
   type OpenResult,
   type Settings,
   type UpdateState,
+  type WorkspaceFileEntry,
+  type WorkspaceSearchMatch,
+  type WorkspaceSearchRequest,
+  type WorkspaceSearchResult,
   type WindowBounds,
   type WriteResult
 } from './shared'
@@ -45,6 +52,18 @@ app.setName('Moji')
 app.setPath('userData', join(app.getPath('appData'), SETTINGS_DIRECTORY))
 
 const IMAGE_EXTENSIONS = new Set(['.avif', '.bmp', '.gif', '.ico', '.jpeg', '.jpg', '.png', '.svg', '.webp'])
+const IGNORED_WORKSPACE_DIRECTORIES = new Set([
+  '.git',
+  '.hg',
+  '.svn',
+  '.cache',
+  '.next',
+  'coverage',
+  'dist',
+  'node_modules',
+  'out',
+  'release'
+])
 const SAMPLE_FILES = new Set([
   'markdown-guide.en.md',
   'markdown-guide.pt-BR.md',
@@ -74,6 +93,9 @@ function sanitizeSettingsPatch(value: unknown): Partial<Settings> {
   if (typeof raw['previewLineHeight'] === 'number') patch.previewLineHeight = raw['previewLineHeight']
   if (typeof raw['previewFluidWidth'] === 'boolean') patch.previewFluidWidth = raw['previewFluidWidth']
   if (Array.isArray(raw['recentFiles'])) patch.recentFiles = raw['recentFiles'].filter((p): p is string => typeof p === 'string')
+  if (Array.isArray(raw['recentFolders'])) {
+    patch.recentFolders = raw['recentFolders'].filter((p): p is string => typeof p === 'string')
+  }
   if (isWindowBounds(raw['windowBounds'])) patch.windowBounds = raw['windowBounds']
 
   return patch
@@ -113,6 +135,18 @@ function stripLeadingBom(content: string): string {
 function isMarkdown(filePath: unknown): filePath is string {
   if (typeof filePath !== 'string') return false
   return (MARKDOWN_EXTENSIONS as readonly string[]).includes(extname(filePath).toLowerCase())
+}
+
+function toRelativePath(rootPath: string, filePath: string): string {
+  return relative(rootPath, filePath).split(sep).join('/')
+}
+
+async function isDirectory(path: string): Promise<boolean> {
+  try {
+    return (await stat(path)).isDirectory()
+  } catch {
+    return false
+  }
 }
 
 function isSupportedImage(filePath: string): boolean {
@@ -155,12 +189,20 @@ async function readImageAsDataUrl(filePath: unknown): Promise<ImageDataResult> {
 }
 
 function fileFromArgv(argv: string[]): string | null {
-  // Skip the executable (and, in dev, the script path). Look for a real .md file.
+  // Skip the executable (and, in dev, the script path). Look for a real .md file or folder.
   for (const arg of argv.slice(1)) {
     if (arg.startsWith('-')) continue
-    if (isMarkdown(arg) && existsSync(arg)) return arg
+    if (existsSync(arg) && (isMarkdown(arg) || statSyncIsDirectory(arg))) return arg
   }
   return null
+}
+
+function statSyncIsDirectory(path: string): boolean {
+  try {
+    return statSync(path).isDirectory()
+  } catch {
+    return false
+  }
 }
 
 function samplePath(sampleName: unknown): string | null {
@@ -178,15 +220,140 @@ async function readDocument(filePath: unknown): Promise<OpenResult> {
   }
 }
 
+async function collectMarkdownFiles(rootPath: string): Promise<WorkspaceFileEntry[]> {
+  const files: WorkspaceFileEntry[] = []
+
+  async function visit(directory: string): Promise<void> {
+    const entries = await readdir(directory, { withFileTypes: true })
+    entries.sort((a, b) => {
+      if (a.isDirectory() !== b.isDirectory()) return a.isDirectory() ? -1 : 1
+      return a.name.localeCompare(b.name, undefined, { sensitivity: 'base' })
+    })
+
+    for (const entry of entries) {
+      const childPath = join(directory, entry.name)
+      if (entry.isDirectory()) {
+        if (!IGNORED_WORKSPACE_DIRECTORIES.has(entry.name)) await visit(childPath)
+        continue
+      }
+      if (!entry.isFile() || !isMarkdown(childPath)) continue
+      files.push({
+        path: childPath,
+        relativePath: toRelativePath(rootPath, childPath),
+        name: entry.name
+      })
+    }
+  }
+
+  await visit(rootPath)
+  return files
+}
+
+async function readWorkspaceFolder(folderPath: unknown): Promise<OpenFolderResult> {
+  if (typeof folderPath !== 'string') return { ok: false, error: 'unsupported' }
+  const normalizedPath = isAbsolute(folderPath) ? folderPath : resolve(folderPath)
+  if (!(await isDirectory(normalizedPath))) {
+    return { ok: false, error: 'unsupported' }
+  }
+
+  try {
+    const files = await collectMarkdownFiles(normalizedPath)
+    return {
+      ok: true,
+      folder: {
+        path: normalizedPath,
+        name: basename(normalizedPath),
+        files
+      }
+    }
+  } catch (err) {
+    return { ok: false, error: (err as Error).message }
+  }
+}
+
+async function readPathAsDocumentOrFolder(path: unknown): Promise<OpenPathResult> {
+  if (typeof path !== 'string') return { ok: false, error: 'unsupported' }
+  if (await isDirectory(path)) {
+    const result = await readWorkspaceFolder(path)
+    return result.ok ? { ok: true, type: 'folder', folder: result.folder } : result
+  }
+
+  const result = await readDocument(path)
+  return result.ok
+    ? { ok: true, type: 'file', document: { path: result.path, content: result.content } }
+    : result
+}
+
+function parseWorkspaceSearchRequest(value: unknown): WorkspaceSearchRequest | null {
+  if (!value || typeof value !== 'object') return null
+  const raw = value as Record<string, unknown>
+  if (typeof raw['rootPath'] !== 'string' || typeof raw['term'] !== 'string') return null
+  return {
+    rootPath: raw['rootPath'],
+    term: raw['term'],
+    maxResults: typeof raw['maxResults'] === 'number' ? raw['maxResults'] : undefined
+  }
+}
+
+function excerptForLine(line: string, index: number, termLength: number): string {
+  const start = Math.max(0, index - 48)
+  const end = Math.min(line.length, index + termLength + 72)
+  const prefix = start > 0 ? '...' : ''
+  const suffix = end < line.length ? '...' : ''
+  return `${prefix}${line.slice(start, end).trim()}${suffix}`
+}
+
+async function searchWorkspace(value: unknown): Promise<WorkspaceSearchResult> {
+  const request = parseWorkspaceSearchRequest(value)
+  const term = request?.term.trim()
+  if (!request || !term || !isAbsolute(request.rootPath) || !(await isDirectory(request.rootPath))) {
+    return { ok: false, error: 'unsupported' }
+  }
+
+  const maxResults = Math.min(
+    MAX_WORKSPACE_SEARCH_RESULTS,
+    Math.max(1, Math.floor(request.maxResults ?? MAX_WORKSPACE_SEARCH_RESULTS))
+  )
+  const needle = term.toLowerCase()
+  const matches: WorkspaceSearchMatch[] = []
+
+  try {
+    const files = await collectMarkdownFiles(request.rootPath)
+    for (const file of files) {
+      const content = stripLeadingBom(await readFile(file.path, 'utf-8'))
+      const lines = content.split(/\r?\n/)
+      for (let lineIndex = 0; lineIndex < lines.length; lineIndex += 1) {
+        const line = lines[lineIndex]
+        const columnIndex = line.toLowerCase().indexOf(needle)
+        if (columnIndex < 0) continue
+        matches.push({
+          path: file.path,
+          relativePath: file.relativePath,
+          line: lineIndex + 1,
+          column: columnIndex + 1,
+          excerpt: excerptForLine(line, columnIndex, term.length)
+        })
+        if (matches.length >= maxResults) return { ok: true, matches }
+      }
+    }
+    return { ok: true, matches }
+  } catch (err) {
+    return { ok: false, error: (err as Error).message }
+  }
+}
+
 /** Single funnel for every open entry point (association, CLI, dialog, drop). */
 async function openDocument(filePath: string): Promise<void> {
-  const result = await readDocument(filePath)
+  const result = await readPathAsDocumentOrFolder(filePath)
   if (!mainWindow) {
     if (result.ok) pendingOpenPath = filePath
     return
   }
-  if (result.ok) {
-    mainWindow.webContents.send(IPC.openDocument, { path: result.path, content: result.content })
+  if (result.ok && result.type === 'file') {
+    mainWindow.webContents.send(IPC.openDocument, result.document)
+  }
+  if (result.ok && result.type === 'folder') {
+    mainWindow.webContents.send(IPC.openWorkspace, result.folder)
   }
 }
 
@@ -385,7 +552,26 @@ function registerIpc(): void {
     }
   })
 
+  ipcMain.handle(IPC.openFolderDialog, async (): Promise<OpenFolderResult> => {
+    const options: Electron.OpenDialogOptions = {
+      properties: ['openDirectory'],
+      defaultPath: lastDialogDirectory()
+    }
+    const { canceled, filePaths } = mainWindow
+      ? await dialog.showOpenDialog(mainWindow, options)
+      : await dialog.showOpenDialog(options)
+    if (canceled || filePaths.length === 0) return { ok: false, canceled: true }
+    rememberDialogDirectory(filePaths[0])
+    return readWorkspaceFolder(filePaths[0])
+  })
+
+  ipcMain.handle(IPC.openPath, (_e, path: unknown): Promise<OpenPathResult> => readPathAsDocumentOrFolder(path))
+
   ipcMain.handle(IPC.readPath, (_e, filePath: unknown): Promise<OpenResult> => readDocument(filePath))
+
+  ipcMain.handle(IPC.readWorkspaceFile, (_e, filePath: unknown): Promise<OpenResult> => readDocument(filePath))
+
+  ipcMain.handle(IPC.searchWorkspace, (_e, request: unknown): Promise<WorkspaceSearchResult> => searchWorkspace(request))
 
   ipcMain.handle(IPC.readImage, (_e, filePath: unknown): Promise<ImageDataResult> => readImageAsDataUrl(filePath))
 

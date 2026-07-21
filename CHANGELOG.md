@@ -10,6 +10,8 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 - Command Palette opened with `Ctrl+Shift+P` or `F1`, covering file, search, view, export, tab, and Markdown editing commands.
 - Expanded Markdown editor commands for inline code, blockquotes, H1-H3 headings, and command-palette-triggered formatting.
+- Folder workspaces: open a folder, browse Markdown files from the sidebar, search across folder Markdown files, and open files into tabs on demand.
+- Persisted recent folders alongside recent files.
 
 ## [0.1.4] - 2026-07-13
 

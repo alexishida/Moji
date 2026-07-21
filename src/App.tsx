@@ -22,10 +22,14 @@ import { getExtraMermaidGuideExamples } from './lib/mermaidGuide'
 import { renderMermaidFlowcharts } from './lib/mermaid'
 import {
   MAX_RECENT_FILES,
+  MAX_RECENT_FOLDERS,
+  MAX_WORKSPACE_SEARCH_RESULTS,
   type ExportFormat,
   type Settings,
   type Theme,
-  type UpdateState
+  type UpdateState,
+  type WorkspaceFolder,
+  type WorkspaceSearchMatch
 } from '../electron/shared'
 import packageJson from '../package.json'
 
@@ -146,10 +150,15 @@ export function App(): JSX.Element {
     previewFontSize: 16,
     previewLineHeight: 1.7,
     previewFluidWidth: false,
-    recentFiles: []
+    recentFiles: [],
+    recentFolders: []
   })
   const [documents, setDocuments] = useState<DocumentState[]>([])
   const [activeDocId, setActiveDocId] = useState<string | null>(null)
+  const [workspaceFolder, setWorkspaceFolder] = useState<WorkspaceFolder | null>(null)
+  const [workspaceSearchTerm, setWorkspaceSearchTerm] = useState('')
+  const [workspaceSearchResults, setWorkspaceSearchResults] = useState<WorkspaceSearchMatch[]>([])
+  const [workspaceSearchLoading, setWorkspaceSearchLoading] = useState(false)
   const [mode, setMode] = useState<'view' | 'edit'>('view')
   const [mdTheme, setMdTheme] = useState<Theme>('dark')
   const [searchTerm, setSearchTerm] = useState('')
@@ -181,6 +190,7 @@ export function App(): JSX.Element {
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false)
   const dialogResolver = useRef<((c: ConfirmChoice) => void) | null>(null)
   const nextDocSeq = useRef(1)
+  const workspaceSearchRequest = useRef(0)
 
   const activeDoc = useMemo(
     () => documents.find((doc) => doc.id === activeDocId) ?? null,
@@ -288,6 +298,57 @@ export function App(): JSX.Element {
     },
     [persistRecentFiles]
   )
+
+  const recentFoldersRef = useRef<string[]>(settings.recentFolders)
+  recentFoldersRef.current = settings.recentFolders
+
+  const persistRecentFolders = useCallback((next: string[]) => {
+    const capped = next.slice(0, MAX_RECENT_FOLDERS)
+    setSettings((prev) => ({ ...prev, recentFolders: capped }))
+    void window.api.setSettings({ recentFolders: capped })
+  }, [])
+
+  const rememberRecentFolder = useCallback(
+    (path: string | null) => {
+      if (!path) return
+      persistRecentFolders([path, ...recentFoldersRef.current.filter((p) => p !== path)])
+    },
+    [persistRecentFolders]
+  )
+
+  const forgetRecentFolder = useCallback(
+    (path: string) => {
+      const next = recentFoldersRef.current.filter((p) => p !== path)
+      if (next.length !== recentFoldersRef.current.length) persistRecentFolders(next)
+    },
+    [persistRecentFolders]
+  )
+
+  const debouncedWorkspaceSearchTerm = useDebounced(workspaceSearchTerm, 180)
+
+  useEffect(() => {
+    const term = debouncedWorkspaceSearchTerm.trim()
+    const folder = workspaceFolder
+    workspaceSearchRequest.current += 1
+    const request = workspaceSearchRequest.current
+
+    if (!folder || !term) {
+      setWorkspaceSearchResults([])
+      setWorkspaceSearchLoading(false)
+      return
+    }
+
+    setWorkspaceSearchLoading(true)
+    void window.api
+      .searchWorkspace({ rootPath: folder.path, term, maxResults: MAX_WORKSPACE_SEARCH_RESULTS })
+      .then((res) => {
+        if (workspaceSearchRequest.current !== request) return
+        setWorkspaceSearchResults(res.ok ? res.matches : [])
+      })
+      .finally(() => {
+        if (workspaceSearchRequest.current === request) setWorkspaceSearchLoading(false)
+      })
+  }, [debouncedWorkspaceSearchTerm, workspaceFolder])
 
   const newDocumentId = useCallback(() => {
     const id = `doc-${Date.now()}-${nextDocSeq.current}`
@@ -511,14 +572,43 @@ export function App(): JSX.Element {
     } else if (!res.canceled) flash(t('notice.openFailed', { error: res.error }), true)
   }, [addDocuments, flash, rememberRecent, t])
 
+  const openWorkspace = useCallback(
+    (folder: WorkspaceFolder) => {
+      setWorkspaceFolder(folder)
+      setWorkspaceSearchTerm('')
+      setWorkspaceSearchResults([])
+      setWorkspaceSearchLoading(false)
+      rememberRecentFolder(folder.path)
+      setExportDialogFormat(null)
+      setSettingsOpen(false)
+      setAboutOpen(false)
+      setOutlineVisible(true)
+      flash(
+        t('notice.folderOpened', {
+          name: folder.name,
+          count: folder.files.length
+        })
+      )
+    },
+    [flash, rememberRecentFolder, t]
+  )
+
+  const doOpenFolder = useCallback(async () => {
+    const res = await window.api.openFolderDialog()
+    if (res.ok) openWorkspace(res.folder)
+    else if (!res.canceled) flash(t('notice.openFolderFailed', { error: res.error }), true)
+  }, [flash, openWorkspace, t])
+
   const openPaths = useCallback(
     async (paths: string[]) => {
       const opened: DocumentInput[] = []
       const failed: string[] = []
+      let folderToOpen: WorkspaceFolder | null = null
       for (const path of paths) {
-        const res = await window.api.readPath(path)
-        if (res.ok) opened.push({ path: res.path, content: res.content })
-        else {
+        const res = await window.api.openPath(path)
+        if (res.ok && res.type === 'file') opened.push({ path: res.document.path, content: res.document.content })
+        else if (res.ok && res.type === 'folder') folderToOpen = res.folder
+        else if (!res.ok) {
           failed.push(path)
           if (res.error === 'unsupported') flash(t('notice.unsupported'), true)
           else flash(t('notice.openFailed', { error: res.error }), true)
@@ -526,13 +616,45 @@ export function App(): JSX.Element {
       }
       addDocuments(opened)
       rememberRecent(opened.map((doc) => doc.path))
+      if (folderToOpen) openWorkspace(folderToOpen)
       // Drop paths that no longer open (e.g. a recent file that was moved/deleted).
       forgetRecent(failed)
     },
-    [addDocuments, flash, forgetRecent, rememberRecent, t]
+    [addDocuments, flash, forgetRecent, openWorkspace, rememberRecent, t]
   )
 
   const openRecent = useCallback((path: string) => void openPaths([path]), [openPaths])
+
+  const openRecentFolder = useCallback(
+    async (path: string) => {
+      const res = await window.api.openPath(path)
+      if (res.ok && res.type === 'folder') {
+        openWorkspace(res.folder)
+        return
+      }
+      forgetRecentFolder(path)
+      if (res.ok && res.type === 'file') addDocuments([{ path: res.document.path, content: res.document.content }])
+      else if (!res.ok && !res.canceled) flash(t('notice.openFolderFailed', { error: res.error }), true)
+    },
+    [addDocuments, flash, forgetRecentFolder, openWorkspace, t]
+  )
+
+  const openWorkspaceFile = useCallback(
+    async (path: string, search?: { term: string }) => {
+      const res = await window.api.readWorkspaceFile(path)
+      if (res.ok) {
+        addDocuments([{ path: res.path, content: res.content }])
+        rememberRecent([res.path])
+        const term = search?.term.trim()
+        if (term) {
+          setSearchTerm(term)
+          setActiveSearchIndex(findLiteralMatches(res.content, term).length > 0 ? 0 : null)
+        }
+      } else if (res.error === 'unsupported') flash(t('notice.unsupported'), true)
+      else flash(t('notice.openFailed', { error: res.error }), true)
+    },
+    [addDocuments, flash, rememberRecent, t]
+  )
 
   const openExportDialog = useCallback(
     (format: ExportFormat = 'pdf') => {
@@ -816,8 +938,8 @@ export function App(): JSX.Element {
 
   const canToggleOutline = useCallback(() => {
     const s = stateRef.current
-    return s.hasDoc && !s.exportDialogOpen && !s.settingsOpen && !s.aboutOpen
-  }, [])
+    return (s.hasDoc || workspaceFolder !== null) && !s.exportDialogOpen && !s.settingsOpen && !s.aboutOpen
+  }, [workspaceFolder])
 
   const toggleOutline = useCallback(() => {
     if (!canToggleOutline()) return
@@ -1166,7 +1288,8 @@ export function App(): JSX.Element {
       }
       if (key === 'o') {
         event.preventDefault()
-        void doOpen()
+        if (event.shiftKey) void doOpenFolder()
+        else void doOpen()
         return
       }
       if (key === 's') {
@@ -1254,6 +1377,7 @@ export function App(): JSX.Element {
     doFindPrevious,
     doNew,
     doOpen,
+    doOpenFolder,
     flash,
     focusReplace,
     focusSearch,
@@ -1279,11 +1403,15 @@ export function App(): JSX.Element {
       addDocuments([{ path: doc.path, content: doc.content }])
       rememberRecent([doc.path])
     })
+    const offWorkspace = window.api.onOpenWorkspace((folder) => {
+      openWorkspace(folder)
+    })
     return () => {
       offClose()
       offDoc()
+      offWorkspace()
     }
-  }, [confirmAnyUnsaved, addDocuments, rememberRecent])
+  }, [confirmAnyUnsaved, addDocuments, openWorkspace, rememberRecent])
 
   useEffect(() => {
     const offUpdate = window.api.onUpdateState(setUpdateState)
@@ -1335,6 +1463,7 @@ export function App(): JSX.Element {
         theme={mdTheme}
         onSetMode={setModeSafe}
         onOpen={doOpen}
+        onOpenFolder={doOpenFolder}
         onNew={doNew}
         onSave={doSave}
         onSearch={doSearch}
@@ -1377,13 +1506,20 @@ export function App(): JSX.Element {
       )}
 
       <div className="body">
-        {hasDoc && !exportDialogFormat && !settingsOpen && !aboutOpen && outlineVisible && (
+        {(hasDoc || workspaceFolder) && !exportDialogFormat && !settingsOpen && !aboutOpen && outlineVisible && (
           <Sidebar
             hasDoc={hasDoc}
             outline={outline}
             activeId={activeHeadingId}
             showOutline={!exportDialogFormat}
+            workspaceFolder={workspaceFolder}
+            activeDocumentPath={activeDoc?.path ?? null}
+            workspaceSearchTerm={workspaceSearchTerm}
+            workspaceSearchResults={workspaceSearchResults}
+            workspaceSearchLoading={workspaceSearchLoading}
             onSelectHeading={scrollToHeading}
+            onWorkspaceSearch={setWorkspaceSearchTerm}
+            onOpenWorkspaceFile={(path, search) => void openWorkspaceFile(path, search)}
           />
         )}
 
@@ -1409,10 +1545,14 @@ export function App(): JSX.Element {
             ) : !hasDoc ? (
               <Welcome
                 onOpen={() => void doOpen()}
+                onOpenFolder={() => void doOpenFolder()}
                 onNew={doNew}
                 recentFiles={settings.recentFiles}
+                recentFolders={settings.recentFolders}
                 onOpenRecent={openRecent}
+                onOpenRecentFolder={(path) => void openRecentFolder(path)}
                 onForgetRecent={(path) => forgetRecent([path])}
+                onForgetRecentFolder={forgetRecentFolder}
               />
             ) : exportDialogFormat ? (
               <div className="export-workspace">

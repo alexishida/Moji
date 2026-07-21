@@ -1,7 +1,15 @@
 import { app } from 'electron'
 import { readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { DEFAULT_LANGUAGE, MAX_RECENT_FILES, SUPPORTED_LANGUAGES, type Language, type Settings, type WindowBounds } from './shared'
+import {
+  DEFAULT_LANGUAGE,
+  MAX_RECENT_FILES,
+  MAX_RECENT_FOLDERS,
+  SUPPORTED_LANGUAGES,
+  type Language,
+  type Settings,
+  type WindowBounds
+} from './shared'
 
 let cache: Settings | null = null
 
@@ -28,7 +36,8 @@ function defaults(): Settings {
     previewFontSize: 16,
     previewLineHeight: 1.7,
     previewFluidWidth: false,
-    recentFiles: []
+    recentFiles: [],
+    recentFolders: []
   }
 }
 
@@ -55,7 +64,7 @@ function sanitizeWindowBounds(value: unknown): WindowBounds | undefined {
 }
 
 /** Keep only string paths, drop duplicates, and cap the list length. */
-function sanitizeRecentFiles(value: unknown): string[] {
+function sanitizeRecentList(value: unknown, limit: number): string[] {
   if (!Array.isArray(value)) return []
   const seen = new Set<string>()
   const list: string[] = []
@@ -63,9 +72,17 @@ function sanitizeRecentFiles(value: unknown): string[] {
     if (typeof entry !== 'string' || entry.length === 0 || seen.has(entry)) continue
     seen.add(entry)
     list.push(entry)
-    if (list.length >= MAX_RECENT_FILES) break
+    if (list.length >= limit) break
   }
   return list
+}
+
+function sanitizeRecentFiles(value: unknown): string[] {
+  return sanitizeRecentList(value, MAX_RECENT_FILES)
+}
+
+function sanitizeRecentFolders(value: unknown): string[] {
+  return sanitizeRecentList(value, MAX_RECENT_FOLDERS)
 }
 
 export function getSettings(): Settings {
@@ -82,6 +99,7 @@ export function getSettings(): Settings {
       previewLineHeight: boundedNumber(raw.previewLineHeight, base.previewLineHeight, 1.2, 2.4),
       previewFluidWidth: base.previewFluidWidth,
       recentFiles: sanitizeRecentFiles(raw.recentFiles),
+      recentFolders: sanitizeRecentFolders(raw.recentFolders),
       lastDialogDirectory: typeof raw.lastDialogDirectory === 'string' ? raw.lastDialogDirectory : undefined,
       windowBounds: sanitizeWindowBounds(raw.windowBounds)
     }
@@ -102,6 +120,7 @@ export function updateSettings(patch: Partial<Settings>): Settings {
     previewLineHeight: boundedNumber(merged.previewLineHeight, 1.7, 1.2, 2.4),
     previewFluidWidth: typeof merged.previewFluidWidth === 'boolean' ? merged.previewFluidWidth : false,
     recentFiles: sanitizeRecentFiles(merged.recentFiles),
+    recentFolders: sanitizeRecentFolders(merged.recentFolders),
     lastDialogDirectory: typeof merged.lastDialogDirectory === 'string' ? merged.lastDialogDirectory : undefined,
     windowBounds: sanitizeWindowBounds(merged.windowBounds)
   }

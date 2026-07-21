@@ -23,6 +23,7 @@ const SHORTCUT_SECTIONS = [
     items: [
       { action: 'newDocument', keys: ['Ctrl', 'N'] },
       { action: 'open', keys: ['Ctrl', 'O'] },
+      { action: 'openFolder', keys: ['Ctrl', 'Shift', 'O'] },
       { action: 'save', keys: ['Ctrl', 'S'] },
       { action: 'saveAs', keys: ['Ctrl', 'Shift', 'S'] },
       { action: 'closeTab', keys: ['Ctrl', 'W'] },
