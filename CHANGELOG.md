@@ -4,6 +4,13 @@ All notable changes to this project will be documented in this file.
 
 Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [Unreleased]
+
+### Added
+
+- Command Palette opened with `Ctrl+Shift+P` or `F1`, covering file, search, view, export, tab, and Markdown editing commands.
+- Expanded Markdown editor commands for inline code, blockquotes, H1-H3 headings, and command-palette-triggered formatting.
+
 ## [0.1.4] - 2026-07-13
 
 ### Added

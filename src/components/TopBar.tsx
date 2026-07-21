@@ -2,7 +2,7 @@ import { useState, useCallback, useEffect, useRef, type ChangeEvent, type FormEv
 import { useTranslation } from 'react-i18next'
 import { SettingsButton } from './SettingsButton'
 import { FontSizeButton } from './FontSizeButton'
-import { IconMoon, IconSun, IconEye, IconPencil, IconDownload, IconOpen, IconFilePlus, IconSave, IconInfo, IconReplace, IconReplaceAll, IconSearch, IconX, IconLayoutWidth, IconSidebar } from './icons'
+import { IconMoon, IconSun, IconEye, IconPencil, IconDownload, IconOpen, IconFilePlus, IconSave, IconInfo, IconReplace, IconReplaceAll, IconSearch, IconX, IconLayoutWidth, IconSidebar, IconCommand } from './icons'
 import type { ExportFormat, Theme } from '../../electron/shared'
 
 interface TopBarProps {
@@ -22,6 +22,7 @@ interface TopBarProps {
   onExport: (format: ExportFormat) => void
   onOpenSettings: () => void
   onOpenAbout: () => void
+  onOpenCommandPalette: () => void
   onSearch: (term: string) => void
   onFindNext: () => void
   onReplace: (search: string, replacement: string, all: boolean) => void
@@ -155,6 +156,15 @@ export function TopBar(props: TopBarProps): JSX.Element {
         </div>
 
         <div className="topbar__right">
+          <button
+            className="iconbtn"
+            type="button"
+            onClick={props.onOpenCommandPalette}
+            title={t('toolbar.commandPalette')}
+            aria-label={t('toolbar.commandPalette')}
+          >
+            <IconCommand width={16} height={16} />
+          </button>
           <div className="topbar__search-group">
             <button
               className={`iconbtn topbar__replace-toggle ${replaceOpen ? 'iconbtn--active' : ''}`}

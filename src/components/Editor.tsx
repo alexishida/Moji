@@ -9,6 +9,19 @@ import { tags } from '@lezer/highlight'
 import type { Theme } from '../../electron/shared'
 import { findMarkdownHeadingLine } from '../lib/markdown'
 
+export type MarkdownEditorCommand =
+  | 'bold'
+  | 'italic'
+  | 'inlineCode'
+  | 'link'
+  | 'list'
+  | 'checklist'
+  | 'blockquote'
+  | 'codeBlock'
+  | 'heading1'
+  | 'heading2'
+  | 'heading3'
+
 interface EditorProps {
   value: string
   theme: Theme
@@ -16,6 +29,7 @@ interface EditorProps {
   activeSearchIndex: number | null
   highlightActive: boolean
   headingToReveal: { id: string; request: number } | null
+  commandRequest: { command: MarkdownEditorCommand; request: number } | null
   onChange: (value: string) => void
 }
 
@@ -131,13 +145,61 @@ function toggleLinePrefix(prefix: string): Command {
   }
 }
 
+function setHeading(level: 1 | 2 | 3): Command {
+  return (view) => {
+    const prefix = `${'#'.repeat(level)} `
+    const changes = view.state.changeByRange((range) => {
+      const line = view.state.doc.lineAt(range.from)
+      const text = line.text
+      const trimmedStart = text.length - text.trimStart().length
+      const markerFrom = line.from + trimmedStart
+      const heading = text.slice(trimmedStart).match(/^#{1,6}\s+/)
+
+      if (heading?.[0] === prefix) {
+        return {
+          changes: { from: markerFrom, to: markerFrom + heading[0].length, insert: '' },
+          range: EditorSelection.cursor(Math.max(line.from, range.head - heading[0].length))
+        }
+      }
+
+      const markerLength = heading?.[0].length ?? 0
+      return {
+        changes: { from: markerFrom, to: markerFrom + markerLength, insert: prefix },
+        range: EditorSelection.cursor(range.head + prefix.length - markerLength)
+      }
+    })
+    view.dispatch(changes, { scrollIntoView: true, userEvent: 'input.markdown' })
+    view.focus()
+    return true
+  }
+}
+
+const editorMarkdownCommands: Record<MarkdownEditorCommand, Command> = {
+  bold: wrapMarkdown('**', '**', 'bold'),
+  italic: wrapMarkdown('*', '*', 'italic'),
+  inlineCode: wrapMarkdown('`', '`', 'code'),
+  link: insertLink,
+  list: toggleLinePrefix('- '),
+  checklist: toggleLinePrefix('- [ ] '),
+  blockquote: toggleLinePrefix('> '),
+  codeBlock: wrapMarkdown('```\n', '\n```', 'code'),
+  heading1: setHeading(1),
+  heading2: setHeading(2),
+  heading3: setHeading(3)
+}
+
 const markdownKeymap = [
-  { key: 'Mod-b', run: wrapMarkdown('**', '**', 'bold') },
-  { key: 'Mod-i', run: wrapMarkdown('*', '*', 'italic') },
-  { key: 'Mod-k', run: insertLink },
-  { key: 'Mod-l', run: toggleLinePrefix('- ') },
-  { key: 'Mod-Shift-l', run: toggleLinePrefix('- [ ] ') },
-  { key: 'Mod-Shift-k', run: wrapMarkdown('```\n', '\n```', 'code') }
+  { key: 'Mod-b', run: editorMarkdownCommands.bold },
+  { key: 'Mod-i', run: editorMarkdownCommands.italic },
+  { key: 'Mod-Alt-c', run: editorMarkdownCommands.inlineCode },
+  { key: 'Mod-k', run: editorMarkdownCommands.link },
+  { key: 'Mod-l', run: editorMarkdownCommands.list },
+  { key: 'Mod-Shift-l', run: editorMarkdownCommands.checklist },
+  { key: 'Mod-Alt-q', run: editorMarkdownCommands.blockquote },
+  { key: 'Mod-Shift-k', run: editorMarkdownCommands.codeBlock },
+  { key: 'Mod-Alt-1', run: editorMarkdownCommands.heading1 },
+  { key: 'Mod-Alt-2', run: editorMarkdownCommands.heading2 },
+  { key: 'Mod-Alt-3', run: editorMarkdownCommands.heading3 }
 ]
 
 function buildSearchDecorations(
@@ -207,7 +269,16 @@ function activeElementAcceptsText(): boolean {
 }
 
 /** CodeMirror 6 Markdown source editor with theme-aware styling. */
-export function Editor({ value, theme, searchTerm, activeSearchIndex, highlightActive, headingToReveal, onChange }: EditorProps): JSX.Element {
+export function Editor({
+  value,
+  theme,
+  searchTerm,
+  activeSearchIndex,
+  highlightActive,
+  headingToReveal,
+  commandRequest,
+  onChange
+}: EditorProps): JSX.Element {
   const hostRef = useRef<HTMLDivElement>(null)
   const viewRef = useRef<EditorView | null>(null)
   const themeCompartment = useRef(new Compartment())
@@ -314,6 +385,12 @@ export function Editor({ value, theme, searchTerm, activeSearchIndex, highlightA
     })
     view.focus()
   }, [headingToReveal])
+
+  useEffect(() => {
+    const view = viewRef.current
+    if (!view || !commandRequest) return
+    editorMarkdownCommands[commandRequest.command](view)
+  }, [commandRequest])
 
   return <div className="editor-pane pane" ref={hostRef} />
 }

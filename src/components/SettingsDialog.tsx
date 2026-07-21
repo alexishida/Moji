@@ -42,8 +42,10 @@ const SHORTCUT_SECTIONS = [
     key: 'view',
     items: [
       { action: 'toggleEdit', keys: ['Ctrl', 'E'] },
+      { action: 'toggleOutline', keys: ['Ctrl', 'Shift', 'B'] },
       { action: 'export', keys: ['Ctrl', 'Shift', 'E'] },
       { action: 'settings', keys: ['Ctrl', ','] },
+      { action: 'commandPalette', keys: ['Ctrl', 'Shift', 'P'] },
       { action: 'fullscreen', keys: ['F11'] },
       { action: 'closePanel', keys: ['Esc'] }
     ]
@@ -69,9 +71,14 @@ const SHORTCUT_SECTIONS = [
     items: [
       { action: 'bold', keys: ['Ctrl', 'B'] },
       { action: 'italic', keys: ['Ctrl', 'I'] },
+      { action: 'inlineCode', keys: ['Ctrl', 'Alt', 'C'] },
       { action: 'link', keys: ['Ctrl', 'K'] },
       { action: 'list', keys: ['Ctrl', 'L'] },
       { action: 'checklist', keys: ['Ctrl', 'Shift', 'L'] },
+      { action: 'blockquote', keys: ['Ctrl', 'Alt', 'Q'] },
+      { action: 'heading1', keys: ['Ctrl', 'Alt', '1'] },
+      { action: 'heading2', keys: ['Ctrl', 'Alt', '2'] },
+      { action: 'heading3', keys: ['Ctrl', 'Alt', '3'] },
       { action: 'codeBlock', keys: ['Ctrl', 'Shift', 'K'] }
     ]
   }
