@@ -86,6 +86,12 @@ export type OpenPathResult =
   | { ok: true; type: 'folder'; folder: WorkspaceFolder }
   | { ok: false; canceled?: boolean; error?: string }
 
+export type OpenLocalPathResult =
+  | { ok: true; type: 'file'; document: DocumentPayload }
+  | { ok: true; type: 'folder'; folder: WorkspaceFolder }
+  | { ok: true; type: 'external'; path: string }
+  | { ok: false; canceled?: boolean; error?: string }
+
 export type WorkspaceSearchResult =
   | { ok: true; matches: WorkspaceSearchMatch[] }
   | { ok: false; error?: string }
@@ -154,6 +160,7 @@ export const IPC = {
   openDialog: 'file:open-dialog',
   openFolderDialog: 'folder:open-dialog',
   openPath: 'path:open',
+  openLocalPath: 'path:open-local',
   readPath: 'file:read-path',
   readWorkspaceFile: 'folder:read-file',
   searchWorkspace: 'folder:search',

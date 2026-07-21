@@ -69,6 +69,9 @@ DOMPurify.addHook('afterSanitizeAttributes', (node) => {
 
 const EMPTY_IMAGE =
   'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw=='
+const URL_SCHEME_RE = /^[A-Za-z][A-Za-z\d+.-]*:/
+const WINDOWS_DRIVE_PATH_RE = /^[A-Za-z]:[\\/]/
+const UNC_PATH_RE = /^\\\\/
 
 function filePathToFileUrl(filePath: string): string {
   const normalized = filePath.replace(/\\/g, '/')
@@ -88,11 +91,57 @@ function prepareAppImage(image: Element, filePath: string): void {
   image.setAttribute('src', EMPTY_IMAGE)
 }
 
-function fileUrlToPath(fileUrl: string): string {
+export function fileUrlToPath(fileUrl: string): string {
   const url = new URL(fileUrl)
   const pathname = decodeURIComponent(url.pathname)
   if (url.hostname) return `//${url.hostname}${pathname}`
   return /^\/[A-Za-z]:\//.test(pathname) ? pathname.slice(1) : pathname
+}
+
+function stripUrlSuffix(value: string): string {
+  const cutAt = [value.indexOf('#'), value.indexOf('?')].filter((index) => index >= 0)
+  return cutAt.length > 0 ? value.slice(0, Math.min(...cutAt)) : value
+}
+
+function decodePathLike(value: string): string {
+  try {
+    return decodeURI(value)
+  } catch {
+    return value
+  }
+}
+
+function isAbsoluteLocalHref(value: string): boolean {
+  return WINDOWS_DRIVE_PATH_RE.test(value) || UNC_PATH_RE.test(value) || (value.startsWith('/') && !value.startsWith('//'))
+}
+
+export function localPathFromPreviewHref(href: string, documentPath: string | null | undefined): string | null {
+  const value = href.trim()
+  if (!value || value.startsWith('#')) return null
+
+  if (isAbsoluteLocalHref(value)) {
+    return decodePathLike(stripUrlSuffix(value).replace(/\\/g, '/'))
+  }
+
+  if (URL_SCHEME_RE.test(value)) {
+    if (!value.toLowerCase().startsWith('file:')) return null
+    try {
+      return fileUrlToPath(value)
+    } catch {
+      return null
+    }
+  }
+
+  if (value.startsWith('//')) return null
+
+  const baseUrl = documentAssetBaseUrl(documentPath)
+  if (!baseUrl) return null
+
+  try {
+    return fileUrlToPath(new URL(value.replace(/\\/g, '/'), baseUrl).toString())
+  } catch {
+    return null
+  }
 }
 
 export function documentAssetBaseUrl(documentPath: string | null | undefined): string | null {

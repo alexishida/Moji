@@ -39,6 +39,21 @@ The system SHALL keep the preview scrollable and resolve in-document heading anc
 - **WHEN** the user clicks a link that targets a heading anchor within the same document
 - **THEN** the preview scrolls to that heading
 
+### Requirement: Open local preview links safely
+The system SHALL intercept local filesystem links in the Markdown preview and route them through the safe main-process file flow instead of allowing browser navigation.
+
+#### Scenario: Follow a local Markdown link
+- **WHEN** the user clicks a relative, absolute, or `file://` link that resolves to a Markdown file
+- **THEN** the linked file opens in a document tab and the current app state remains intact
+
+#### Scenario: Follow a local folder link
+- **WHEN** the user clicks a local link that resolves to a folder
+- **THEN** the folder opens as the active workspace
+
+#### Scenario: Follow another local file link
+- **WHEN** the user clicks a local link that resolves to an existing non-Markdown file
+- **THEN** the system opens that file with the operating system default application
+
 ### Requirement: Bundled Markdown guide is read-only
 The system SHALL open bundled localized Markdown guides as read-only reference documents and SHALL preserve ordinary viewing capabilities.
 

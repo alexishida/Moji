@@ -14,6 +14,10 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Persisted recent folders alongside recent files.
 - AUR `moji-bin` package recipe for installation with `yay -S moji-bin`.
 
+### Fixed
+
+- Local preview links now open through Moji's safe file flow instead of navigating Chromium away from the app.
+
 ## [0.1.4] - 2026-07-13
 
 ### Added
