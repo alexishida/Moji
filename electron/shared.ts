@@ -10,6 +10,8 @@ export const MARKDOWN_EXTENSIONS = ['.md', '.markdown'] as const
 
 /** Max entries kept in the recent-files list shown on the Welcome screen. */
 export const MAX_RECENT_FILES = 3
+export const MAX_RECENT_FOLDERS = 5
+export const MAX_WORKSPACE_SEARCH_RESULTS = 200
 
 export interface Settings {
   theme: Theme
@@ -21,6 +23,8 @@ export interface Settings {
   previewFluidWidth: boolean
   /** Absolute paths of recently opened documents, most-recent first. */
   recentFiles: string[]
+  /** Absolute paths of recently opened folders, most-recent first. */
+  recentFolders: string[]
   lastDialogDirectory?: string
   windowBounds?: WindowBounds
 }
@@ -37,6 +41,32 @@ export interface DocumentPayload {
   content: string
 }
 
+export interface WorkspaceFileEntry {
+  path: string
+  relativePath: string
+  name: string
+}
+
+export interface WorkspaceFolder {
+  path: string
+  name: string
+  files: WorkspaceFileEntry[]
+}
+
+export interface WorkspaceSearchRequest {
+  rootPath: string
+  term: string
+  maxResults?: number
+}
+
+export interface WorkspaceSearchMatch {
+  path: string
+  relativePath: string
+  line: number
+  column: number
+  excerpt: string
+}
+
 /** Result of an operation that reads/opens a file. */
 export type OpenResult =
   | { ok: true; path: string; content: string }
@@ -46,6 +76,19 @@ export type OpenResult =
 export type OpenManyResult =
   | { ok: true; documents: DocumentPayload[] }
   | { ok: false; canceled?: boolean; error?: string }
+
+export type OpenFolderResult =
+  | { ok: true; folder: WorkspaceFolder }
+  | { ok: false; canceled?: boolean; error?: string }
+
+export type OpenPathResult =
+  | { ok: true; type: 'file'; document: DocumentPayload }
+  | { ok: true; type: 'folder'; folder: WorkspaceFolder }
+  | { ok: false; canceled?: boolean; error?: string }
+
+export type WorkspaceSearchResult =
+  | { ok: true; matches: WorkspaceSearchMatch[] }
+  | { ok: false; error?: string }
 
 /** Result of a write-style operation (save / export). */
 export type WriteResult =
@@ -109,7 +152,11 @@ export interface DiagramPngRequest {
 /** IPC channel names. */
 export const IPC = {
   openDialog: 'file:open-dialog',
+  openFolderDialog: 'folder:open-dialog',
+  openPath: 'path:open',
   readPath: 'file:read-path',
+  readWorkspaceFile: 'folder:read-file',
+  searchWorkspace: 'folder:search',
   readImage: 'file:read-image',
   readSample: 'file:read-sample',
   save: 'file:save',
@@ -126,5 +173,6 @@ export const IPC = {
   // main -> renderer push channels
   requestClose: 'app:request-close',
   openDocument: 'doc:open',
+  openWorkspace: 'workspace:open',
   updateState: 'update:state'
 } as const

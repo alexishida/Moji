@@ -17,16 +17,16 @@ Projeto atual: Moji, aplicativo desktop Electron + React + TypeScript para abrir
 
 ### Main Process (`electron/`)
 
-- `main.ts`: janela (`BrowserWindow` 1000x760, min 640x480), single-instance lock com forward de argumentos de arquivo, handlers IPC, abertura via dialogo nativo, CLI (`process.argv`), evento `open-file` (macOS/Linux), drag-drop (via `webUtils.getPathForFile`) e menu de aplicacao (apenas no macOS; Windows e Linux ficam sem menu).
+- `main.ts`: janela (`BrowserWindow` 1000x760, min 640x480), single-instance lock com forward de argumentos de arquivo/pasta, handlers IPC, abertura via dialogo nativo, CLI (`process.argv`), evento `open-file` (macOS/Linux), drag-drop (via `webUtils.getPathForFile`) e menu de aplicacao (apenas no macOS; Windows e Linux ficam sem menu).
 - `preload.ts`: expoe API segura ao renderer via `contextBridge` com tipagem completa (`RendererApi`).
-- `shared.ts`: tipos e constantes compartilhados entre main, preload e renderer (tipos de resultado IPC, `Settings`, `ExportFormat`, `SUPPORTED_LANGUAGES`, `IPC` channels).
+- `shared.ts`: tipos e constantes compartilhados entre main, preload e renderer (tipos de resultado IPC, `Settings`, `ExportFormat`, workspace de pasta, busca em pasta, `SUPPORTED_LANGUAGES`, `IPC` channels).
 - `settings.ts`: persiste configuracoes do usuario em `settings.json` no `userData`; resolve idioma inicial a partir do locale do SO; aplica limites numericos (`boundedNumber`).
 - `export.ts`: exporta documento ativo como PDF (via `printToPDF` em `BrowserWindow` oculta), PNG (via `capturePage().toPNG()`) ou HTML (escrita direta). Suporta A4/Letter/Legal e portrait/landscape.
 - `updater.ts`: gerencia verificacao, download e instalacao de GitHub Releases com `electron-updater`; habilitado apenas em Windows NSIS empacotado e Linux AppImage.
 
 ### Renderer (`src/`)
 
-- `App.tsx`: estado principal (documentos, aba ativa, modo view/edit/search/export, tema Markdown, drag-drop, outline scroll-spy, contagem de palavras/linhas/tokens).
+- `App.tsx`: estado principal (documentos, aba ativa, workspace de pasta, busca em pasta, modo view/edit/search/export, tema Markdown, drag-drop, outline scroll-spy, contagem de palavras/linhas/tokens).
 - `src/components/`: 14 componentes React (`AboutDialog`, `ConfirmDialog`, `DocumentTabs`, `Editor`, `ExportDialog`, `icons`, `OutlineTree`, `Preview`, `SettingsButton`, `SettingsDialog`, `Sidebar`, `StatusBar`, `TopBar`, `Welcome`).
 - `src/lib/`: utilitarios (`exportHtml`, `markdown`, `outline`, `previewScroll`, `useDebounced`).
 - `src/locales/`: arquivos JSON de traducao para `en`, `pt-BR`, `es`, `ja`, `zh`, `ru`.
@@ -76,7 +76,10 @@ Projeto atual: Moji, aplicativo desktop Electron + React + TypeScript para abrir
 - Ao modificar `electron/shared.ts`, verificar consistencia com `electron/preload.ts` (API exposta) e handlers em `electron/main.ts`.
 - Configuracoes de usuario persistem via `electron/settings.ts` em JSON; adicionar novos campos com valores default e validacao de limites (`boundedNumber`).
 - Lista de arquivos recentes usa `settings.recentFiles`, limite `MAX_RECENT_FILES` em `electron/shared.ts`, e deve manter caminhos deduplicados em ordem mais-recente primeiro.
+- Lista de pastas recentes usa `settings.recentFolders`, limite `MAX_RECENT_FOLDERS` em `electron/shared.ts`, separada de arquivos recentes.
 - Dialogos nativos de abrir, salvar como e exportar usam `settings.lastDialogDirectory`; lembrar diretorio apos operacao concluida ou caminho escolhido.
+- Dialogo nativo de abrir pasta usa `openDirectory`, lembra a pasta escolhida em `settings.lastDialogDirectory` e popula workspace sem abrir todos os arquivos como abas.
+- Varredura de workspace deve aceitar apenas `.md` e `.markdown`, ignorar diretorios pesados (`.git`, `node_modules`, `dist`, `release`, `out`, etc.) e manter filesystem restrito ao main/preload IPC.
 - Guias Markdown em `samples/` abrem como documentos somente leitura; nao permitir edicao, salvar ou salvar como sobre recursos empacotados.
 - Novos documentos sem arquivo devem receber titulo localizado: o primeiro usa `app.untitled`; os seguintes usam o mesmo titulo com sequencia crescente.
 - Atalhos globais devem respeitar composicao de texto, prevenir comportamento padrao quando acionados e ter referencia localizada em Configuracoes.

@@ -23,6 +23,7 @@ const SHORTCUT_SECTIONS = [
     items: [
       { action: 'newDocument', keys: ['Ctrl', 'N'] },
       { action: 'open', keys: ['Ctrl', 'O'] },
+      { action: 'openFolder', keys: ['Ctrl', 'Shift', 'O'] },
       { action: 'save', keys: ['Ctrl', 'S'] },
       { action: 'saveAs', keys: ['Ctrl', 'Shift', 'S'] },
       { action: 'closeTab', keys: ['Ctrl', 'W'] },
@@ -42,6 +43,7 @@ const SHORTCUT_SECTIONS = [
     key: 'view',
     items: [
       { action: 'toggleEdit', keys: ['Ctrl', 'E'] },
+      { action: 'toggleOutline', keys: ['Ctrl', 'Shift', 'B'] },
       { action: 'export', keys: ['Ctrl', 'Shift', 'E'] },
       { action: 'settings', keys: ['Ctrl', ','] },
       { action: 'fullscreen', keys: ['F11'] },

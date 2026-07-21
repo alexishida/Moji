@@ -4,6 +4,13 @@ All notable changes to this project will be documented in this file.
 
 Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [Unreleased]
+
+### Added
+
+- Folder workspaces: open a folder, browse Markdown files from the sidebar, search across folder Markdown files, and open files into tabs on demand.
+- Persisted recent folders alongside recent files.
+
 ## [0.1.4] - 2026-07-13
 
 ### Added

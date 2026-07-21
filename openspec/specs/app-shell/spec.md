@@ -40,6 +40,25 @@ The system SHALL let users open a Markdown file from inside the app via a file d
 - **WHEN** the user attempts to open a file whose extension is not `.md` or `.markdown`
 - **THEN** the application shows a non-blocking notice and does not replace the current document
 
+### Requirement: Open Markdown folder workspace
+The system SHALL let users open a folder as a Markdown workspace without opening every file as a tab immediately.
+
+#### Scenario: Open folder via dialog
+- **WHEN** the user chooses Open Folder and selects a directory
+- **THEN** the sidebar shows Markdown files from that folder and no document tab is created until the user chooses a file
+
+#### Scenario: Open file from workspace
+- **WHEN** the user selects a Markdown file in the workspace sidebar
+- **THEN** that file opens in a document tab, or its existing tab is activated
+
+#### Scenario: Search workspace
+- **WHEN** the user searches from the workspace sidebar
+- **THEN** matching Markdown files show path, line, column, and excerpt results, and selecting a result opens the file
+
+#### Scenario: Drag and drop a folder
+- **WHEN** the user drags a folder onto the application window
+- **THEN** the folder opens as the active workspace instead of showing an unsupported-file notice
+
 ### Requirement: Native application menu
 The system SHALL provide a native application menu exposing core actions: Open, Save, Save As, Export, toggle Edit mode, and toggle Theme, each with a keyboard shortcut.
 
@@ -71,4 +90,3 @@ The system SHALL expose only typed update status, check, download, and install o
 #### Scenario: Renderer subscribes to update state
 - **WHEN** main process update state changes
 - **THEN** renderer receives serializable state through dedicated preload listener without access to native event object
-

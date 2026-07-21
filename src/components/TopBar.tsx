@@ -16,6 +16,7 @@ interface TopBarProps {
   theme: Theme
   onSetMode: (mode: 'view' | 'edit') => void
   onOpen: () => void
+  onOpenFolder: () => void
   onSave: () => void
   onNew: () => void
   onToggleTheme: () => void
@@ -140,6 +141,11 @@ export function TopBar(props: TopBarProps): JSX.Element {
             <button className="filegroup__btn" onClick={props.onOpen} title={t('toolbar.open')}>
               <IconOpen width={15} height={15} />
               {t('toolbar.open')}
+            </button>
+
+            <button className="filegroup__btn" onClick={props.onOpenFolder} title={t('toolbar.openFolder')}>
+              <IconOpen width={15} height={15} />
+              {t('toolbar.openFolder')}
             </button>
 
             <button
