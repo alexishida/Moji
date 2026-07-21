@@ -211,6 +211,12 @@ export const IconSearch = (p: IconProps): JSX.Element => (
   </svg>
 )
 
+export const IconCommand = (p: IconProps): JSX.Element => (
+  <svg {...base} {...p}>
+    <path d="M8 8H6a3 3 0 1 1 3-3v14a3 3 0 1 1-3-3h12a3 3 0 1 1-3 3V5a3 3 0 1 1 3 3Z" />
+  </svg>
+)
+
 /** Swap arrows looping — "replace all" in the replace popover. */
 export const IconReplaceAll = (p: IconProps): JSX.Element => (
   <svg {...base} {...p}>

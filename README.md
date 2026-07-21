@@ -40,6 +40,7 @@
 - **Outline navigation**: collapsible heading tree available in Preview and Editor modes. Preview uses scroll-spy; clicking any heading scrolls preview or moves editor cursor to its Markdown source.
 - **Search and replace**: top-bar search highlights matches in preview/editor, shows occurrence count, jumps to the next match, and replaces one match or all matches in the active document.
 - **Editor mode**: CodeMirror 6 Markdown editor with line numbers, history, wrapping, localized untitled document names, Markdown formatting shortcuts, and save/save as flows.
+- **Command Palette**: press `Ctrl+Shift+P` or `F1` to run file, search, view, export, tab, and Markdown editing commands by name.
 - **Export mode**: export the active document as HTML, PDF, or PNG. PDF supports A4, Letter, Legal, portrait, and landscape; long code lines wrap in PDF and PNG exports.
 - **Diagram exports**: rendered Mermaid diagrams are embedded as self-contained SVG in HTML, PDF, and PNG exports.
 - **Settings view**: centered in-workspace panel for language, preview typography, and a localized shortcut reference.

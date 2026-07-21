@@ -4,7 +4,7 @@ import { TopBar } from './components/TopBar'
 import { Sidebar } from './components/Sidebar'
 import { StatusBar } from './components/StatusBar'
 import { Preview } from './components/Preview'
-import { Editor } from './components/Editor'
+import { Editor, type MarkdownEditorCommand } from './components/Editor'
 import { Welcome } from './components/Welcome'
 import { DocumentTabs, type DocumentTabItem } from './components/DocumentTabs'
 import { ConfirmDialog, type ConfirmChoice } from './components/ConfirmDialog'
@@ -12,6 +12,7 @@ import { ExportDialog, type ExportDialogOptions } from './components/ExportDialo
 import { SettingsDialog } from './components/SettingsDialog'
 import { AboutDialog } from './components/AboutDialog'
 import { UpdateNotice } from './components/UpdateNotice'
+import { CommandPalette, type PaletteCommand } from './components/CommandPalette'
 import { documentAssetBaseUrl, renderMarkdown } from './lib/markdown'
 import { buildOutline } from './lib/outline'
 import { getActivePreviewHeadingId, scrollPreviewHeadingIntoView } from './lib/previewScroll'
@@ -19,7 +20,13 @@ import { useDebounced } from './lib/useDebounced'
 import { buildStandaloneHtml } from './lib/exportHtml'
 import { getExtraMermaidGuideExamples } from './lib/mermaidGuide'
 import { renderMermaidFlowcharts } from './lib/mermaid'
-import { MAX_RECENT_FILES, type ExportFormat, type Settings, type Theme, type UpdateState } from '../electron/shared'
+import {
+  MAX_RECENT_FILES,
+  type ExportFormat,
+  type Settings,
+  type Theme,
+  type UpdateState
+} from '../electron/shared'
 import packageJson from '../package.json'
 
 const MIN_PREVIEW_FONT_SIZE = 12
@@ -158,6 +165,10 @@ export function App(): JSX.Element {
   const [dismissedUpdate, setDismissedUpdate] = useState<string | null>(null)
   const [activeHeadingId, setActiveHeadingId] = useState<string | null>(null)
   const [editorHeadingRequest, setEditorHeadingRequest] = useState<{ id: string; request: number } | null>(null)
+  const [editorCommandRequest, setEditorCommandRequest] = useState<{
+    command: MarkdownEditorCommand
+    request: number
+  } | null>(null)
 
   const [dialogOpen, setDialogOpen] = useState(false)
   const [exportDialogFormat, setExportDialogFormat] = useState<ExportFormat | null>(null)
@@ -167,6 +178,7 @@ export function App(): JSX.Element {
   const [searchFocusRequest, setSearchFocusRequest] = useState(0)
   const [replaceFocusRequest, setReplaceFocusRequest] = useState(0)
   const [topBarDismissRequest, setTopBarDismissRequest] = useState(0)
+  const [commandPaletteOpen, setCommandPaletteOpen] = useState(false)
   const dialogResolver = useRef<((c: ConfirmChoice) => void) | null>(null)
   const nextDocSeq = useRef(1)
 
@@ -883,6 +895,16 @@ export function App(): JSX.Element {
     setReplaceFocusRequest((value) => value + 1)
   }, [])
 
+  const runEditorCommand = useCallback((command: MarkdownEditorCommand) => {
+    const doc = stateRef.current.activeDoc
+    if (!doc || doc.readOnly || stateRef.current.exportDialogOpen) return
+    setExportDialogFormat(null)
+    setSettingsOpen(false)
+    setAboutOpen(false)
+    setMode('edit')
+    setEditorCommandRequest((previous) => ({ command, request: (previous?.request ?? 0) + 1 }))
+  }, [])
+
   const selectAdjacentDocument = useCallback((direction: 1 | -1) => {
     const docs = stateRef.current.documents
     const activeId = stateRef.current.activeDocId
@@ -934,6 +956,173 @@ export function App(): JSX.Element {
     void document.documentElement.requestFullscreen()
   }, [])
 
+  const openCommandPalette = useCallback(() => {
+    setCommandPaletteOpen(true)
+    setExportDialogFormat(null)
+    setSettingsOpen(false)
+    setAboutOpen(false)
+  }, [])
+
+  const commands = useMemo<PaletteCommand[]>(() => {
+    const editableDoc = Boolean(activeDoc && !activeDoc.readOnly)
+    return [
+      { id: 'file.new', label: t('commands.newDocument'), shortcut: 'Ctrl+N', run: doNew },
+      { id: 'file.open', label: t('commands.openFile'), shortcut: 'Ctrl+O', run: () => void doOpen() },
+      {
+        id: 'file.save',
+        label: t('commands.save'),
+        shortcut: 'Ctrl+S',
+        disabled: !editableDoc,
+        run: () => void doSave()
+      },
+      {
+        id: 'file.saveAs',
+        label: t('commands.saveAs'),
+        shortcut: 'Ctrl+Shift+S',
+        disabled: !editableDoc,
+        run: () => {
+          const id = stateRef.current.activeDocId
+          if (id) void saveDocumentAs(id)
+        }
+      },
+      {
+        id: 'file.closeTab',
+        label: t('commands.closeTab'),
+        shortcut: 'Ctrl+W',
+        disabled: !activeDocId,
+        run: () => {
+          const id = stateRef.current.activeDocId
+          if (id) void closeDocument(id)
+        }
+      },
+      { id: 'search.find', label: t('commands.search'), shortcut: 'Ctrl+F', disabled: !hasDoc, run: focusSearch },
+      { id: 'search.replace', label: t('commands.replace'), shortcut: 'Ctrl+H', disabled: !editableDoc, run: focusReplace },
+      { id: 'search.next', label: t('commands.findNext'), shortcut: 'F3', disabled: !hasDoc, run: doFindNext },
+      {
+        id: 'search.previous',
+        label: t('commands.findPrevious'),
+        shortcut: 'Shift+F3',
+        disabled: !hasDoc,
+        run: doFindPrevious
+      },
+      { id: 'view.toggleEdit', label: t('commands.toggleEdit'), shortcut: 'Ctrl+E', disabled: !hasDoc, run: toggleMode },
+      {
+        id: 'view.toggleOutline',
+        label: t('commands.toggleOutline'),
+        shortcut: 'Ctrl+Shift+B',
+        disabled: !canToggleOutline(),
+        run: toggleOutline
+      },
+      {
+        id: 'view.export',
+        label: t('commands.exportPdf'),
+        shortcut: 'Ctrl+Shift+E',
+        disabled: !hasDoc,
+        run: () => openExportDialog('pdf')
+      },
+      { id: 'view.settings', label: t('commands.settings'), shortcut: 'Ctrl+,', run: openSettings },
+      { id: 'view.fullscreen', label: t('commands.fullscreen'), shortcut: 'F11', run: toggleFullscreen },
+      {
+        id: 'editor.bold',
+        label: t('commands.bold'),
+        shortcut: 'Ctrl+B',
+        disabled: !editableDoc,
+        run: () => runEditorCommand('bold')
+      },
+      {
+        id: 'editor.italic',
+        label: t('commands.italic'),
+        shortcut: 'Ctrl+I',
+        disabled: !editableDoc,
+        run: () => runEditorCommand('italic')
+      },
+      {
+        id: 'editor.inlineCode',
+        label: t('commands.inlineCode'),
+        shortcut: 'Ctrl+Alt+C',
+        disabled: !editableDoc,
+        run: () => runEditorCommand('inlineCode')
+      },
+      {
+        id: 'editor.link',
+        label: t('commands.link'),
+        shortcut: 'Ctrl+K',
+        disabled: !editableDoc,
+        run: () => runEditorCommand('link')
+      },
+      {
+        id: 'editor.list',
+        label: t('commands.list'),
+        shortcut: 'Ctrl+L',
+        disabled: !editableDoc,
+        run: () => runEditorCommand('list')
+      },
+      {
+        id: 'editor.checklist',
+        label: t('commands.checklist'),
+        shortcut: 'Ctrl+Shift+L',
+        disabled: !editableDoc,
+        run: () => runEditorCommand('checklist')
+      },
+      {
+        id: 'editor.blockquote',
+        label: t('commands.blockquote'),
+        shortcut: 'Ctrl+Alt+Q',
+        disabled: !editableDoc,
+        run: () => runEditorCommand('blockquote')
+      },
+      {
+        id: 'editor.codeBlock',
+        label: t('commands.codeBlock'),
+        shortcut: 'Ctrl+Shift+K',
+        disabled: !editableDoc,
+        run: () => runEditorCommand('codeBlock')
+      },
+      {
+        id: 'editor.heading1',
+        label: t('commands.heading1'),
+        shortcut: 'Ctrl+Alt+1',
+        disabled: !editableDoc,
+        run: () => runEditorCommand('heading1')
+      },
+      {
+        id: 'editor.heading2',
+        label: t('commands.heading2'),
+        shortcut: 'Ctrl+Alt+2',
+        disabled: !editableDoc,
+        run: () => runEditorCommand('heading2')
+      },
+      {
+        id: 'editor.heading3',
+        label: t('commands.heading3'),
+        shortcut: 'Ctrl+Alt+3',
+        disabled: !editableDoc,
+        run: () => runEditorCommand('heading3')
+      }
+    ]
+  }, [
+    activeDoc,
+    activeDocId,
+    canToggleOutline,
+    closeDocument,
+    doFindNext,
+    doFindPrevious,
+    doNew,
+    doOpen,
+    doSave,
+    focusReplace,
+    focusSearch,
+    hasDoc,
+    openExportDialog,
+    openSettings,
+    runEditorCommand,
+    saveDocumentAs,
+    t,
+    toggleFullscreen,
+    toggleMode,
+    toggleOutline
+  ])
+
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent): void => {
       if (event.isComposing || dialogOpen) return
@@ -941,6 +1130,14 @@ export function App(): JSX.Element {
       const key = event.key.toLowerCase()
       const primary = event.ctrlKey || event.metaKey
       const onlyPrimary = primary && !event.altKey
+
+      if (event.key === 'F1' || (onlyPrimary && event.shiftKey && key === 'p')) {
+        event.preventDefault()
+        openCommandPalette()
+        return
+      }
+
+      if (commandPaletteOpen) return
 
       if (event.key === 'Escape') {
         closeActivePanel()
@@ -1004,6 +1201,11 @@ export function App(): JSX.Element {
         focusReplace()
         return
       }
+      if (key === 'b' && event.shiftKey) {
+        event.preventDefault()
+        toggleOutline()
+        return
+      }
       if (key === 'e' && event.shiftKey) {
         event.preventDefault()
         openExportDialog('pdf')
@@ -1046,6 +1248,7 @@ export function App(): JSX.Element {
     changePreviewFontSize,
     closeActivePanel,
     closeDocument,
+    commandPaletteOpen,
     dialogOpen,
     doFindNext,
     doFindPrevious,
@@ -1055,6 +1258,7 @@ export function App(): JSX.Element {
     focusReplace,
     focusSearch,
     openExportDialog,
+    openCommandPalette,
     openSettings,
     saveDocument,
     saveDocumentAs,
@@ -1062,7 +1266,8 @@ export function App(): JSX.Element {
     settings.previewFontSize,
     t,
     toggleFullscreen,
-    toggleMode
+    toggleMode,
+    toggleOutline
   ])
 
   // --- Wire main-process requests + pushed documents --------------------
@@ -1152,6 +1357,7 @@ export function App(): JSX.Element {
         onExport={openExportDialog}
         onOpenSettings={toggleSettings}
         onOpenAbout={toggleAbout}
+        onOpenCommandPalette={openCommandPalette}
         searchFocusRequest={searchFocusRequest}
         replaceFocusRequest={replaceFocusRequest}
         dismissRequest={topBarDismissRequest}
@@ -1224,6 +1430,7 @@ export function App(): JSX.Element {
                 activeSearchIndex={activeSearchIndex}
                 highlightActive={replaceActive}
                 headingToReveal={editorHeadingRequest}
+                commandRequest={editorCommandRequest}
                 onChange={updateActiveContent}
               />
             ) : (
@@ -1252,6 +1459,7 @@ export function App(): JSX.Element {
         />
       )}
       {notice && <div className={`notice ${notice.error ? 'notice--error' : ''}`}>{notice.text}</div>}
+      <CommandPalette open={commandPaletteOpen} commands={commands} onClose={() => setCommandPaletteOpen(false)} />
       {dialogOpen && <ConfirmDialog onChoice={onDialogChoice} />}
     </div>
   )

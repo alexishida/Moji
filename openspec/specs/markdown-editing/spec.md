@@ -47,3 +47,17 @@ The system SHALL save the current document back to its file, and SHALL support s
 - **WHEN** the user invokes Save on a document with no file path yet
 - **THEN** the application prompts for a destination path before writing
 
+### Requirement: Markdown editing commands
+The system SHALL provide Markdown formatting commands through editor shortcuts and the command palette.
+
+#### Scenario: Apply inline formatting
+- **WHEN** the user runs Bold, Italic, Inline Code, or Insert Link with editable text selected
+- **THEN** the editor wraps or replaces the selection with the corresponding Markdown syntax and preserves focus
+
+#### Scenario: Apply line formatting
+- **WHEN** the user runs List, Checklist, Blockquote, Heading 1, Heading 2, Heading 3, or Code Block in an editable document
+- **THEN** the editor inserts or toggles the corresponding Markdown syntax at the current selection
+
+#### Scenario: Block read-only formatting
+- **WHEN** the active document is read-only
+- **THEN** Markdown formatting commands from the command palette are disabled

@@ -1111,6 +1111,121 @@ body {
   pointer-events: none;
 }
 
+/* --- Command palette ----------------------------------------------------- */
+.command-palette-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding-top: min(14vh, 96px);
+  background: rgba(0, 0, 0, 0.38);
+}
+
+.command-palette {
+  width: min(620px, calc(100vw - 32px));
+  max-height: min(560px, calc(100vh - 96px));
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  color: var(--text);
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+}
+
+.command-palette__search {
+  display: grid;
+  grid-template-columns: 20px minmax(0, 1fr) 30px;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  border-bottom: 1px solid var(--border);
+}
+
+.command-palette__search svg {
+  color: var(--text-muted);
+}
+
+.command-palette__input {
+  width: 100%;
+  height: 34px;
+  padding: 0;
+  font-family: inherit;
+  font-size: 14px;
+  color: var(--text);
+  background: none;
+  border: none;
+  outline: none;
+}
+
+.command-palette__input::placeholder {
+  color: var(--text-muted);
+}
+
+.command-palette__close {
+  width: 30px;
+  height: 30px;
+}
+
+.command-palette__list {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+  padding: var(--space-1);
+}
+
+.command-palette__item {
+  width: 100%;
+  min-height: 34px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--space-3);
+  padding: 0 var(--space-3);
+  font-family: inherit;
+  font-size: 13px;
+  color: var(--text);
+  text-align: left;
+  background: none;
+  border: none;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+
+.command-palette__item--active:not(:disabled),
+.command-palette__item:hover:not(:disabled) {
+  background: var(--nav-hover-bg);
+}
+
+.command-palette__item:disabled {
+  color: var(--text-muted);
+  cursor: default;
+  opacity: 0.5;
+}
+
+.command-palette__label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.command-palette__shortcut {
+  color: var(--text-muted);
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.command-palette__empty {
+  margin: 0;
+  padding: var(--space-4);
+  font-size: 13px;
+  color: var(--text-muted);
+  text-align: center;
+}
+
 /* --- Notice / toast ------------------------------------------------------ */
 .notice {
   position: fixed;
