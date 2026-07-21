@@ -656,6 +656,23 @@ export function App(): JSX.Element {
     [addDocuments, flash, rememberRecent, t]
   )
 
+  const openLocalPath = useCallback(
+    async (path: string) => {
+      const res = await window.api.openLocalPath(path)
+      if (res.ok && res.type === 'file') {
+        addDocuments([{ path: res.document.path, content: res.document.content }])
+        rememberRecent([res.document.path])
+      } else if (res.ok && res.type === 'folder') {
+        openWorkspace(res.folder)
+      } else if (!res.ok && res.error === 'unsupported') {
+        flash(t('notice.unsupported'), true)
+      } else if (!res.ok) {
+        flash(t('notice.openFailed', { error: res.error }), true)
+      }
+    },
+    [addDocuments, flash, openWorkspace, rememberRecent, t]
+  )
+
   const openExportDialog = useCallback(
     (format: ExportFormat = 'pdf') => {
       const s = stateRef.current
@@ -1580,6 +1597,8 @@ export function App(): JSX.Element {
                 mdTheme={mdTheme}
                 searchTerm={searchTerm}
                 settings={settings}
+                documentPath={activeDoc?.path}
+                onOpenLocalPath={(path) => void openLocalPath(path)}
               />
             )}
           </div>

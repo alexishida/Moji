@@ -2,6 +2,7 @@ import { app, BrowserWindow, dialog, ipcMain, Menu, shell } from 'electron'
 import { readFile, readdir, stat, writeFile } from 'node:fs/promises'
 import { existsSync, statSync } from 'node:fs'
 import { basename, dirname, extname, isAbsolute, join, relative, resolve, sep } from 'node:path'
+import { fileURLToPath, pathToFileURL } from 'node:url'
 import {
   IPC,
   MARKDOWN_EXTENSIONS,
@@ -10,6 +11,7 @@ import {
   type ImageDataResult,
   type Language,
   type OpenFolderResult,
+  type OpenLocalPathResult,
   type OpenManyResult,
   type OpenPathResult,
   type OpenResult,
@@ -72,6 +74,7 @@ const SAMPLE_FILES = new Set([
   'markdown-guide.zh.md',
   'markdown-guide.ru.md',
 ])
+const EXTERNAL_URL_PROTOCOLS = new Set(['http:', 'https:', 'mailto:', 'tel:'])
 
 function asString(value: unknown): string | null {
   return typeof value === 'string' ? value : null
@@ -284,6 +287,60 @@ async function readPathAsDocumentOrFolder(path: unknown): Promise<OpenPathResult
     : result
 }
 
+async function openLocalPath(filePath: unknown): Promise<OpenLocalPathResult> {
+  if (typeof filePath !== 'string' || !isAbsolute(filePath)) return { ok: false, error: 'unsupported' }
+
+  try {
+    const fileStat = await stat(filePath)
+    if (fileStat.isDirectory()) {
+      const result = await readWorkspaceFolder(filePath)
+      return result.ok ? { ok: true, type: 'folder', folder: result.folder } : result
+    }
+    if (!fileStat.isFile()) return { ok: false, error: 'unsupported' }
+
+    if (isMarkdown(filePath)) {
+      const result = await readDocument(filePath)
+      return result.ok ? { ok: true, type: 'file', document: { path: result.path, content: result.content } } : result
+    }
+
+    const error = await shell.openPath(filePath)
+    return error ? { ok: false, error } : { ok: true, type: 'external', path: filePath }
+  } catch (err) {
+    return { ok: false, error: (err as Error).message }
+  }
+}
+
+function sendOpenLocalPathResult(result: OpenLocalPathResult): void {
+  if (!mainWindow || !result.ok) return
+  if (result.type === 'file') mainWindow.webContents.send(IPC.openDocument, result.document)
+  if (result.type === 'folder') mainWindow.webContents.send(IPC.openWorkspace, result.folder)
+}
+
+async function openLocalFileUrl(fileUrl: string): Promise<void> {
+  try {
+    sendOpenLocalPathResult(await openLocalPath(fileURLToPath(fileUrl)))
+  } catch {
+    /* Ignore invalid file URLs blocked from navigation. */
+  }
+}
+
+function openExternalUrl(url: string): boolean {
+  try {
+    if (!EXTERNAL_URL_PROTOCOLS.has(new URL(url).protocol)) return false
+    void shell.openExternal(url)
+    return true
+  } catch {
+    return false
+  }
+}
+
+function isAppNavigationUrl(url: string): boolean {
+  const devUrl = process.env['ELECTRON_RENDERER_URL']
+  if (devUrl) return url.startsWith(devUrl)
+  const rendererUrl = pathToFileURL(join(__dirname, '../renderer/index.html')).toString()
+  return url === rendererUrl || url.startsWith(`${rendererUrl}#`)
+}
+
 function parseWorkspaceSearchRequest(value: unknown): WorkspaceSearchRequest | null {
   if (!value || typeof value !== 'object') return null
   const raw = value as Record<string, unknown>
@@ -480,17 +537,16 @@ function createWindow(): void {
     }
   })
 
-  // Open external links in the OS browser, never in-app.
+  // Open links outside Chromium navigation so document state never gets replaced.
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
-    if (url.startsWith('http:') || url.startsWith('https:')) void shell.openExternal(url)
+    if (!openExternalUrl(url) && url.startsWith('file:')) void openLocalFileUrl(url)
     return { action: 'deny' }
   })
 
   mainWindow.webContents.on('will-navigate', (event, url) => {
-    const devUrl = process.env['ELECTRON_RENDERER_URL']
-    if ((devUrl && url.startsWith(devUrl)) || (!devUrl && url.startsWith('file://'))) return
+    if (isAppNavigationUrl(url)) return
     event.preventDefault()
-    if (url.startsWith('http:') || url.startsWith('https:')) void shell.openExternal(url)
+    if (!openExternalUrl(url) && url.startsWith('file:')) void openLocalFileUrl(url)
   })
 
   // Close guard: ask the renderer before closing when there are unsaved edits.
@@ -566,6 +622,8 @@ function registerIpc(): void {
   })
 
   ipcMain.handle(IPC.openPath, (_e, path: unknown): Promise<OpenPathResult> => readPathAsDocumentOrFolder(path))
+
+  ipcMain.handle(IPC.openLocalPath, (_e, path: unknown): Promise<OpenLocalPathResult> => openLocalPath(path))
 
   ipcMain.handle(IPC.readPath, (_e, filePath: unknown): Promise<OpenResult> => readDocument(filePath))
 

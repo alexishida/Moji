@@ -65,6 +65,7 @@ Projeto atual: Moji, aplicativo desktop Electron + React + TypeScript para abrir
 - Manter `nodeIntegration: false`, `contextIsolation: true` e `sandbox: true` no renderer.
 - Sanitizar HTML renderizado antes de usar `dangerouslySetInnerHTML`.
 - Abrir links externos no navegador do sistema (`shell.openExternal`), nao dentro do app.
+- Links locais no preview Markdown devem ser interceptados no renderer e roteados por IPC seguro: Markdown abre em aba, pasta abre workspace e outros arquivos locais usam `shell.openPath`.
 - Tratar arquivos suportados como `.md` e `.markdown`.
 - Proteger fechamento de documento/app quando houver alteracoes nao salvas (fluxo `requestClose` -> `confirmClose` -> `forceQuit`).
 - Distinguir fechar janela de encerrar app: no macOS a janela fechada nao encerra o processo. Toda saida (Cmd+Q, Quit do Dock, `before-quit`) passa por `requestQuit` -> guarda de nao salvos -> `app.quit()`.

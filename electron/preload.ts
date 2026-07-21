@@ -6,6 +6,7 @@ import {
   type ExportRequest,
   type ImageDataResult,
   type OpenFolderResult,
+  type OpenLocalPathResult,
   type OpenManyResult,
   type OpenPathResult,
   type OpenResult,
@@ -24,6 +25,7 @@ const api = {
   openDialog: (): Promise<OpenManyResult> => ipcRenderer.invoke(IPC.openDialog),
   openFolderDialog: (): Promise<OpenFolderResult> => ipcRenderer.invoke(IPC.openFolderDialog),
   openPath: (path: string): Promise<OpenPathResult> => ipcRenderer.invoke(IPC.openPath, path),
+  openLocalPath: (path: string): Promise<OpenLocalPathResult> => ipcRenderer.invoke(IPC.openLocalPath, path),
   readPath: (filePath: string): Promise<OpenResult> => ipcRenderer.invoke(IPC.readPath, filePath),
   readWorkspaceFile: (filePath: string): Promise<OpenResult> => ipcRenderer.invoke(IPC.readWorkspaceFile, filePath),
   searchWorkspace: (request: WorkspaceSearchRequest): Promise<WorkspaceSearchResult> =>

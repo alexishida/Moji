@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, expect, it } from 'vitest'
-import { documentAssetBaseUrl, findMarkdownHeadingLine, renderMarkdown } from './markdown'
+import { documentAssetBaseUrl, findMarkdownHeadingLine, localPathFromPreviewHref, renderMarkdown } from './markdown'
 
 describe('documentAssetBaseUrl', () => {
   it('converts Windows paths to an encoded file URL', () => {
@@ -64,6 +64,35 @@ describe('renderMarkdown', () => {
 
     expect(html).toContain('<pre class="hljs mermaid-diagram-candidate">')
     expect(html).toContain('<code>flowchart TD')
+  })
+})
+
+describe('localPathFromPreviewHref', () => {
+  it('resolves relative links against the active document path', () => {
+    expect(localPathFromPreviewHref('docs/next%20file.md', '/home/me/notes/index.md')).toBe(
+      '/home/me/notes/docs/next file.md'
+    )
+  })
+
+  it('resolves file URLs to local paths', () => {
+    expect(localPathFromPreviewHref('file:///home/me/notes/next%20file.md', null)).toBe(
+      '/home/me/notes/next file.md'
+    )
+  })
+
+  it('keeps absolute local paths and ignores heading fragments', () => {
+    expect(localPathFromPreviewHref('/home/me/notes/next%20file.md#intro', null)).toBe(
+      '/home/me/notes/next file.md'
+    )
+  })
+
+  it('ignores in-document anchors and external URLs', () => {
+    expect(localPathFromPreviewHref('#intro', '/home/me/notes/index.md')).toBeNull()
+    expect(localPathFromPreviewHref('https://example.com/docs.md', '/home/me/notes/index.md')).toBeNull()
+  })
+
+  it('does not resolve relative links when no document path is available', () => {
+    expect(localPathFromPreviewHref('docs/next.md', null)).toBeNull()
   })
 })
 

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState, type MouseEvent } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { Settings, Theme } from '../../electron/shared'
+import { localPathFromPreviewHref } from '../lib/markdown'
 import { scrollPreviewHeadingIntoView } from '../lib/previewScroll'
 import { renderMermaidFlowcharts } from '../lib/mermaid'
 import { MermaidDiagramDialog, type DiagramContent } from './MermaidDiagramDialog'
@@ -11,7 +12,9 @@ interface PreviewProps {
   mdTheme: Theme
   searchTerm: string
   settings: Settings
+  documentPath?: string | null
   className?: string
+  onOpenLocalPath?: (path: string) => void
 }
 
 interface ActiveDiagram {
@@ -47,7 +50,16 @@ function graphicContent(graphic: PreviewGraphic): DiagramContent {
 }
 
 /** Renders sanitized Markdown HTML and resolves in-document heading anchors. */
-export function Preview({ html, documentName, mdTheme, searchTerm, settings, className }: PreviewProps): JSX.Element {
+export function Preview({
+  html,
+  documentName,
+  mdTheme,
+  searchTerm,
+  settings,
+  documentPath,
+  className,
+  onOpenLocalPath
+}: PreviewProps): JSX.Element {
   const { t } = useTranslation()
   const bodyRef = useRef<HTMLDivElement>(null)
   const [renderedHtml, setRenderedHtml] = useState(html)
@@ -116,10 +128,17 @@ export function Preview({ html, documentName, mdTheme, searchTerm, settings, cla
       const target =
         bodyRef.current?.querySelector(`#${CSS.escape(id)}`) ?? document.getElementById(id)
       if (target instanceof HTMLElement) scrollPreviewHeadingIntoView(target)
+      return
+    }
+
+    const localPath = localPathFromPreviewHref(href, documentPath)
+    if (localPath) {
+      e.preventDefault()
+      onOpenLocalPath?.(localPath)
     }
     // External http(s) links carry target="_blank"; the main process opens them
     // in the OS browser via the window-open handler.
-  }, [openDiagramAt, t])
+  }, [documentPath, onOpenLocalPath, openDiagramAt, t])
 
   useEffect(() => {
     if (!bodyRef.current) return
