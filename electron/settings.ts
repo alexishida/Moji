@@ -1,7 +1,16 @@
 import { app } from 'electron'
 import { readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { DEFAULT_LANGUAGE, MAX_RECENT_FILES, SUPPORTED_LANGUAGES, type Language, type Settings, type WindowBounds } from './shared'
+import {
+  DEFAULT_LANGUAGE,
+  MAX_RECENT_FILES,
+  PREVIEW_WIDTH_DEFAULT,
+  SUPPORTED_LANGUAGES,
+  normalizePreviewWidth,
+  type Language,
+  type Settings,
+  type WindowBounds
+} from './shared'
 
 let cache: Settings | null = null
 
@@ -28,6 +37,7 @@ function defaults(): Settings {
     previewFontSize: 16,
     previewLineHeight: 1.7,
     previewFluidWidth: false,
+    previewWidth: PREVIEW_WIDTH_DEFAULT,
     recentFiles: []
   }
 }
@@ -81,6 +91,7 @@ export function getSettings(): Settings {
       previewFontSize: base.previewFontSize,
       previewLineHeight: boundedNumber(raw.previewLineHeight, base.previewLineHeight, 1.2, 2.4),
       previewFluidWidth: base.previewFluidWidth,
+      previewWidth: normalizePreviewWidth(raw.previewWidth, base.previewWidth),
       recentFiles: sanitizeRecentFiles(raw.recentFiles),
       lastDialogDirectory: typeof raw.lastDialogDirectory === 'string' ? raw.lastDialogDirectory : undefined,
       windowBounds: sanitizeWindowBounds(raw.windowBounds)
@@ -101,6 +112,7 @@ export function updateSettings(patch: Partial<Settings>): Settings {
     previewFontSize: boundedNumber(merged.previewFontSize, 16, 12, 24),
     previewLineHeight: boundedNumber(merged.previewLineHeight, 1.7, 1.2, 2.4),
     previewFluidWidth: typeof merged.previewFluidWidth === 'boolean' ? merged.previewFluidWidth : false,
+    previewWidth: normalizePreviewWidth(merged.previewWidth),
     recentFiles: sanitizeRecentFiles(merged.recentFiles),
     lastDialogDirectory: typeof merged.lastDialogDirectory === 'string' ? merged.lastDialogDirectory : undefined,
     windowBounds: sanitizeWindowBounds(merged.windowBounds)

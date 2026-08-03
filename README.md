@@ -42,11 +42,11 @@
 - **Editor mode**: CodeMirror 6 Markdown editor with line numbers, history, wrapping, localized untitled document names, Markdown formatting shortcuts, and save/save as flows.
 - **Export mode**: export the active document as HTML, PDF, or PNG. PDF supports A4, Letter, Legal, portrait, and landscape; long code lines wrap in PDF and PNG exports.
 - **Diagram exports**: rendered Mermaid diagrams are embedded as self-contained SVG in HTML, PDF, and PNG exports.
-- **Settings view**: centered in-workspace panel for language, preview typography, and a localized shortcut reference.
+- **Settings view**: centered in-workspace panel for language, preview typography, reading width, and a localized shortcut reference.
 - **About view**: in-workspace panel showing app name, version (from `package.json`), author, repository link, and the story behind the name.
 - **Markdown guide**: bundled localized reference documents (`samples/markdown-guide.<locale>.md`) opened from the status bar.
 - **Recent files**: Welcome screen shows recently opened Markdown files and lets you reopen or remove entries.
-- **Remembered app state**: window size/position, recent files, last used folder, language, preview typography, and Markdown preview theme are persisted in user settings.
+- **Remembered app state**: window size/position, recent files, last used folder, language, preview typography, reading width, and Markdown preview theme are persisted in user settings.
 - **Automatic updates**: installed Windows NSIS and Linux AppImage builds check GitHub Releases, show download progress, and restart only after protecting unsaved documents.
 - **Markdown themes**: dark/light toggle for rendered Markdown. App chrome remains dark; exports always use the light theme.
 - **Internationalization**: English, Portuguese (Brazil), Spanish, Japanese, Chinese, and Russian. Initial language follows the OS when possible and user choice is persisted.

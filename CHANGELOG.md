@@ -4,6 +4,16 @@ All notable changes to this project will be documented in this file.
 
 Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [Unreleased]
+
+### Added
+
+- Configurable reading width: Settings > Preview offers a reading-width percentage (20%–100%, in 5% steps) applied to every document and persisted across launches, with a readable minimum on narrow windows.
+
+### Changed
+
+- The top-bar width toggle now switches between the configured reading width and the full available width for the current session, instead of the previous fixed 760px column versus full width. The default reading width is 40%.
+
 ## [0.1.4] - 2026-07-13
 
 ### Added
