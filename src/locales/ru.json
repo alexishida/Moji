@@ -55,8 +55,8 @@
     "decreaseFontSize": "Уменьшить размер шрифта",
     "increaseFontSize": "Увеличить размер шрифта",
     "resetFontSize": "По умолчанию",
-    "useFixedWidth": "Использовать фиксированную ширину",
-    "useFluidWidth": "Использовать гибкую ширину",
+    "useFixedWidth": "Использовать настроенную ширину",
+    "useFluidWidth": "Использовать полную ширину",
     "showOutline": "Показать оглавление",
     "hideOutline": "Скрыть оглавление",
     "settings": "Настройки",
@@ -166,6 +166,7 @@
     "fontFamily": "Шрифт",
     "fontSize": "Размер шрифта",
     "lineHeight": "Межстрочный интервал",
+    "width": "Ширина чтения",
     "shortcutSections": {
       "file": "Файл",
       "search": "Поиск",

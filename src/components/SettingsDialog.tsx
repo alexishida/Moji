@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { LANGUAGES } from '../i18n'
 import { IconSettings, IconX } from './icons'
-import type { Language, Settings } from '../../electron/shared'
+import { PREVIEW_WIDTH_MAX, PREVIEW_WIDTH_MIN, PREVIEW_WIDTH_STEP, type Language, type Settings } from '../../electron/shared'
 
 interface SettingsDialogProps {
   settings: Settings
@@ -16,6 +16,11 @@ const FONT_FAMILIES = [
   { value: 'serif', label: 'serif' },
   { value: 'monospace', label: 'monospace' }
 ]
+
+const PREVIEW_WIDTHS = Array.from(
+  { length: (PREVIEW_WIDTH_MAX - PREVIEW_WIDTH_MIN) / PREVIEW_WIDTH_STEP + 1 },
+  (_, i) => PREVIEW_WIDTH_MIN + i * PREVIEW_WIDTH_STEP
+)
 
 const SHORTCUT_SECTIONS = [
   {
@@ -190,6 +195,21 @@ export function SettingsDialog({ settings, onClose, onChange }: SettingsDialogPr
                     }
                   }}
                 />
+              </label>
+
+              <label className="settings-field">
+                <span className="settings-field__label">{t('settingsDialog.width')}</span>
+                <select
+                  className="select settings-field__control"
+                  value={settings.previewWidth}
+                  onChange={(e) => onChange({ previewWidth: Number(e.target.value) })}
+                >
+                  {PREVIEW_WIDTHS.map((width) => (
+                    <option key={width} value={width}>
+                      {width}%
+                    </option>
+                  ))}
+                </select>
               </label>
             </div>
           </section>

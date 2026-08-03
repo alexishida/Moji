@@ -139,6 +139,7 @@ export function App(): JSX.Element {
     previewFontSize: 16,
     previewLineHeight: 1.7,
     previewFluidWidth: false,
+    previewWidth: 40,
     recentFiles: []
   })
   const [documents, setDocuments] = useState<DocumentState[]>([])
