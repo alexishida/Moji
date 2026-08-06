@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState, type MouseEvent } from 'react'
+import { useCallback, useEffect, useRef, useState, type CSSProperties, type MouseEvent } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { Settings, Theme } from '../../electron/shared'
 import { scrollPreviewHeadingIntoView } from '../lib/previewScroll'
@@ -261,8 +261,9 @@ export function Preview({ html, documentName, mdTheme, searchTerm, settings, cla
         style={{
           fontFamily: settings.previewFontFamily,
           fontSize: `${settings.previewFontSize}px`,
-          lineHeight: settings.previewLineHeight
-        }}
+          lineHeight: settings.previewLineHeight,
+          '--reading-width': `${settings.previewWidth}%`
+        } as CSSProperties}
         onClick={handleClick}
         dangerouslySetInnerHTML={{ __html: renderedHtml }}
       />

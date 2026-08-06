@@ -55,8 +55,8 @@
     "decreaseFontSize": "Reducir tamaño de fuente",
     "increaseFontSize": "Aumentar tamaño de fuente",
     "resetFontSize": "Predeterminado",
-    "useFixedWidth": "Usar ancho fijo de lectura",
-    "useFluidWidth": "Usar ancho fluido de lectura",
+    "useFixedWidth": "Usar ancho de lectura configurado",
+    "useFluidWidth": "Usar ancho total de lectura",
     "showOutline": "Mostrar índice",
     "hideOutline": "Ocultar índice",
     "settings": "Ajustes",
@@ -166,6 +166,7 @@
     "fontFamily": "Fuente",
     "fontSize": "Tamaño de fuente",
     "lineHeight": "Altura de línea",
+    "width": "Ancho de lectura",
     "shortcutSections": {
       "file": "Archivo",
       "search": "Búsqueda",

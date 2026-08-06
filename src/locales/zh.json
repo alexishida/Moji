@@ -55,8 +55,8 @@
     "decreaseFontSize": "减小字体",
     "increaseFontSize": "增大字体",
     "resetFontSize": "默认",
-    "useFixedWidth": "使用固定阅读宽度",
-    "useFluidWidth": "使用流式阅读宽度",
+    "useFixedWidth": "使用自定义阅读宽度",
+    "useFluidWidth": "使用全宽阅读宽度",
     "showOutline": "显示大纲",
     "hideOutline": "隐藏大纲",
     "settings": "设置",
@@ -166,6 +166,7 @@
     "fontFamily": "字体",
     "fontSize": "字号",
     "lineHeight": "行高",
+    "width": "阅读宽度",
     "shortcutSections": {
       "file": "文件",
       "search": "搜索",
