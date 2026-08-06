@@ -10,17 +10,22 @@ The system SHALL present a clean, minimal, distraction-free interface: generous 
 - **WHEN** a document is displayed in view mode
 - **THEN** the content is shown in a centered, readable column with consistent spacing and no unnecessary chrome
 
-#### Scenario: Preview follows available window width
-- **WHEN** fluid reading width is enabled and the application window is resized
-- **THEN** the reading column grows or shrinks to occupy the available preview width
+#### Scenario: Reading column follows configured percentage
+- **WHEN** the user sets a reading width between 20% and 100% in 5% increments in Settings
+- **THEN** the preview shows a centered column using that percentage of the available preview width for every document
+- **AND** the column keeps a 480px readable minimum, capped by the available preview width on narrow windows
 
-#### Scenario: Toggle fixed reading width
+#### Scenario: Reading width persists across launches
+- **WHEN** the user changes the reading width, closes the app, and reopens it
+- **THEN** the previously configured reading width is applied on startup
+
+#### Scenario: Toggle full reading width
 - **WHEN** the user toggles reading width while a document is in view mode
-- **THEN** the preview switches between a fixed centered column and a fluid centered column for the current session
+- **THEN** the preview switches between the configured width and the full available width for the current session
 
 #### Scenario: Preview starts with default reading layout
 - **WHEN** the application starts
-- **THEN** the preview font size is 16px and the reading column uses fixed width, regardless of the previous session
+- **THEN** the preview font size is 16px, the full-width toggle is off, and the reading column uses the persisted configured width (40% by default)
 
 ### Requirement: Light and dark theme
 The system SHALL provide both a light and a dark theme and let the user toggle between them at any time. Both preview content and application chrome SHALL adapt to the active theme with adequate contrast.

@@ -54,8 +54,8 @@
     "decreaseFontSize": "Diminuir tamanho da fonte",
     "increaseFontSize": "Aumentar tamanho da fonte",
     "resetFontSize": "Padrão",
-    "useFixedWidth": "Usar largura fixa na leitura",
-    "useFluidWidth": "Usar largura fluida na leitura",
+    "useFixedWidth": "Usar largura de leitura configurada",
+    "useFluidWidth": "Usar largura total na leitura",
     "showOutline": "Mostrar sumário",
     "hideOutline": "Ocultar sumário",
     "settings": "Configurações",
@@ -166,6 +166,7 @@
     "fontFamily": "Fonte",
     "fontSize": "Tamanho da fonte",
     "lineHeight": "Altura da linha",
+    "width": "Largura de leitura",
     "shortcutSections": {
       "file": "Arquivo",
       "search": "Busca",

@@ -11,6 +11,17 @@ export const MARKDOWN_EXTENSIONS = ['.md', '.markdown'] as const
 /** Max entries kept in the recent-files list shown on the Welcome screen. */
 export const MAX_RECENT_FILES = 3
 
+export const PREVIEW_WIDTH_MIN = 20
+export const PREVIEW_WIDTH_MAX = 100
+export const PREVIEW_WIDTH_STEP = 5
+export const PREVIEW_WIDTH_DEFAULT = 40
+
+export function normalizePreviewWidth(value: unknown, fallback = PREVIEW_WIDTH_DEFAULT): number {
+  if (typeof value !== 'number' || !Number.isFinite(value)) return fallback
+  const bounded = Math.min(PREVIEW_WIDTH_MAX, Math.max(PREVIEW_WIDTH_MIN, value))
+  return Math.round(bounded / PREVIEW_WIDTH_STEP) * PREVIEW_WIDTH_STEP
+}
+
 export interface Settings {
   theme: Theme
   previewTheme: Theme
@@ -19,6 +30,8 @@ export interface Settings {
   previewFontSize: number
   previewLineHeight: number
   previewFluidWidth: boolean
+  /** Reading column width as a percentage (20-100, in steps of 5) of the available preview area. */
+  previewWidth: number
   /** Absolute paths of recently opened documents, most-recent first. */
   recentFiles: string[]
   lastDialogDirectory?: string
