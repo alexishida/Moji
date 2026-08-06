@@ -890,6 +890,7 @@ body {
   background: var(--bg);
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
+  text-decoration: none;
   cursor: pointer;
   transition: background 0.12s, border-color 0.12s;
 }
@@ -1190,6 +1191,7 @@ body {
 .update-notice__actions {
   display: flex;
   flex-wrap: wrap;
+  justify-content: center;
   gap: var(--space-2);
   margin-top: var(--space-2);
 }

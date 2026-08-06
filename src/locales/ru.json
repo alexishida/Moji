@@ -226,8 +226,8 @@
     "whyNameBody": "Moji — короткое, легко запоминающееся имя, которое ассоциируется с символами и письмом. Оно отражает задачу приложения: плавно открывать, редактировать, просматривать и экспортировать Markdown — без отвлечений."
   },
   "update": {
-    "availableTitle": "Доступна версия Moji {{version}}",
-    "availableBody": "Откройте GitHub Releases, чтобы скачать последнюю версию.",
+    "availableTitle": "Доступна новая версия",
+    "availableBody": "Moji {{version}} можно скачать в GitHub Releases.",
     "errorTitle": "Ошибка обновления",
     "errorBody": "{{error}}",
     "unknownError": "Неизвестная ошибка обновления",

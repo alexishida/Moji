@@ -1,4 +1,6 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterAll, beforeEach, describe, expect, it, vi } from 'vitest'
+
+const originalMockUpdate = process.env['MOJI_MOCK_UPDATE']
 
 const state = vi.hoisted(() => ({
   isPackaged: true,
@@ -29,7 +31,13 @@ beforeEach(() => {
   state.isPackaged = true
   state.listeners.clear()
   state.checkForUpdates.mockReset()
+  delete process.env['MOJI_MOCK_UPDATE']
   vi.resetModules()
+})
+
+afterAll(() => {
+  if (originalMockUpdate === undefined) delete process.env['MOJI_MOCK_UPDATE']
+  else process.env['MOJI_MOCK_UPDATE'] = originalMockUpdate
 })
 
 describe('update controller', () => {
@@ -40,6 +48,35 @@ describe('update controller', () => {
     const controller = createUpdateController(vi.fn())
 
     await expect(controller.check()).resolves.toMatchObject({ status: 'unsupported', currentVersion: '0.1.4' })
+  })
+
+  it('simulates an available update in development when requested', async () => {
+    state.isPackaged = false
+    process.env['MOJI_MOCK_UPDATE'] = '1'
+    const { createUpdateController } = await import('./updater')
+    const notify = vi.fn()
+    const controller = createUpdateController(notify)
+
+    expect(controller.getState()).toEqual({ status: 'idle', currentVersion: '0.1.4' })
+    await expect(controller.check()).resolves.toEqual({
+      status: 'available',
+      currentVersion: '0.1.4',
+      version: '99.0.0',
+      error: undefined
+    })
+    expect(notify).toHaveBeenNthCalledWith(1, {
+      status: 'checking',
+      currentVersion: '0.1.4',
+      version: undefined,
+      error: undefined
+    })
+    expect(notify).toHaveBeenNthCalledWith(2, {
+      status: 'available',
+      currentVersion: '0.1.4',
+      version: '99.0.0',
+      error: undefined
+    })
+    expect(state.checkForUpdates).not.toHaveBeenCalled()
   })
 
   it('reports an available release without local download state', async () => {
