@@ -143,7 +143,7 @@ export function App(): JSX.Element {
   const [mdTheme, setMdTheme] = useState<Theme>('dark')
   const [searchTerm, setSearchTerm] = useState('')
   const [activeSearchIndex, setActiveSearchIndex] = useState<number | null>(null)
-  const [replaceActive, setReplaceActive] = useState(false)
+  const [previewSearchMatchCount, setPreviewSearchMatchCount] = useState(0)
   const [dragging, setDragging] = useState(false)
   const dragDepth = useRef(0)
   const [notice, setNotice] = useState<{ text: string; error?: boolean } | null>(null)
@@ -184,10 +184,11 @@ export function App(): JSX.Element {
   )
   const outline = useMemo(() => buildOutline(html), [html])
   const stats = useMemo(() => getDocumentStats(content), [content])
-  const searchMatchCount = useMemo(
+  const sourceSearchMatchCount = useMemo(
     () => countLiteralMatches(content, debouncedSearchTerm.trim()),
     [content, debouncedSearchTerm]
   )
+  const searchMatchCount = mode === 'view' ? previewSearchMatchCount : sourceSearchMatchCount
   const tabs = useMemo<DocumentTabItem[]>(
     () =>
       documents.map((doc) => ({
@@ -208,6 +209,7 @@ export function App(): JSX.Element {
     mdTheme,
     dirty,
     hasDirtyDocs,
+    searchMatchCount,
     exportDialogOpen: false,
     settingsOpen: false,
     aboutOpen: false
@@ -221,6 +223,7 @@ export function App(): JSX.Element {
     mdTheme,
     dirty,
     hasDirtyDocs,
+    searchMatchCount,
     exportDialogOpen: exportDialogFormat !== null,
     settingsOpen,
     aboutOpen
@@ -590,11 +593,12 @@ export function App(): JSX.Element {
   const doSearch = useCallback((term: string) => {
     setSearchTerm(term)
     setActiveSearchIndex(null)
+    setPreviewSearchMatchCount(0)
   }, [])
 
   const doFindNext = useCallback(() => {
     const term = searchTerm.trim()
-    const count = countLiteralMatches(stateRef.current.activeDoc?.content ?? '', term)
+    const count = stateRef.current.searchMatchCount
     if (!term || count === 0) {
       flash(t('notice.replaceNone'), true)
       return
@@ -602,13 +606,12 @@ export function App(): JSX.Element {
     setExportDialogFormat(null)
     setSettingsOpen(false)
     setAboutOpen(false)
-    if (!stateRef.current.activeDoc?.readOnly) setMode('edit')
     setActiveSearchIndex((index) => (index === null ? 0 : (index + 1) % count))
   }, [flash, searchTerm, t])
 
   const doFindPrevious = useCallback(() => {
     const term = searchTerm.trim()
-    const count = countLiteralMatches(stateRef.current.activeDoc?.content ?? '', term)
+    const count = stateRef.current.searchMatchCount
     if (!term || count === 0) {
       flash(t('notice.replaceNone'), true)
       return
@@ -616,7 +619,6 @@ export function App(): JSX.Element {
     setExportDialogFormat(null)
     setSettingsOpen(false)
     setAboutOpen(false)
-    if (!stateRef.current.activeDoc?.readOnly) setMode('edit')
     setActiveSearchIndex((index) => (index === null ? count - 1 : (index - 1 + count) % count))
   }, [flash, searchTerm, t])
 
@@ -1130,8 +1132,8 @@ export function App(): JSX.Element {
         onSave={doSave}
         onSearch={doSearch}
         onFindNext={doFindNext}
+        onFindPrevious={doFindPrevious}
         onReplace={doReplace}
-        onReplaceActiveChange={setReplaceActive}
         searchMatchCount={searchMatchCount}
         activeSearchIndex={activeSearchIndex}
         canToggleTheme={canToggleMdTheme()}
@@ -1218,7 +1220,7 @@ export function App(): JSX.Element {
                 theme={'dark'}
                 searchTerm={debouncedSearchTerm}
                 activeSearchIndex={activeSearchIndex}
-                highlightActive={replaceActive}
+                highlightActive={activeSearchIndex !== null}
                 headingToReveal={editorHeadingRequest}
                 onChange={updateActiveContent}
               />
@@ -1228,6 +1230,8 @@ export function App(): JSX.Element {
                 documentName={activeDoc ? documentName(activeDoc, t('app.untitled')) : t('app.untitled')}
                 mdTheme={mdTheme}
                 searchTerm={debouncedSearchTerm}
+                activeSearchIndex={activeSearchIndex}
+                onSearchMatchCountChange={setPreviewSearchMatchCount}
                 settings={settings}
                 onOpenLocalPath={(fileUrl) => void openLocalPath(fileUrl)}
               />

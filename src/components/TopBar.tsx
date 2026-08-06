@@ -2,7 +2,7 @@ import { useState, useCallback, useEffect, useRef, type ChangeEvent, type FormEv
 import { useTranslation } from 'react-i18next'
 import { SettingsButton } from './SettingsButton'
 import { FontSizeButton } from './FontSizeButton'
-import { IconMoon, IconSun, IconEye, IconPencil, IconDownload, IconOpen, IconFilePlus, IconSave, IconInfo, IconReplace, IconReplaceAll, IconSearch, IconX, IconLayoutWidth, IconSidebar } from './icons'
+import { IconMoon, IconSun, IconEye, IconPencil, IconDownload, IconOpen, IconFilePlus, IconSave, IconInfo, IconReplace, IconReplaceAll, IconX, IconLayoutWidth, IconSidebar, IconChevronRight } from './icons'
 import type { ExportFormat, Theme } from '../../electron/shared'
 
 interface TopBarProps {
@@ -24,8 +24,8 @@ interface TopBarProps {
   onOpenAbout: () => void
   onSearch: (term: string) => void
   onFindNext: () => void
+  onFindPrevious: () => void
   onReplace: (search: string, replacement: string, all: boolean) => void
-  onReplaceActiveChange: (active: boolean) => void
   searchMatchCount: number
   activeSearchIndex: number | null
   canToggleTheme: boolean
@@ -47,22 +47,25 @@ export function TopBar(props: TopBarProps): JSX.Element {
   const { t } = useTranslation()
   const [searchTerm, setSearchTerm] = useState('')
   const [replaceTerm, setReplaceTerm] = useState('')
-  const [replaceOpen, setReplaceOpen] = useState(false)
+  const [searchPanelOpen, setSearchPanelOpen] = useState(false)
   const searchInputRef = useRef<HTMLInputElement>(null)
   const replaceInputRef = useRef<HTMLInputElement>(null)
   const canSearch = props.hasDoc && !props.exportOpen
   const canFind = canSearch && props.searchMatchCount > 0
   const canOpenReplace = props.hasDoc && props.mode === 'edit' && !props.exportOpen
   const canReplace = canFind && props.mode === 'edit' && !props.exportOpen
+  const replacePanel = props.mode === 'edit'
+  const panelVisible = canSearch && searchPanelOpen && (replacePanel || searchTerm.trim() !== '')
   const occurrenceLabel =
-    props.searchMatchCount > 0 && props.activeSearchIndex !== null
-      ? `${props.activeSearchIndex + 1}/${props.searchMatchCount}`
-      : `${props.searchMatchCount}`
+    props.searchMatchCount > 0
+      ? `${Math.min((props.activeSearchIndex ?? 0) + 1, props.searchMatchCount)}/${props.searchMatchCount}`
+      : '0/0'
 
   const handleSearchChange = useCallback(
     (e: ChangeEvent<HTMLInputElement>) => {
       const value = e.target.value
       setSearchTerm(value)
+      setSearchPanelOpen(value.trim() !== '')
       props.onSearch(value)
     },
     [props.onSearch]
@@ -87,10 +90,6 @@ export function TopBar(props: TopBarProps): JSX.Element {
   }, [canReplace, props.onReplace, replaceTerm, searchTerm])
 
   useEffect(() => {
-    if (!canOpenReplace) setReplaceOpen(false)
-  }, [canOpenReplace])
-
-  useEffect(() => {
     if (!canSearch || props.searchFocusRequest === 0) return
     searchInputRef.current?.focus()
     searchInputRef.current?.select()
@@ -98,18 +97,22 @@ export function TopBar(props: TopBarProps): JSX.Element {
 
   useEffect(() => {
     if (!canOpenReplace || props.replaceFocusRequest === 0) return
-    setReplaceOpen(true)
+    setSearchPanelOpen(true)
   }, [canOpenReplace, props.replaceFocusRequest])
 
   useEffect(() => {
-    if (!replaceOpen || props.replaceFocusRequest === 0) return
+    if (!searchPanelOpen || props.replaceFocusRequest === 0) return
     replaceInputRef.current?.focus()
     replaceInputRef.current?.select()
-  }, [replaceOpen, props.replaceFocusRequest])
+  }, [searchPanelOpen, props.replaceFocusRequest])
+
+  useEffect(() => {
+    if (searchTerm.trim()) setSearchPanelOpen(true)
+  }, [props.mode, searchTerm])
 
   useEffect(() => {
     if (props.dismissRequest === 0) return
-    setReplaceOpen(false)
+    setSearchPanelOpen(false)
     searchInputRef.current?.blur()
     replaceInputRef.current?.blur()
   }, [props.dismissRequest])
@@ -118,14 +121,9 @@ export function TopBar(props: TopBarProps): JSX.Element {
     if (props.hasDoc) return
     setSearchTerm('')
     setReplaceTerm('')
-    setReplaceOpen(false)
+    setSearchPanelOpen(false)
     props.onSearch('')
   }, [props.hasDoc, props.onSearch])
-
-  // Highlight the active match only while the replace field is in use.
-  useEffect(() => {
-    props.onReplaceActiveChange(canOpenReplace && replaceOpen && replaceTerm.trim() !== '')
-  }, [canOpenReplace, replaceOpen, replaceTerm, props.onReplaceActiveChange])
 
   return (
     <header className="topbar">
@@ -157,13 +155,13 @@ export function TopBar(props: TopBarProps): JSX.Element {
         <div className="topbar__right">
           <div className="topbar__search-group">
             <button
-              className={`iconbtn topbar__replace-toggle ${replaceOpen ? 'iconbtn--active' : ''}`}
+              className={`iconbtn topbar__replace-toggle ${replacePanel && searchPanelOpen ? 'iconbtn--active' : ''}`}
               type="button"
-              onClick={() => setReplaceOpen((open) => !open)}
+              onClick={() => setSearchPanelOpen((open) => !open)}
               disabled={!canOpenReplace}
               title={t('toolbar.replace')}
               aria-label={t('toolbar.replace')}
-              aria-expanded={replaceOpen}
+              aria-expanded={replacePanel && searchPanelOpen}
             >
               <IconReplace width={16} height={16} />
             </button>
@@ -175,46 +173,80 @@ export function TopBar(props: TopBarProps): JSX.Element {
               value={searchTerm}
               onChange={handleSearchChange}
               disabled={!canSearch}
+              aria-haspopup="dialog"
+              aria-expanded={panelVisible}
+              aria-controls={panelVisible ? 'topbar-search-panel' : undefined}
             />
 
-            {replaceOpen && (
-              <form className="topbar__replace-popover" onSubmit={replaceOne}>
-                <div className="topbar__replace-row">
-                  <input
-                    ref={replaceInputRef}
-                    className="topbar__replace-input"
-                    type="search"
-                    placeholder={t('toolbar.replaceWith')}
-                    value={replaceTerm}
-                    onChange={handleReplaceChange}
-                  />
-                  <span className="topbar__replace-count" title={t('toolbar.occurrences')}>
+            {panelVisible && (
+              <form
+                className={`topbar__replace-popover ${replacePanel ? '' : 'topbar__replace-popover--find'}`}
+                onSubmit={replacePanel ? replaceOne : (e) => { e.preventDefault(); props.onFindNext() }}
+                id="topbar-search-panel"
+                role="dialog"
+                aria-label={replacePanel ? t('toolbar.replace') : t('toolbar.occurrences')}
+              >
+                <div className={`topbar__replace-row ${replacePanel ? '' : 'topbar__replace-row--find'}`}>
+                  {replacePanel ? (
+                    <input
+                      ref={replaceInputRef}
+                      className="topbar__replace-input"
+                      type="search"
+                      placeholder={t('toolbar.replaceWith')}
+                      value={replaceTerm}
+                      onChange={handleReplaceChange}
+                    />
+                  ) : (
+                    <span className="topbar__find-label">{t('toolbar.occurrences')}</span>
+                  )}
+                  <span className="topbar__replace-count" title={t('toolbar.occurrences')} aria-live="polite">
                     {occurrenceLabel}
                   </span>
                   <button
                     className="iconbtn topbar__replace-close"
                     type="button"
-                    onClick={() => setReplaceOpen(false)}
+                    onClick={() => setSearchPanelOpen(false)}
                     title={t('toolbar.close')}
                     aria-label={t('toolbar.close')}
                   >
                     <IconX width={16} height={16} />
                   </button>
                 </div>
-                <div className="topbar__replace-actions">
-                  <button className="btn" type="button" onClick={props.onFindNext} disabled={!canFind}>
-                    <IconSearch width={15} height={15} />
-                    {t('toolbar.findNext')}
-                  </button>
-                  <button className="btn" type="submit" disabled={!canReplace}>
-                    <IconReplace width={15} height={15} />
-                    {t('toolbar.replaceOne')}
-                  </button>
-                  <button className="btn" type="button" onClick={replaceAll} disabled={!canReplace}>
-                    <IconReplaceAll width={15} height={15} />
-                    {t('toolbar.replaceAll')}
-                  </button>
-                </div>
+                {replacePanel ? (
+                  <>
+                    <div className="topbar__replace-actions topbar__replace-actions--navigation">
+                      <button className="btn" type="button" onClick={props.onFindPrevious} disabled={!canFind}>
+                        <IconChevronRight className="topbar__find-previous-icon" width={15} height={15} />
+                        {t('toolbar.findPrevious')}
+                      </button>
+                      <button className="btn" type="button" onClick={props.onFindNext} disabled={!canFind}>
+                        <IconChevronRight width={15} height={15} />
+                        {t('toolbar.findNext')}
+                      </button>
+                    </div>
+                    <div className="topbar__replace-actions topbar__replace-actions--mutation">
+                      <button className="btn" type="submit" disabled={!canReplace}>
+                        <IconReplace width={15} height={15} />
+                        {t('toolbar.replaceOne')}
+                      </button>
+                      <button className="btn" type="button" onClick={replaceAll} disabled={!canReplace}>
+                        <IconReplaceAll width={15} height={15} />
+                        {t('toolbar.replaceAll')}
+                      </button>
+                    </div>
+                  </>
+                ) : (
+                  <div className="topbar__replace-actions topbar__replace-actions--find">
+                    <button className="btn" type="button" onClick={props.onFindPrevious} disabled={!canFind}>
+                      <IconChevronRight className="topbar__find-previous-icon" width={15} height={15} />
+                      {t('toolbar.findPrevious')}
+                    </button>
+                    <button className="btn" type="button" onClick={props.onFindNext} disabled={!canFind}>
+                      <IconChevronRight width={15} height={15} />
+                      {t('toolbar.findNext')}
+                    </button>
+                  </div>
+                )}
               </form>
             )}
           </div>

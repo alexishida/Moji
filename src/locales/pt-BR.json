@@ -39,6 +39,7 @@
     "search": "Buscar...",
     "replace": "Substituir",
     "replaceWith": "Substituir por...",
+    "findPrevious": "Localizar anterior",
     "findNext": "Localizar próximo",
     "replaceOne": "Substituir",
     "replaceAll": "Substituir tudo",

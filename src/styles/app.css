@@ -204,11 +204,25 @@ body {
   box-shadow: var(--shadow);
 }
 
+.topbar__replace-popover--find {
+  width: 300px;
+}
+
 .topbar__replace-row {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto auto;
   gap: var(--space-2);
   align-items: center;
+}
+
+.topbar__find-label {
+  min-width: 0;
+  padding-left: var(--space-1);
+  overflow: hidden;
+  font-size: 12px;
+  color: var(--text-muted);
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .topbar__replace-close {
@@ -257,6 +271,16 @@ body {
   display: grid;
   grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr) minmax(0, 1.1fr);
   gap: var(--space-2);
+}
+
+.topbar__replace-actions--find,
+.topbar__replace-actions--navigation,
+.topbar__replace-actions--mutation {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.topbar__find-previous-icon {
+  transform: rotate(180deg);
 }
 
 .topbar__replace-actions .btn {
