@@ -54,8 +54,8 @@
     "decreaseFontSize": "Decrease font size",
     "increaseFontSize": "Increase font size",
     "resetFontSize": "Default",
-    "useFixedWidth": "Use fixed reading width",
-    "useFluidWidth": "Use fluid reading width",
+    "useFixedWidth": "Use configured reading width",
+    "useFluidWidth": "Use full reading width",
     "showOutline": "Show outline",
     "hideOutline": "Hide outline",
     "settings": "Settings",
@@ -166,6 +166,7 @@
     "fontFamily": "Font Family",
     "fontSize": "Font Size",
     "lineHeight": "Line Height",
+    "width": "Reading Width",
     "shortcutSections": {
       "file": "File",
       "search": "Search",

@@ -40,6 +40,7 @@ describe('settings', () => {
       language: 'invalid',
       previewTheme: 'light',
       previewLineHeight: 8,
+      previewWidth: 10,
       recentFiles: ['a.md', 'a.md', 1, 'b.md', 'c.md', 'd.md'],
       windowBounds: { width: 10, height: 9000, x: 'bad' }
     }))
@@ -49,6 +50,7 @@ describe('settings', () => {
       language: 'pt-BR',
       previewTheme: 'light',
       previewLineHeight: 2.4,
+      previewWidth: 20,
       recentFiles: ['a.md', 'b.md', 'c.md'],
       windowBounds: { width: 640, height: 8192 }
     })
@@ -57,12 +59,20 @@ describe('settings', () => {
   it('bounds updates and persists supported settings', async () => {
     const { updateSettings } = await import('./settings')
 
-    const updated = updateSettings({ previewFontSize: 99, previewLineHeight: 0, recentFiles: ['a.md', 'a.md'] })
+    const updated = updateSettings({ previewFontSize: 99, previewLineHeight: 0, previewWidth: 200, recentFiles: ['a.md', 'a.md'] })
 
-    expect(updated).toMatchObject({ previewFontSize: 24, previewLineHeight: 1.2, recentFiles: ['a.md'] })
+    expect(updated).toMatchObject({ previewFontSize: 24, previewLineHeight: 1.2, previewWidth: 100, recentFiles: ['a.md'] })
     const persisted = JSON.parse(state.files.get(SETTINGS_FILE) ?? '{}')
     expect(persisted).not.toHaveProperty('previewFontSize')
     expect(persisted).not.toHaveProperty('previewFluidWidth')
+    expect(persisted.previewWidth).toBe(100)
+  })
+
+  it('normalizes reading width to five-percent steps', async () => {
+    const { updateSettings } = await import('./settings')
+
+    expect(updateSettings({ previewWidth: 43 }).previewWidth).toBe(45)
+    expect(updateSettings({ previewWidth: 42 }).previewWidth).toBe(40)
   })
 
   it('falls back to defaults when settings file is invalid JSON', async () => {
@@ -73,6 +83,7 @@ describe('settings', () => {
       theme: 'dark',
       previewTheme: 'dark',
       language: 'pt-BR',
+      previewWidth: 40,
       recentFiles: []
     })
   })
