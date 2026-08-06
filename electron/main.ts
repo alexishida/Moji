@@ -23,7 +23,6 @@ let mainWindow: BrowserWindow | null = null
 let pendingOpenPath: string | null = null
 let forceQuit = false
 let pendingQuit = false
-let pendingUpdateInstall = false
 let updateController: UpdateController | null = null
 let persistWindowBoundsTimer: NodeJS.Timeout | null = null
 
@@ -436,32 +435,16 @@ function registerIpc(): void {
     (): Promise<UpdateState> => updateController?.check() ?? Promise.resolve(unavailableUpdateState())
   )
 
-  ipcMain.handle(
-    IPC.downloadUpdate,
-    (): Promise<UpdateState> => updateController?.download() ?? Promise.resolve(unavailableUpdateState())
-  )
-
-  ipcMain.handle(IPC.installUpdate, (): boolean => {
-    if (updateController?.getState().status !== 'downloaded') return false
-    pendingUpdateInstall = true
-    requestClose()
-    return true
-  })
-
   ipcMain.handle(IPC.confirmClose, (_e, shouldClose: unknown): void => {
     if (shouldClose === true && mainWindow) {
       forceQuit = true
-      if (pendingUpdateInstall) {
-        pendingUpdateInstall = false
-        if (!updateController?.quitAndInstall()) mainWindow.close()
-      } else if (pendingQuit) {
+      if (pendingQuit) {
         pendingQuit = false
         app.quit()
       } else {
         mainWindow.close()
       }
     } else if (shouldClose === false) {
-      pendingUpdateInstall = false
       pendingQuit = false
     }
   })

@@ -135,13 +135,6 @@ export const IconRefresh = (p: IconProps): JSX.Element => (
   </svg>
 )
 
-export const IconRestart = (p: IconProps): JSX.Element => (
-  <svg {...base} {...p}>
-    <path d="M12 3v9" />
-    <path d="M7.1 5.6a8 8 0 1 0 9.8 0" />
-  </svg>
-)
-
 export const IconX = (p: IconProps): JSX.Element => (
   <svg {...base} {...p}>
     <path d="M18 6 6 18M6 6l12 12" />
