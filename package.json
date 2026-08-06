@@ -29,6 +29,7 @@
   },
   "scripts": {
     "dev": "node scripts/run-electron-vite.cjs dev",
+    "dev:update": "node scripts/run-electron-vite.cjs dev --mock-update",
     "build": "electron-vite build",
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "test": "vitest run",

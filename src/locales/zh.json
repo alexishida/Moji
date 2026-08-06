@@ -226,8 +226,8 @@
     "whyNameBody": "Moji 简短、易记，让人联想到文字与书写。这个名字契合它的目标：流畅地打开、编辑、预览和导出 Markdown，远离干扰。"
   },
   "update": {
-    "availableTitle": "Moji {{version}} 可用",
-    "availableBody": "打开 GitHub Releases 下载最新版本。",
+    "availableTitle": "有新版本可用",
+    "availableBody": "Moji {{version}} 已可在 GitHub Releases 下载。",
     "errorTitle": "更新失败",
     "errorBody": "{{error}}",
     "unknownError": "未知更新错误",

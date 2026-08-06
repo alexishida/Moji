@@ -112,6 +112,7 @@ npm run build
 Useful scripts:
 
 - `npm run dev`: launch Electron with hot reload.
+- `npm run dev:update`: launch development mode and simulate an available `99.0.0` update without network access.
 - `npm run typecheck`: run TypeScript checks without emitting files.
 - `npm test`: run the Vitest suite once (`npm run test:watch` for watch mode).
 - `npm run build`: build main, preload, and renderer into `out/`.

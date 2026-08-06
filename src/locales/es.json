@@ -226,8 +226,8 @@
     "whyNameBody": "Moji es corto, fácil de recordar y evoca caracteres y escritura. El nombre encaja con su propósito: abrir, editar, previsualizar y exportar Markdown con fluidez, sin distracciones."
   },
   "update": {
-    "availableTitle": "Moji {{version}} está disponible",
-    "availableBody": "Abre GitHub Releases para descargar la versión más reciente.",
+    "availableTitle": "Nueva versión disponible",
+    "availableBody": "Moji {{version}} ya se puede descargar en GitHub Releases.",
     "errorTitle": "Error de actualización",
     "errorBody": "{{error}}",
     "unknownError": "Error de actualización desconocido",

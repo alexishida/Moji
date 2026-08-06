@@ -226,8 +226,8 @@
     "whyNameBody": "Moji は短く覚えやすく、文字や書くことを連想させます。この名前は、Markdown をスムーズに開き、編集し、プレビューし、エクスポートするという目的に合っています。余計な気を散らすものはありません。"
   },
   "update": {
-    "availableTitle": "Moji {{version}} を利用できます",
-    "availableBody": "GitHub Releases を開いて最新バージョンをダウンロードします。",
+    "availableTitle": "新しいバージョンがあります",
+    "availableBody": "Moji {{version}} を GitHub Releases からダウンロードできます。",
     "errorTitle": "更新に失敗しました",
     "errorBody": "{{error}}",
     "unknownError": "不明な更新エラー",
