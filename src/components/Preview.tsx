@@ -23,6 +23,7 @@ interface ActiveDiagram {
 }
 
 type PreviewGraphic = SVGSVGElement | HTMLImageElement
+const MAX_SEARCH_HIGHLIGHTS = 2_000
 
 function previewGraphics(body: HTMLDivElement | null): PreviewGraphic[] {
   if (!body) return []
@@ -239,24 +240,30 @@ export function Preview({
           : NodeFilter.FILTER_REJECT
     })
     const nodes: Text[] = []
-    while (walker.nextNode()) {
+    while (nodes.length < MAX_SEARCH_HIGHLIGHTS && walker.nextNode()) {
       if (!(walker.currentNode.parentElement?.closest('style,script,svg,mark,button'))) {
         nodes.push(walker.currentNode as Text)
       }
     }
 
+    let highlightCount = 0
     for (const node of nodes) {
       const text = node.textContent ?? ''
       const lower = text.toLowerCase()
       const parts: (string | Node)[] = []
       let lastIndex = 0
-      for (let i = lower.indexOf(term, lastIndex); i !== -1; i = lower.indexOf(term, lastIndex)) {
+      for (
+        let i = lower.indexOf(term, lastIndex);
+        i !== -1 && highlightCount < MAX_SEARCH_HIGHLIGHTS;
+        i = lower.indexOf(term, lastIndex)
+      ) {
         if (i > lastIndex) parts.push(text.slice(lastIndex, i))
         const mark = document.createElement('mark')
         mark.className = 'search-highlight'
         mark.textContent = text.slice(i, i + term.length)
         parts.push(mark)
         lastIndex = i + term.length
+        highlightCount += 1
       }
       if (lastIndex < text.length) parts.push(text.slice(lastIndex))
       if (parts.length > 1) {
@@ -264,6 +271,7 @@ export function Preview({
         for (const part of parts) frag.append(part)
         node.parentNode?.replaceChild(frag, node)
       }
+      if (highlightCount >= MAX_SEARCH_HIGHLIGHTS) break
     }
   }, [renderedHtml, searchTerm])
 

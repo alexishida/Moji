@@ -16,6 +16,7 @@ import { documentAssetBaseUrl, renderMarkdown } from './lib/markdown'
 import { buildOutline } from './lib/outline'
 import { getActivePreviewHeadingId, scrollPreviewHeadingIntoView } from './lib/previewScroll'
 import { useDebounced } from './lib/useDebounced'
+import { countLiteralMatches, findLiteralMatches } from './lib/search'
 import { buildStandaloneHtml } from './lib/exportHtml'
 import { getExtraMermaidGuideExamples } from './lib/mermaidGuide'
 import { renderMermaidFlowcharts } from './lib/mermaid'
@@ -91,19 +92,6 @@ function documentName(doc: Pick<DocumentState, 'path' | 'title'>, fallback: stri
 
 function markdownFileName(name: string): string {
   return /\.(md|markdown)$/i.test(name) ? name : `${name}.md`
-}
-
-function findLiteralMatches(text: string, search: string): Array<{ from: number; to: number }> {
-  if (!search) return []
-  const needle = search.toLowerCase()
-  const haystack = text.toLowerCase()
-  const matches: Array<{ from: number; to: number }> = []
-
-  for (let index = haystack.indexOf(needle); index >= 0; index = haystack.indexOf(needle, index + search.length)) {
-    matches.push({ from: index, to: index + search.length })
-  }
-
-  return matches
 }
 
 function replaceTextLiteral(
@@ -189,13 +177,17 @@ export function App(): JSX.Element {
   const hasDirtyDocs = documents.some((doc) => doc.content !== doc.savedContent)
 
   const debouncedContent = useDebounced(content, 150)
+  const debouncedSearchTerm = useDebounced(searchTerm, 200)
   const html = useMemo(
     () => renderMarkdown(debouncedContent, { documentPath: activeDoc?.path, assetMode: 'app' }),
     [activeDoc?.path, debouncedContent]
   )
   const outline = useMemo(() => buildOutline(html), [html])
   const stats = useMemo(() => getDocumentStats(content), [content])
-  const searchMatchCount = useMemo(() => findLiteralMatches(content, searchTerm.trim()).length, [content, searchTerm])
+  const searchMatchCount = useMemo(
+    () => countLiteralMatches(content, debouncedSearchTerm.trim()),
+    [content, debouncedSearchTerm]
+  )
   const tabs = useMemo<DocumentTabItem[]>(
     () =>
       documents.map((doc) => ({
@@ -352,7 +344,7 @@ export function App(): JSX.Element {
       return
     }
     setActiveSearchIndex((index) => (index === null ? 0 : Math.min(index, searchMatchCount - 1)))
-  }, [searchMatchCount, searchTerm])
+  }, [debouncedSearchTerm, searchMatchCount])
 
   // --- Outline scroll-spy: highlight the heading nearest the viewport top --
   useEffect(() => {
@@ -597,13 +589,12 @@ export function App(): JSX.Element {
 
   const doSearch = useCallback((term: string) => {
     setSearchTerm(term)
-    const nextCount = findLiteralMatches(stateRef.current.activeDoc?.content ?? '', term.trim()).length
-    setActiveSearchIndex(nextCount > 0 ? 0 : null)
+    setActiveSearchIndex(null)
   }, [])
 
   const doFindNext = useCallback(() => {
     const term = searchTerm.trim()
-    const count = findLiteralMatches(stateRef.current.activeDoc?.content ?? '', term).length
+    const count = countLiteralMatches(stateRef.current.activeDoc?.content ?? '', term)
     if (!term || count === 0) {
       flash(t('notice.replaceNone'), true)
       return
@@ -617,7 +608,7 @@ export function App(): JSX.Element {
 
   const doFindPrevious = useCallback(() => {
     const term = searchTerm.trim()
-    const count = findLiteralMatches(stateRef.current.activeDoc?.content ?? '', term).length
+    const count = countLiteralMatches(stateRef.current.activeDoc?.content ?? '', term)
     if (!term || count === 0) {
       flash(t('notice.replaceNone'), true)
       return
@@ -1225,7 +1216,7 @@ export function App(): JSX.Element {
               <Editor
                 value={content}
                 theme={'dark'}
-                searchTerm={searchTerm}
+                searchTerm={debouncedSearchTerm}
                 activeSearchIndex={activeSearchIndex}
                 highlightActive={replaceActive}
                 headingToReveal={editorHeadingRequest}
@@ -1236,7 +1227,7 @@ export function App(): JSX.Element {
                 html={html}
                 documentName={activeDoc ? documentName(activeDoc, t('app.untitled')) : t('app.untitled')}
                 mdTheme={mdTheme}
-                searchTerm={searchTerm}
+                searchTerm={debouncedSearchTerm}
                 settings={settings}
                 onOpenLocalPath={(fileUrl) => void openLocalPath(fileUrl)}
               />
