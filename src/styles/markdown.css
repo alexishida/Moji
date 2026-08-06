@@ -286,6 +286,13 @@
   padding: 0 1px;
 }
 
+.search-highlight--active {
+  background: #ffd866;
+  color: #111;
+  outline: 2px solid color-mix(in srgb, var(--text) 72%, transparent);
+  outline-offset: 1px;
+}
+
 /* Extended Markdown inline marks: ==highlight==, ++insert++, ~sub~, ^sup^ */
 .markdown-body mark:not(.search-highlight) {
   padding: 0.05em 0.25em;

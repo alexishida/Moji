@@ -40,6 +40,7 @@
     "search": "Buscar...",
     "replace": "Reemplazar",
     "replaceWith": "Reemplazar con...",
+    "findPrevious": "Buscar anterior",
     "findNext": "Buscar siguiente",
     "replaceOne": "Reemplazar",
     "replaceAll": "Reemplazar todo",

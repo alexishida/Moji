@@ -105,8 +105,9 @@ Projeto atual: Moji, aplicativo desktop Electron + React + TypeScript para abrir
 ## Busca e Substituicao
 
 - Campos de busca e de substituir usam `type="search"` com botao X nativo para limpar o texto (estilizado via `::-webkit-search-cancel-button` em `src/styles/app.css`).
-- Destaque amarelo do match ativo (`cm-external-searchMatch--active`) so aparece quando o campo substituir esta aberto e preenchido; na busca simples todos os matches usam a cor accent padrao (`cm-external-searchMatch`).
-- Fluxo passa `searchTerm`/`activeSearchIndex` para `Editor.tsx` e `highlightActive` controla o destaque do match ativo.
+- Busca no preview abre popover com contador atual/total e acoes anterior/proxima; ao alternar para editar, popover assume modo de substituicao com campo de destino, linha de navegacao anterior/proxima e linha separada para substituir/substituir tudo.
+- Match ativo usa destaque amarelo no preview (`search-highlight--active`) e editor (`cm-external-searchMatch--active`); demais matches usam cor accent padrao. Anterior/proxima move destaque ativo junto com contador e rolagem.
+- Fluxo passa `searchTerm`/`activeSearchIndex` para preview e editor; `activeSearchIndex` controla destaque do match ativo.
 
 ## Regras de Layout e Design
 
