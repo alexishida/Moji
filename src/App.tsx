@@ -19,7 +19,14 @@ import { useDebounced } from './lib/useDebounced'
 import { buildStandaloneHtml } from './lib/exportHtml'
 import { getExtraMermaidGuideExamples } from './lib/mermaidGuide'
 import { renderMermaidFlowcharts } from './lib/mermaid'
-import { MAX_RECENT_FILES, type ExportFormat, type Settings, type Theme, type UpdateState } from '../electron/shared'
+import {
+  MAX_RECENT_FILES,
+  PREVIEW_WIDTH_DEFAULT,
+  type ExportFormat,
+  type Settings,
+  type Theme,
+  type UpdateState
+} from '../electron/shared'
 import packageJson from '../package.json'
 
 const MIN_PREVIEW_FONT_SIZE = 12
@@ -139,7 +146,7 @@ export function App(): JSX.Element {
     previewFontSize: 16,
     previewLineHeight: 1.7,
     previewFluidWidth: false,
-    previewWidth: 40,
+    previewWidth: PREVIEW_WIDTH_DEFAULT,
     recentFiles: []
   })
   const [documents, setDocuments] = useState<DocumentState[]>([])
@@ -231,6 +238,11 @@ export function App(): JSX.Element {
     setNotice({ text, error })
     window.setTimeout(() => setNotice(null), 2600)
   }, [])
+
+  const openLocalPath = useCallback(async (fileUrl: string): Promise<void> => {
+    const result = await window.api.openLocalPath(fileUrl)
+    if (!result.ok) flash(t('notice.openFailed', { error: result.error }), true)
+  }, [flash, t])
 
   const updateKey = `${updateState.status}:${updateState.version ?? ''}:${updateState.error ?? ''}`
 
@@ -1226,6 +1238,7 @@ export function App(): JSX.Element {
                 mdTheme={mdTheme}
                 searchTerm={searchTerm}
                 settings={settings}
+                onOpenLocalPath={(fileUrl) => void openLocalPath(fileUrl)}
               />
             )}
           </div>

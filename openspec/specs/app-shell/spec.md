@@ -4,7 +4,7 @@
 TBD - created by archiving change add-markdown-viewer-editor. Update Purpose after archive.
 ## Requirements
 ### Requirement: Cross-platform desktop application
-The system SHALL run as a desktop application on Windows and Linux, built with Electron and a React renderer, packaged into installable artifacts for each platform.
+The system SHALL run as a desktop application on Windows, Linux, and macOS, built with Electron and a React renderer, packaged into installable artifacts for each platform.
 
 #### Scenario: Launch on Windows
 - **WHEN** a user runs the installed application on Windows
@@ -12,6 +12,10 @@ The system SHALL run as a desktop application on Windows and Linux, built with E
 
 #### Scenario: Launch on Linux
 - **WHEN** a user runs the packaged application (AppImage or deb) on Linux
+- **THEN** the application window opens showing the empty/welcome state without errors
+
+#### Scenario: Launch on macOS
+- **WHEN** a user runs the packaged application (universal DMG or ZIP) on Apple Silicon or Intel macOS
 - **THEN** the application window opens showing the empty/welcome state without errors
 
 ### Requirement: Open Markdown file by clicking it
@@ -41,11 +45,19 @@ The system SHALL let users open a Markdown file from inside the app via a file d
 - **THEN** the application shows a non-blocking notice and does not replace the current document
 
 ### Requirement: Native application menu
-The system SHALL provide a native application menu exposing core actions: Open, Save, Save As, Export, toggle Edit mode, and toggle Theme, each with a keyboard shortcut.
+The system SHALL install a native application menu on macOS exposing the standard system roles, because macOS dispatches clipboard and window shortcuts through the application menu. The system SHALL NOT install a menu on Windows or Linux, where every action is reachable from the in-app top bar.
 
 #### Scenario: Menu actions available
-- **WHEN** the application window is focused
-- **THEN** the native menu lists Open, Save, Save As, Export, Toggle Edit, and Toggle Theme, and invoking each triggers its corresponding action
+- **WHEN** the application window is focused on macOS
+- **THEN** the native menu exposes the standard application, Edit, and Window roles required by the platform
+
+#### Scenario: Clipboard shortcuts in the editor on macOS
+- **WHEN** the user presses Cmd+C, Cmd+V, Cmd+X, or Cmd+A while editing a document or typing in a search field on macOS
+- **THEN** the corresponding clipboard action is applied to the focused field
+
+#### Scenario: No menu bar on Windows and Linux
+- **WHEN** the application window is focused on Windows or Linux
+- **THEN** no application menu bar is shown, and file, search, export, and theme actions remain available from the in-app top bar
 
 ### Requirement: Secure renderer boundary
 The system SHALL isolate the renderer process from Node.js, exposing only an explicit, minimal API from the main process through a preload bridge for file and export operations.
@@ -54,21 +66,29 @@ The system SHALL isolate the renderer process from Node.js, exposing only an exp
 - **WHEN** the renderer executes application code
 - **THEN** `nodeIntegration` is disabled and `contextIsolation` is enabled, and file/export access occurs only through the exposed preload API
 
-### Requirement: Update restart protects unsaved documents
-The system SHALL use existing unsaved-document confirmation before restarting to install a downloaded update.
-
-#### Scenario: User cancels update restart with unsaved work
-- **WHEN** update is ready, documents contain unsaved changes, and user cancels close confirmation
-- **THEN** application remains open and does not begin update installation
-
-#### Scenario: User approves update restart
-- **WHEN** update is ready and user approves closing all unsaved documents
-- **THEN** application authorizes updater installation and exits through controlled restart flow
-
 ### Requirement: Renderer update access remains narrow
-The system SHALL expose only typed update status, check, download, and install operations through preload and SHALL not expose Electron updater or raw IPC objects to renderer.
+The system SHALL expose only typed update status and check operations through preload, and SHALL not expose Electron updater, raw IPC objects, local update download, or local update installation operations to renderer.
 
 #### Scenario: Renderer subscribes to update state
 - **WHEN** main process update state changes
 - **THEN** renderer receives serializable state through dedicated preload listener without access to native event object
+
+### Requirement: Quitting is distinct from closing the window
+The system SHALL treat quitting the application as distinct from closing its window on macOS, where closing the last window leaves the process running. Every exit path SHALL pass through the unsaved-changes guard before the application terminates.
+
+#### Scenario: Quit with unsaved documents on macOS
+- **WHEN** the user chooses Quit from the application menu or the Dock, or presses Cmd+Q, while a document has unsaved changes
+- **THEN** the unsaved-changes confirmation appears, and the application terminates only after the user saves or discards
+
+#### Scenario: Cancel a quit
+- **WHEN** the user cancels the unsaved-changes confirmation raised by a quit
+- **THEN** the application stays open with every document and its unsaved content intact
+
+#### Scenario: Quit with no unsaved documents
+- **WHEN** the user quits and no document has unsaved changes
+- **THEN** the application process terminates rather than leaving a windowless app running
+
+#### Scenario: The guard survives a window being closed and reopened
+- **WHEN** the user closes the window on macOS, leaving the app running, then reopens it from the Dock and makes an unsaved edit
+- **THEN** closing that window raises the unsaved-changes confirmation again, rather than discarding the work silently
 

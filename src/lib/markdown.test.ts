@@ -34,6 +34,15 @@ describe('renderMarkdown', () => {
     expect(html).toContain('src="file:///C:/notes/images/logo%20file.png"')
   })
 
+  it('resolves local file links against the Markdown document directory', () => {
+    const html = renderMarkdown('[report](docs/report.pdf)', {
+      documentPath: 'C:\\notes\\guide.md',
+      assetMode: 'app'
+    })
+
+    expect(html).toContain('href="file:///C:/notes/docs/report.pdf"')
+  })
+
   it('maps local images to app API data attributes in preview mode', () => {
     const html = renderMarkdown('![Logo](images/logo.png)', {
       documentPath: 'C:\\notes\\guide.md',

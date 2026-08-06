@@ -12,7 +12,7 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 
-- The top-bar width toggle now switches between the configured reading width and the full available width for the current session, instead of the previous fixed 760px column versus full width. The default reading width is 40%.
+- The top-bar width toggle now switches between the configured reading width and the full available width for the current session, instead of the previous fixed 760px column versus full width. The default reading width is 60%.
 
 ## [0.1.4] - 2026-07-13
 

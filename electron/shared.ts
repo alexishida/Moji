@@ -14,7 +14,7 @@ export const MAX_RECENT_FILES = 3
 export const PREVIEW_WIDTH_MIN = 20
 export const PREVIEW_WIDTH_MAX = 100
 export const PREVIEW_WIDTH_STEP = 5
-export const PREVIEW_WIDTH_DEFAULT = 40
+export const PREVIEW_WIDTH_DEFAULT = 60
 
 export function normalizePreviewWidth(value: unknown, fallback = PREVIEW_WIDTH_DEFAULT): number {
   if (typeof value !== 'number' || !Number.isFinite(value)) return fallback
@@ -121,6 +121,7 @@ export const IPC = {
   openDialog: 'file:open-dialog',
   readPath: 'file:read-path',
   readImage: 'file:read-image',
+  openLocalPath: 'file:open-local-path',
   readSample: 'file:read-sample',
   save: 'file:save',
   saveAs: 'file:save-as',
