@@ -11,6 +11,7 @@ interface PreviewProps {
   mdTheme: Theme
   searchTerm: string
   settings: Settings
+  onOpenLocalPath: (fileUrl: string) => void
   className?: string
 }
 
@@ -47,7 +48,15 @@ function graphicContent(graphic: PreviewGraphic): DiagramContent {
 }
 
 /** Renders sanitized Markdown HTML and resolves in-document heading anchors. */
-export function Preview({ html, documentName, mdTheme, searchTerm, settings, className }: PreviewProps): JSX.Element {
+export function Preview({
+  html,
+  documentName,
+  mdTheme,
+  searchTerm,
+  settings,
+  onOpenLocalPath,
+  className
+}: PreviewProps): JSX.Element {
   const { t } = useTranslation()
   const bodyRef = useRef<HTMLDivElement>(null)
   const [renderedHtml, setRenderedHtml] = useState(html)
@@ -116,10 +125,15 @@ export function Preview({ html, documentName, mdTheme, searchTerm, settings, cla
       const target =
         bodyRef.current?.querySelector(`#${CSS.escape(id)}`) ?? document.getElementById(id)
       if (target instanceof HTMLElement) scrollPreviewHeadingIntoView(target)
+      return
+    }
+    if (/^file:/i.test(href)) {
+      e.preventDefault()
+      onOpenLocalPath(href)
     }
     // External http(s) links carry target="_blank"; the main process opens them
     // in the OS browser via the window-open handler.
-  }, [openDiagramAt, t])
+  }, [onOpenLocalPath, openDiagramAt, t])
 
   useEffect(() => {
     if (!bodyRef.current) return

@@ -2,6 +2,7 @@ import { app, BrowserWindow, dialog, ipcMain, Menu, shell } from 'electron'
 import { readFile, writeFile } from 'node:fs/promises'
 import { existsSync } from 'node:fs'
 import { dirname, extname, isAbsolute, join } from 'node:path'
+import { fileURLToPath } from 'node:url'
 import {
   IPC,
   MARKDOWN_EXTENSIONS,
@@ -178,6 +179,19 @@ async function readDocument(filePath: unknown): Promise<OpenResult> {
   }
 }
 
+async function openLocalPath(fileUrl: unknown): Promise<WriteResult> {
+  if (typeof fileUrl !== 'string' || !fileUrl.startsWith('file:')) return { ok: false, error: 'unsupported' }
+
+  try {
+    const filePath = fileURLToPath(fileUrl)
+    if (!isAbsolute(filePath) || !existsSync(filePath)) return { ok: false, error: 'File not found.' }
+    const error = await shell.openPath(filePath)
+    return error ? { ok: false, error } : { ok: true, path: filePath }
+  } catch (err) {
+    return { ok: false, error: (err as Error).message }
+  }
+}
+
 /** Single funnel for every open entry point (association, CLI, dialog, drop). */
 async function openDocument(filePath: string): Promise<void> {
   const result = await readDocument(filePath)
@@ -320,10 +334,9 @@ function createWindow(): void {
   })
 
   mainWindow.webContents.on('will-navigate', (event, url) => {
-    const devUrl = process.env['ELECTRON_RENDERER_URL']
-    if ((devUrl && url.startsWith(devUrl)) || (!devUrl && url.startsWith('file://'))) return
     event.preventDefault()
     if (url.startsWith('http:') || url.startsWith('https:')) void shell.openExternal(url)
+    else if (url.startsWith('file:')) void openLocalPath(url)
   })
 
   // Close guard: ask the renderer before closing when there are unsaved edits.
@@ -388,6 +401,8 @@ function registerIpc(): void {
   ipcMain.handle(IPC.readPath, (_e, filePath: unknown): Promise<OpenResult> => readDocument(filePath))
 
   ipcMain.handle(IPC.readImage, (_e, filePath: unknown): Promise<ImageDataResult> => readImageAsDataUrl(filePath))
+
+  ipcMain.handle(IPC.openLocalPath, (_e, fileUrl: unknown): Promise<WriteResult> => openLocalPath(fileUrl))
 
   ipcMain.handle(IPC.readSample, (_e, name: unknown): Promise<OpenResult> => {
     const path = samplePath(name)

@@ -111,7 +111,7 @@ export function findMarkdownHeadingLine(source: string, headingId: string): numb
   return token?.map?.[0] ?? null
 }
 
-function resolveImageSources(
+function resolveLocalSources(
   html: string,
   documentPath: string | null | undefined,
   assetMode: RenderMarkdownOptions['assetMode']
@@ -142,14 +142,25 @@ function resolveImageSources(
     }
   })
 
+  template.content.querySelectorAll('a[href]').forEach((anchor) => {
+    const href = anchor.getAttribute('href')?.trim()
+    if (!href || href.startsWith('#') || /^file:/i.test(href) || /^[a-z][a-z\d+.-]*:/i.test(href)) return
+
+    try {
+      anchor.setAttribute('href', new URL(href.replace(/\\/g, '/'), baseUrl).toString())
+    } catch {
+      /* Keep original href when URL parsing fails. */
+    }
+  })
+
   return template.innerHTML
 }
 
 /** Render Markdown to sanitized HTML safe to inject into the preview. */
 export function renderMarkdown(source: string, options: RenderMarkdownOptions = {}): string {
   const rawHtml = md.render((source ?? '').replace(/^\uFEFF/, ''))
-  const htmlWithResolvedImages = resolveImageSources(rawHtml, options.documentPath, options.assetMode ?? 'file')
-  return DOMPurify.sanitize(htmlWithResolvedImages, {
+  const htmlWithResolvedSources = resolveLocalSources(rawHtml, options.documentPath, options.assetMode ?? 'file')
+  return DOMPurify.sanitize(htmlWithResolvedSources, {
     // html for the document, mathMl + svg for KaTeX output. `eq`/`eqn` are the
     // wrapper tags markdown-it-texmath emits around each formula.
     USE_PROFILES: { html: true, mathMl: true, svg: true },
