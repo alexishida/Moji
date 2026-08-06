@@ -1,6 +1,6 @@
 {
   "name": "moji",
-  "version": "0.1.4",
+  "version": "1.0.5",
   "desktopName": "moji.desktop",
   "description": "Clean cross-platform Markdown viewer and editor (React + Electron)",
   "homepage": "https://github.com/alexishida/Moji",
@@ -29,6 +29,7 @@
   },
   "scripts": {
     "dev": "node scripts/run-electron-vite.cjs dev",
+    "dev:update": "node scripts/run-electron-vite.cjs dev --mock-update",
     "build": "electron-vite build",
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "test": "vitest run",

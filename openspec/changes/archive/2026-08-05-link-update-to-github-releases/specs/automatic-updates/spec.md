@@ -19,6 +19,12 @@ The system SHALL check for a newer stable GitHub Release after startup when runn
 - **WHEN** Moji runs on Linux without the `APPIMAGE` runtime marker
 - **THEN** automatic update is marked unsupported and no replacement is attempted
 
+#### Scenario: macOS build starts
+- **WHEN** Moji runs on macOS
+- **THEN** automatic update is marked unsupported and no replacement is attempted, because unsigned macOS builds cannot safely replace their application bundle
+
+## ADDED Requirements
+
 ### Requirement: User obtains available updates from GitHub Releases
 The system SHALL present a visually identifiable blue update action in both the global update notice and About view while an update is available. Selecting either action SHALL open the official Moji GitHub Releases page in the system browser without downloading, installing, or restarting the application.
 
@@ -34,8 +40,14 @@ The system SHALL present a visually identifiable blue update action in both the 
 - **WHEN** an update is available
 - **THEN** each update action includes localized text and an update-related icon, with primary blue button styling
 
+## MODIFIED Requirements
+
 ### Requirement: Update failure remains recoverable
 The system SHALL report update-check errors without closing application or blocking document operations, and SHALL allow a later check retry.
+
+#### Scenario: Network or filesystem update error
+- **WHEN** a release check fails because of a network or local runtime error
+- **THEN** application reports localized failure state, continues current editing session, and lets user retry the check
 
 #### Scenario: Release check error
 - **WHEN** checking GitHub Releases fails

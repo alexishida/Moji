@@ -4,7 +4,7 @@
 TBD - created by archiving change add-automatic-updates. Update Purpose after archive.
 ## Requirements
 ### Requirement: Packaged app checks stable GitHub releases
-The system SHALL check for a newer stable GitHub Release after startup when running as an installed Windows NSIS application or Linux AppImage, and SHALL not perform update checks in development or unsupported package formats.
+The system SHALL check for a newer stable GitHub Release after startup when running as an installed Windows NSIS application or Linux AppImage, and SHALL not perform update checks in development or unsupported package formats. Linux DEB and macOS packages SHALL be treated as unsupported package formats.
 
 #### Scenario: New stable release exists
 - **WHEN** a supported packaged application starts and GitHub contains a higher stable semantic version
@@ -22,31 +22,20 @@ The system SHALL check for a newer stable GitHub Release after startup when runn
 - **WHEN** Moji runs on Linux without the `APPIMAGE` runtime marker
 - **THEN** automatic update is marked unsupported and no replacement is attempted
 
-### Requirement: User controls update download and installation
-The system SHALL let user start download of an available update, observe progress, defer restart, or restart to install after download completes.
-
-#### Scenario: Download update
-- **WHEN** user selects download for an available version
-- **THEN** application downloads compatible update, reports progress, and marks update ready after integrity verification
-
-#### Scenario: Install ready update
-- **WHEN** user selects restart after update is ready and close is approved
-- **THEN** application exits, installs downloaded update, and starts updated version
-
-#### Scenario: Defer ready update
-- **WHEN** user chooses to continue working after update download
-- **THEN** application remains open and update can install on later exit or explicit restart
-
-#### Scenario: Update actions are visually identifiable
-- **WHEN** update notice presents download, restart, retry, or defer actions
-- **THEN** every action button includes an icon matching its purpose alongside localized text
+#### Scenario: macOS build starts
+- **WHEN** Moji runs on macOS
+- **THEN** automatic update is marked unsupported and no replacement is attempted, because Squirrel.Mac cannot replace an unsigned application bundle
 
 ### Requirement: Update failure remains recoverable
-The system SHALL report update errors without closing application or blocking document operations, and SHALL allow later check or download retry.
+The system SHALL report update-check errors without closing application or blocking document operations, and SHALL allow a later check retry.
 
 #### Scenario: Network or filesystem update error
-- **WHEN** release check or update download fails
-- **THEN** application reports localized failure state and continues current editing session
+- **WHEN** a release check fails because of a network or local runtime error
+- **THEN** application reports localized failure state, continues current editing session, and lets user retry the check
+
+#### Scenario: Release check error
+- **WHEN** checking GitHub Releases fails
+- **THEN** application reports localized failure state, continues current editing session, and lets user retry the check
 
 ### Requirement: Release publishing includes update metadata
 The system SHALL publish Windows NSIS and Linux AppImage artifacts with platform-specific electron-updater metadata from version tags.
@@ -54,4 +43,19 @@ The system SHALL publish Windows NSIS and Linux AppImage artifacts with platform
 #### Scenario: Version tag is pushed
 - **WHEN** maintainer pushes a tag matching package version
 - **THEN** GitHub Actions builds and publishes non-draft release artifacts and matching `latest.yml` and `latest-linux.yml` metadata
+
+### Requirement: User obtains available updates from GitHub Releases
+The system SHALL present a visually identifiable blue update action in both the global update notice and About view while an update is available. Selecting either action SHALL open the official Moji GitHub Releases page in the system browser without downloading, installing, or restarting the application.
+
+#### Scenario: User selects update from notice
+- **WHEN** an update notice is visible and user selects its update action
+- **THEN** the system browser opens the official Moji GitHub Releases page and the current editing session remains open
+
+#### Scenario: User selects update from About view
+- **WHEN** the About view reports an available update and user selects its update action
+- **THEN** the system browser opens the official Moji GitHub Releases page and the About view remains open
+
+#### Scenario: Update action is identifiable
+- **WHEN** an update is available
+- **THEN** each update action includes localized text and an update-related icon, with primary blue button styling
 

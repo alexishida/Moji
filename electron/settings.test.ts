@@ -83,7 +83,7 @@ describe('settings', () => {
       theme: 'dark',
       previewTheme: 'dark',
       language: 'pt-BR',
-      previewWidth: 40,
+      previewWidth: 60,
       recentFiles: []
     })
   })

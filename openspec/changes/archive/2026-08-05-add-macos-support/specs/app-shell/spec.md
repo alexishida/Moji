@@ -18,6 +18,10 @@ The system SHALL run as a desktop application on Windows, Linux, and macOS, buil
 ### Requirement: Native application menu
 The system SHALL install a native application menu on macOS exposing the standard system roles, because macOS dispatches clipboard and window shortcuts through the application menu. The system SHALL NOT install a menu on Windows or Linux, where every action is reachable from the in-app top bar.
 
+#### Scenario: Menu actions available
+- **WHEN** the application window is focused on macOS
+- **THEN** the native menu exposes the standard application, Edit, and Window roles required by the platform
+
 #### Scenario: Clipboard shortcuts in the editor on macOS
 - **WHEN** the user presses Cmd+C, Cmd+V, Cmd+X, or Cmd+A while editing a document or typing in a search field on macOS
 - **THEN** the corresponding clipboard action is applied to the focused field
