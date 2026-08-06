@@ -29,8 +29,6 @@ const api = {
   confirmClose: (shouldClose: boolean): Promise<void> => ipcRenderer.invoke(IPC.confirmClose, shouldClose),
   getUpdateState: (): Promise<UpdateState> => ipcRenderer.invoke(IPC.getUpdateState),
   checkForUpdate: (): Promise<UpdateState> => ipcRenderer.invoke(IPC.checkForUpdate),
-  downloadUpdate: (): Promise<UpdateState> => ipcRenderer.invoke(IPC.downloadUpdate),
-  installUpdate: (): Promise<boolean> => ipcRenderer.invoke(IPC.installUpdate),
 
   /** Resolve the absolute path of a File obtained from a drag-and-drop event. */
   getDroppedPath: (file: File): string => webUtils.getPathForFile(file),

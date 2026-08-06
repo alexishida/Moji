@@ -1187,22 +1187,6 @@ body {
   color: var(--text-muted);
 }
 
-.update-notice__progress {
-  height: 4px;
-  margin-top: var(--space-2);
-  overflow: hidden;
-  background: var(--bg-inset);
-  border-radius: 999px;
-}
-
-.update-notice__progress span {
-  display: block;
-  height: 100%;
-  background: var(--accent);
-  border-radius: inherit;
-  transition: width 0.15s ease;
-}
-
 .update-notice__actions {
   display: flex;
   flex-wrap: wrap;

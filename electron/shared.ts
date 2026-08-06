@@ -62,8 +62,6 @@ export type UpdateStatus =
   | 'checking'
   | 'up-to-date'
   | 'available'
-  | 'downloading'
-  | 'downloaded'
   | 'error'
 
 /** Serializable updater state sent from main to renderer. */
@@ -71,7 +69,6 @@ export interface UpdateState {
   status: UpdateStatus
   currentVersion: string
   version?: string
-  percent?: number
   error?: string
 }
 
@@ -121,8 +118,6 @@ export const IPC = {
   confirmClose: 'app:confirm-close',
   getUpdateState: 'update:get-state',
   checkForUpdate: 'update:check',
-  downloadUpdate: 'update:download',
-  installUpdate: 'update:install',
   // main -> renderer push channels
   requestClose: 'app:request-close',
   openDocument: 'doc:open',

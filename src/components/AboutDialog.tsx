@@ -3,6 +3,8 @@ import type { UpdateState } from '../../electron/shared'
 import { IconRefresh, IconX } from './icons'
 import logoMark from '../assets/logo-mark-light.png'
 
+const RELEASES_URL = 'https://github.com/alexishida/Moji/releases'
+
 interface AboutDialogProps {
   version: string
   updateState: UpdateState
@@ -13,7 +15,7 @@ interface AboutDialogProps {
 export function AboutDialog({ version, updateState, onClose, onCheckForUpdates }: AboutDialogProps): JSX.Element {
   const { t } = useTranslation()
   const checking = updateState.status === 'checking'
-  const checkDisabled = ['unsupported', 'checking', 'available', 'downloading', 'downloaded'].includes(updateState.status)
+  const checkDisabled = ['unsupported', 'checking', 'available'].includes(updateState.status)
 
   const updateStatus =
     updateState.status === 'checking'
@@ -22,15 +24,11 @@ export function AboutDialog({ version, updateState, onClose, onCheckForUpdates }
         ? t('aboutDialog.updateCurrent', { version: updateState.currentVersion })
         : updateState.status === 'available'
           ? t('aboutDialog.updateAvailable', { version: updateState.version })
-          : updateState.status === 'downloading'
-            ? t('aboutDialog.updateDownloading', { percent: Math.round(updateState.percent ?? 0) })
-            : updateState.status === 'downloaded'
-              ? t('aboutDialog.updateReady', { version: updateState.version })
-              : updateState.status === 'error'
-                ? t('aboutDialog.updateFailed')
-                : updateState.status === 'unsupported'
-                  ? t('aboutDialog.updateUnsupported')
-                  : t('aboutDialog.updateIdle', { version: updateState.currentVersion })
+          : updateState.status === 'error'
+            ? t('aboutDialog.updateFailed')
+            : updateState.status === 'unsupported'
+              ? t('aboutDialog.updateUnsupported')
+              : t('aboutDialog.updateIdle', { version: updateState.currentVersion })
 
   return (
     <section className="export-dialog about-dialog" aria-label={t('aboutDialog.title')}>
@@ -92,10 +90,17 @@ export function AboutDialog({ version, updateState, onClose, onCheckForUpdates }
 
         <div className="about-dialog__update">
           <span className="about-dialog__update-status" aria-live="polite">{updateStatus}</span>
-          <button className="btn" onClick={onCheckForUpdates} disabled={checkDisabled}>
-            <IconRefresh aria-hidden="true" />
-            {checking ? t('aboutDialog.checkingForUpdates') : t('aboutDialog.checkForUpdates')}
-          </button>
+          {updateState.status === 'available' ? (
+            <a className="btn btn--primary" href={RELEASES_URL} target="_blank" rel="noreferrer">
+              <IconRefresh aria-hidden="true" />
+              {t('aboutDialog.openReleases')}
+            </a>
+          ) : (
+            <button className="btn" onClick={onCheckForUpdates} disabled={checkDisabled}>
+              <IconRefresh aria-hidden="true" />
+              {checking ? t('aboutDialog.checkingForUpdates') : t('aboutDialog.checkForUpdates')}
+            </button>
+          )}
         </div>
       </div>
     </section>

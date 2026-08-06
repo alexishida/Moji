@@ -47,7 +47,7 @@
 - **Markdown guide**: bundled localized reference documents (`samples/markdown-guide.<locale>.md`) opened from the status bar.
 - **Recent files**: Welcome screen shows recently opened Markdown files and lets you reopen or remove entries.
 - **Remembered app state**: window size/position, recent files, last used folder, language, preview typography, and Markdown preview theme are persisted in user settings.
-- **Automatic updates**: installed Windows NSIS and Linux AppImage builds check GitHub Releases, show download progress, and restart only after protecting unsaved documents.
+- **Updates**: installed Windows NSIS and Linux AppImage builds check GitHub Releases and show an update button that opens the official release page in the system browser.
 - **Markdown themes**: dark/light toggle for rendered Markdown. App chrome remains dark; exports always use the light theme.
 - **Internationalization**: English, Portuguese (Brazil), Spanish, Japanese, Chinese, and Russian. Initial language follows the OS when possible and user choice is persisted.
 - **Security**: sandboxed renderer, context isolation, `nodeIntegration: false`, DOMPurify sanitization, and external links opened in the OS browser.
@@ -92,7 +92,7 @@ If you prefer the terminal, clearing the quarantine flag skips the prompts entir
 xattr -dr com.apple.quarantine /Applications/Moji.app
 ```
 
-The missing signature is also why automatic updates stay off on macOS: upgrade by downloading a new DMG. Both limitations disappear once the app is signed and notarized.
+Update from GitHub Releases by downloading a new DMG. Signing and notarizing future macOS builds removes Gatekeeper warnings.
 
 ## Requirements
 
@@ -130,9 +130,9 @@ Artifacts are written to `release/`.
 
 Current packaging targets:
 
-- Windows: NSIS installer, x64, with automatic updates.
-- Linux: AppImage with automatic updates, plus deb for manual installation.
-- macOS: universal (Apple Silicon + Intel) DMG and ZIP, without automatic updates.
+- Windows: NSIS installer, x64, with GitHub Release checks.
+- Linux: AppImage with GitHub Release checks, plus deb for manual installation.
+- macOS: universal (Apple Silicon + Intel) DMG and ZIP.
 
 File associations for `.md` and `.markdown` are declared in `electron-builder.yml`.
 
@@ -141,7 +141,7 @@ File associations for `.md` and `.markdown` are declared in `electron-builder.ym
 macOS releases are **not code-signed or notarized**, because that requires a paid Apple Developer account. Consequences:
 
 - Gatekeeper blocks the app when the DMG is downloaded from the web. Users open it through **System Settings > Privacy & Security > Open Anyway**, or by clearing the quarantine flag with `xattr -dr com.apple.quarantine /Applications/Moji.app`. Control-clicking the app and choosing *Open* stopped working in macOS 15 (Sequoia), where [Apple removed that override](https://developer.apple.com/news/?id=saqachfa). The user-facing steps live under [Installation](#macos).
-- Automatic updates stay disabled on macOS. Squirrel.Mac refuses to replace an unsigned bundle, so `updater.ts` reports `unsupported` there and users update by downloading a new DMG.
+- Update checks stay disabled on macOS. Users update by downloading a new DMG from GitHub Releases.
 
 To sign locally, install an Apple Developer ID certificate in the keychain and drop the `CSC_IDENTITY_AUTO_DISCOVERY=false` override; `build/entitlements.mac.plist` and `hardenedRuntime` are already configured for notarization.
 
@@ -154,7 +154,7 @@ To sign locally, install an Apple Developer ID certificate in the keychain and d
 
 A Windows or Linux failure leaves the release as a draft. A macOS failure does not: the publish step waits for the macOS job to finish, so the release is never made public while the DMG is still uploading, but it does not require it to have succeeded. macOS is unsigned and secondary, and a broken DMG should not hold back a good Windows and Linux release. The macOS job still fails visibly in the workflow.
 
-`electron-updater` runs only in packaged Windows NSIS builds and Linux AppImages. Development and deb builds do not self-update. AppImage must live in a user-writable directory to be replaced successfully. Windows production releases should use an Authenticode certificate through electron-builder signing environment variables; never store certificate credentials in repository.
+`electron-updater` checks GitHub Releases only in packaged Windows NSIS builds and Linux AppImages. Development, deb, and macOS builds do not check for updates. When a newer version is found, Moji opens GitHub Releases for the user to choose and install the correct artifact. Windows production releases should use an Authenticode certificate through electron-builder signing environment variables; never store certificate credentials in repository.
 
 ## Project Structure
 

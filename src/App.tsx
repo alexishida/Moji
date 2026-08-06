@@ -233,17 +233,9 @@ export function App(): JSX.Element {
 
   const updateKey = `${updateState.status}:${updateState.version ?? ''}:${updateState.error ?? ''}`
 
-  const downloadUpdate = useCallback(() => {
-    void window.api.downloadUpdate().then(setUpdateState)
-  }, [])
-
   const checkForUpdate = useCallback(() => {
     setDismissedUpdate(null)
     void window.api.checkForUpdate().then(setUpdateState)
-  }, [])
-
-  const installUpdate = useCallback(() => {
-    void window.api.installUpdate()
   }, [])
 
   // --- Recent files ------------------------------------------------------
@@ -1246,8 +1238,6 @@ export function App(): JSX.Element {
         <UpdateNotice
           state={updateState}
           onDismiss={() => setDismissedUpdate(updateKey)}
-          onDownload={downloadUpdate}
-          onInstall={installUpdate}
           onRetry={checkForUpdate}
         />
       )}
