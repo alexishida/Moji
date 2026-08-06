@@ -40,6 +40,7 @@
     "search": "検索...",
     "replace": "置換",
     "replaceWith": "置換後の文字列...",
+    "findPrevious": "前を検索",
     "findNext": "次を検索",
     "replaceOne": "置換",
     "replaceAll": "すべて置換",

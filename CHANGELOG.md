@@ -12,16 +12,20 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Outline navigation now works in Editor mode, moving the cursor to the selected Markdown heading.
 - GitHub Actions runs the test suite on Windows, Linux, and macOS.
 - `npm run dev:update` simulates an available update in development without network access.
+- Preview search now opens a contextual popover with the current/total match count and previous/next navigation.
+- Editor search now includes previous/next navigation alongside replacement controls, arranged in separate navigation and replacement rows.
 
 ### Changed
 
 - The top-bar width toggle now switches between the configured reading width and the full available width for the current session, instead of the previous fixed 760px column versus full width. The default reading width is 60%.
 - Update checks on packaged Windows NSIS and Linux AppImage builds now direct users to GitHub Releases instead of downloading and installing an artifact automatically.
 - Search input is debounced and preview/editor highlighting is capped to keep large documents responsive.
+- The active search match is now visually distinct in both Preview and Editor; previous/next navigation moves the highlight, counter, and viewport together.
 
 ### Fixed
 
 - Local file links and relative Markdown images now route through validated main-process APIs, including Windows file URLs.
+- Preview search now finds exact phrases spanning inline Markdown formatting, such as a name split by bold text, and ignores copied leading/trailing whitespace.
 
 ## [0.1.4] - 2026-07-13
 
