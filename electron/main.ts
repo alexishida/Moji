@@ -73,6 +73,7 @@ function sanitizeSettingsPatch(value: unknown): Partial<Settings> {
   if (typeof raw['previewFontSize'] === 'number') patch.previewFontSize = raw['previewFontSize']
   if (typeof raw['previewLineHeight'] === 'number') patch.previewLineHeight = raw['previewLineHeight']
   if (typeof raw['previewFluidWidth'] === 'boolean') patch.previewFluidWidth = raw['previewFluidWidth']
+  if (typeof raw['previewWidth'] === 'number') patch.previewWidth = raw['previewWidth']
   if (Array.isArray(raw['recentFiles'])) patch.recentFiles = raw['recentFiles'].filter((p): p is string => typeof p === 'string')
   if (isWindowBounds(raw['windowBounds'])) patch.windowBounds = raw['windowBounds']
 
