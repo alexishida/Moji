@@ -13,7 +13,7 @@ vi.mock('electron', () => ({
     get isPackaged() {
       return state.isPackaged
     },
-    getVersion: () => '0.1.4'
+    getVersion: () => '1.0.5'
   }
 }))
 
@@ -47,7 +47,7 @@ describe('update controller', () => {
 
     const controller = createUpdateController(vi.fn())
 
-    await expect(controller.check()).resolves.toMatchObject({ status: 'unsupported', currentVersion: '0.1.4' })
+    await expect(controller.check()).resolves.toMatchObject({ status: 'unsupported', currentVersion: '1.0.5' })
   })
 
   it('simulates an available update in development when requested', async () => {
@@ -57,22 +57,22 @@ describe('update controller', () => {
     const notify = vi.fn()
     const controller = createUpdateController(notify)
 
-    expect(controller.getState()).toEqual({ status: 'idle', currentVersion: '0.1.4' })
+    expect(controller.getState()).toEqual({ status: 'idle', currentVersion: '1.0.5' })
     await expect(controller.check()).resolves.toEqual({
       status: 'available',
-      currentVersion: '0.1.4',
+      currentVersion: '1.0.5',
       version: '99.0.0',
       error: undefined
     })
     expect(notify).toHaveBeenNthCalledWith(1, {
       status: 'checking',
-      currentVersion: '0.1.4',
+      currentVersion: '1.0.5',
       version: undefined,
       error: undefined
     })
     expect(notify).toHaveBeenNthCalledWith(2, {
       status: 'available',
-      currentVersion: '0.1.4',
+      currentVersion: '1.0.5',
       version: '99.0.0',
       error: undefined
     })
@@ -86,9 +86,9 @@ describe('update controller', () => {
     const controller = createUpdateController(notify)
 
     await controller.check()
-    state.listeners.get('update-available')?.({ version: '0.2.0' } as never)
+    state.listeners.get('update-available')?.({ version: '1.1.0' } as never)
 
-    expect(controller.getState()).toEqual({ status: 'available', currentVersion: '0.1.4', version: '0.2.0', error: undefined })
+    expect(controller.getState()).toEqual({ status: 'available', currentVersion: '1.0.5', version: '1.1.0', error: undefined })
     expect(controller).not.toHaveProperty('download')
     expect(controller).not.toHaveProperty('quitAndInstall')
   })
@@ -99,8 +99,8 @@ describe('update controller', () => {
     const controller = createUpdateController(vi.fn())
 
     await controller.check()
-    state.listeners.get('update-not-available')?.({ version: '0.1.4' } as never)
-    expect(controller.getState()).toMatchObject({ status: 'up-to-date', version: '0.1.4' })
+    state.listeners.get('update-not-available')?.({ version: '1.0.5' } as never)
+    expect(controller.getState()).toMatchObject({ status: 'up-to-date', version: '1.0.5' })
 
     state.checkForUpdates.mockRejectedValueOnce(new Error('offline'))
     await controller.check()

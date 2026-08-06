@@ -6,13 +6,24 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [1.0.5] - 2026-08-05
+
 ### Added
 
 - Configurable reading width: Settings > Preview offers a reading-width percentage (20%–100%, in 5% steps) applied to every document and persisted across launches, with a readable minimum on narrow windows.
+- Outline navigation now works in Editor mode, moving the cursor to the selected Markdown heading.
+- GitHub Actions runs the test suite on Windows, Linux, and macOS.
+- `npm run dev:update` simulates an available update in development without network access.
 
 ### Changed
 
 - The top-bar width toggle now switches between the configured reading width and the full available width for the current session, instead of the previous fixed 760px column versus full width. The default reading width is 60%.
+- Update checks on packaged Windows NSIS and Linux AppImage builds now direct users to GitHub Releases instead of downloading and installing an artifact automatically.
+- Search input is debounced and preview/editor highlighting is capped to keep large documents responsive.
+
+### Fixed
+
+- Local file links and relative Markdown images now route through validated main-process APIs, including Windows file URLs.
 
 ## [0.1.4] - 2026-07-13
 
