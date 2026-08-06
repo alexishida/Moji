@@ -25,7 +25,7 @@ The system SHALL present a clean, minimal, distraction-free interface: generous 
 
 #### Scenario: Preview starts with default reading layout
 - **WHEN** the application starts
-- **THEN** the preview font size is 16px, the full-width toggle is off, and the reading column uses the persisted configured width (40% by default)
+- **THEN** the preview font size is 16px, the full-width toggle is off, and the reading column uses the persisted configured width (60% by default)
 
 ### Requirement: Light and dark theme
 The system SHALL provide both a light and a dark theme and let the user toggle between them at any time. Both preview content and application chrome SHALL adapt to the active theme with adequate contrast.

@@ -3,6 +3,7 @@ import electronUpdater, { type AppUpdater, type UpdateInfo } from 'electron-upda
 import type { UpdateState } from './shared'
 
 type StateListener = (state: UpdateState) => void
+const MOCK_UPDATE_VERSION = '99.0.0'
 
 export interface UpdateController {
   getState: () => UpdateState
@@ -15,13 +16,18 @@ function supportsAutomaticUpdates(): boolean {
   return process.platform === 'linux' && typeof process.env['APPIMAGE'] === 'string'
 }
 
+function mocksAvailableUpdate(): boolean {
+  return !app.isPackaged && process.env['MOJI_MOCK_UPDATE'] === '1'
+}
+
 function errorMessage(error: Error): string {
   return error.message || 'update failed'
 }
 
 export function createUpdateController(notify: StateListener): UpdateController {
+  const mockUpdate = mocksAvailableUpdate()
   let state: UpdateState = {
-    status: supportsAutomaticUpdates() ? 'idle' : 'unsupported',
+    status: mockUpdate || supportsAutomaticUpdates() ? 'idle' : 'unsupported',
     currentVersion: app.getVersion()
   }
 
@@ -29,6 +35,16 @@ export function createUpdateController(notify: StateListener): UpdateController 
     state = { ...state, ...patch }
     notify(state)
     return state
+  }
+
+  if (mockUpdate) {
+    return {
+      getState: () => state,
+      check: async () => {
+        publish({ status: 'checking', version: undefined, error: undefined })
+        return publish({ status: 'available', version: MOCK_UPDATE_VERSION })
+      }
+    }
   }
 
   if (state.status === 'unsupported') {
