@@ -1,6 +1,6 @@
 {
   "app": {
-    "name": "Moji v0.1.4",
+    "name": "Moji v1.0.5",
     "untitled": "无标题",
     "modifiedMarker": "•"
   },
@@ -78,7 +78,7 @@
     "noDocument": "打开或创建一个文档以查看其大纲。"
   },
   "statusbar": {
-    "brand": "Moji v0.1.4",
+    "brand": "Moji v1.0.5",
     "guide": "Markdown 指南",
     "exportPdf": "导出 PDF",
     "lineCount": "行数：{{count}}",
@@ -126,7 +126,7 @@
   },
   "welcome": {
     "tagline": "轻量简洁的 Markdown 阅读器",
-    "title": "Moji v0.1.4",
+    "title": "Moji v1.0.5",
     "subtitle": "打开 Markdown 文件以清晰地阅读。",
     "openButton": "打开文件",
     "newButton": "新建文件",
