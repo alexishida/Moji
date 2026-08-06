@@ -24,6 +24,7 @@ const externalSearchIndex = StateEffect.define<number | null>()
 const externalHighlightActive = StateEffect.define<boolean>()
 const externalSearchMark = Decoration.mark({ class: 'cm-external-searchMatch' })
 const externalSearchActiveMark = Decoration.mark({ class: 'cm-external-searchMatch cm-external-searchMatch--active' })
+const MAX_SEARCH_DECORATIONS = 2_000
 
 const oneDarkProEditorTheme = EditorView.theme({
   '&': {
@@ -156,10 +157,12 @@ function buildSearchDecorations(
   const cursor = query.getCursor(state)
   for (let index = 0, match = cursor.next(); !match.done; index += 1, match = cursor.next()) {
     const { from, to } = match.value
-    if (from !== to) {
+    if (from !== to && (index < MAX_SEARCH_DECORATIONS || index === activeIndex)) {
       const isActive = highlightActive && index === activeIndex
       builder.add(from, to, isActive ? externalSearchActiveMark : externalSearchMark)
     }
+
+    if (index >= MAX_SEARCH_DECORATIONS && (activeIndex === null || index >= activeIndex)) break
   }
   return builder.finish()
 }
