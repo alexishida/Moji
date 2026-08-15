@@ -14,7 +14,7 @@ import { AboutDialog } from './components/AboutDialog'
 import { UpdateNotice } from './components/UpdateNotice'
 import { documentAssetBaseUrl, renderMarkdown } from './lib/markdown'
 import { buildOutline } from './lib/outline'
-import { getActivePreviewHeadingId, scrollPreviewHeadingIntoView } from './lib/previewScroll'
+import { scrollPreviewHeadingIntoView } from './lib/previewScroll'
 import { useDebounced } from './lib/useDebounced'
 import { buildStandaloneHtml } from './lib/exportHtml'
 import { getExtraMermaidGuideExamples } from './lib/mermaidGuide'
@@ -353,28 +353,6 @@ export function App(): JSX.Element {
     }
     setActiveSearchIndex((index) => (index === null ? 0 : Math.min(index, searchMatchCount - 1)))
   }, [searchMatchCount, searchTerm])
-
-  // --- Outline scroll-spy: highlight the heading nearest the viewport top --
-  useEffect(() => {
-    if (!hasDoc) {
-      setActiveHeadingId(null)
-      return
-    }
-    const body = document.querySelector('.markdown-body')
-    const scroller = body?.closest('.pane') as HTMLElement | null
-    if (!body || !scroller) return
-    const heads = Array.from(body.querySelectorAll('h1, h2, h3, h4, h5, h6')) as HTMLElement[]
-    if (heads.length === 0) {
-      setActiveHeadingId(null)
-      return
-    }
-    const update = (): void => {
-      setActiveHeadingId(getActivePreviewHeadingId(scroller, heads))
-    }
-    update()
-    scroller.addEventListener('scroll', update, { passive: true })
-    return () => scroller.removeEventListener('scroll', update)
-  }, [hasDoc, html, mode, activeDocId])
 
   // --- Initial settings --------------------------------------------------
   useEffect(() => {
@@ -1237,6 +1215,7 @@ export function App(): JSX.Element {
                 documentName={activeDoc ? documentName(activeDoc, t('app.untitled')) : t('app.untitled')}
                 mdTheme={mdTheme}
                 searchTerm={searchTerm}
+                onActiveHeadingChange={setActiveHeadingId}
                 settings={settings}
                 onOpenLocalPath={(fileUrl) => void openLocalPath(fileUrl)}
               />
