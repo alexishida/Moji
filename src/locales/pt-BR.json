@@ -168,6 +168,7 @@
     "fontSize": "Tamanho da fonte",
     "lineHeight": "Altura da linha",
     "width": "Largura de leitura",
+    "autoSave": "Restaurar documentos sem arquivo ao reiniciar",
     "shortcutSections": {
       "file": "Arquivo",
       "search": "Busca",
@@ -243,6 +244,9 @@
     "exportFailed": "Falha ao exportar: {{error}}",
     "saveSuccess": "Salvo",
     "saveFailed": "Falha ao salvar: {{error}}",
+    "autoSaveFailed": "Falha ao salvar rascunho de recuperação: {{error}}",
+    "autoSaveCleanupFailed": "Falha ao remover rascunho de recuperação: {{error}}",
+    "draftRestoreFailed": "Falha ao restaurar rascunhos de recuperação: {{error}}",
     "openFailed": "Não foi possível abrir o arquivo: {{error}}",
     "noDocument": "Abra um documento primeiro.",
     "readOnlyGuide": "O guia Markdown incluído é somente leitura e não pode ser salvo.",

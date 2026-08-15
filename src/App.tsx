@@ -21,8 +21,10 @@ import { buildStandaloneHtml } from './lib/exportHtml'
 import { getExtraMermaidGuideExamples } from './lib/mermaidGuide'
 import { renderMermaidFlowcharts } from './lib/mermaid'
 import {
+  AUTO_SAVE_DELAY_MS,
   MAX_RECENT_FILES,
   PREVIEW_WIDTH_DEFAULT,
+  type AutoSaveDraft,
   type ExportFormat,
   type Settings,
   type Theme,
@@ -40,6 +42,8 @@ interface DocumentState {
   title: string | null
   content: string
   savedContent: string
+  draftId: string | null
+  draftSavedContent: string | null
   readOnly: boolean
 }
 
@@ -47,7 +51,15 @@ interface DocumentInput {
   path: string | null
   title?: string | null
   content: string
+  savedContent?: string
+  draftId?: string | null
+  draftSavedContent?: string | null
   readOnly?: boolean
+}
+
+function needsUnsavedConfirmation(doc: DocumentState, autoSave: boolean): boolean {
+  if (autoSave && !doc.path && doc.draftId) return doc.draftSavedContent !== doc.content
+  return doc.content !== doc.savedContent
 }
 
 interface DocumentStats {
@@ -135,6 +147,7 @@ export function App(): JSX.Element {
     previewLineHeight: 1.7,
     previewFluidWidth: false,
     previewWidth: PREVIEW_WIDTH_DEFAULT,
+    autoSave: true,
     recentFiles: []
   })
   const [documents, setDocuments] = useState<DocumentState[]>([])
@@ -165,6 +178,8 @@ export function App(): JSX.Element {
   const [topBarDismissRequest, setTopBarDismissRequest] = useState(0)
   const dialogResolver = useRef<((c: ConfirmChoice) => void) | null>(null)
   const nextDocSeq = useRef(1)
+  const draftsLoaded = useRef(false)
+  const draftSavesInFlight = useRef(new Map<string, Promise<boolean>>())
 
   const activeDoc = useMemo(
     () => documents.find((doc) => doc.id === activeDocId) ?? null,
@@ -174,7 +189,7 @@ export function App(): JSX.Element {
   const content = activeDoc?.content ?? ''
   const savedContent = activeDoc?.savedContent ?? ''
   const dirty = hasDoc && content !== savedContent
-  const hasDirtyDocs = documents.some((doc) => doc.content !== doc.savedContent)
+  const hasDirtyDocs = documents.some((doc) => needsUnsavedConfirmation(doc, settings.autoSave))
 
   const debouncedContent = useDebounced(content, 150)
   const debouncedSearchTerm = useDebounced(searchTerm, 200)
@@ -209,6 +224,7 @@ export function App(): JSX.Element {
     mdTheme,
     dirty,
     hasDirtyDocs,
+    autoSave: settings.autoSave,
     searchMatchCount,
     exportDialogOpen: false,
     settingsOpen: false,
@@ -223,6 +239,7 @@ export function App(): JSX.Element {
     mdTheme,
     dirty,
     hasDirtyDocs,
+    autoSave: settings.autoSave,
     searchMatchCount,
     exportDialogOpen: exportDialogFormat !== null,
     settingsOpen,
@@ -313,7 +330,9 @@ export function App(): JSX.Element {
           path: item.path,
           title: item.title ?? null,
           content: item.content,
-          savedContent: item.content,
+          savedContent: item.savedContent ?? item.content,
+          draftId: item.draftId ?? (item.path ? null : `draft-${newDocumentId()}`),
+          draftSavedContent: item.draftSavedContent ?? null,
           readOnly: item.readOnly === true
         }
         nextDocs.push(doc)
@@ -349,14 +368,31 @@ export function App(): JSX.Element {
     setActiveSearchIndex((index) => (index === null ? 0 : Math.min(index, searchMatchCount - 1)))
   }, [debouncedSearchTerm, searchMatchCount])
 
-  // --- Initial settings --------------------------------------------------
+  // --- Initial settings and recovered untitled documents ----------------
   useEffect(() => {
-    void window.api.getSettings().then((s) => {
-      setSettings(s)
-      setMdTheme(s.previewTheme)
-      void i18n.changeLanguage(s.language)
-    })
-  }, [i18n])
+    if (draftsLoaded.current) return
+    draftsLoaded.current = true
+
+    void Promise.all([window.api.getSettings(), window.api.getDrafts()])
+      .then(([s, drafts]) => {
+        setSettings(s)
+        setMdTheme(s.previewTheme)
+        void i18n.changeLanguage(s.language)
+        if (drafts.length > 0) {
+          addDocuments(
+            drafts.map((draft) => ({
+              path: null,
+              title: draft.title,
+              content: draft.content,
+              savedContent: '',
+              draftId: draft.id,
+              draftSavedContent: draft.content
+            }))
+          )
+        }
+      })
+      .catch((err: Error) => flash(t('notice.draftRestoreFailed', { error: err.message }), true))
+  }, [addDocuments, flash, i18n, t])
 
   // --- Document title ----------------------------------------------------
   useEffect(() => {
@@ -379,6 +415,87 @@ export function App(): JSX.Element {
     dialogResolver.current = null
   }, [])
 
+  const persistDraftDocument = useCallback(
+    async (docId: string): Promise<boolean> => {
+      if (!stateRef.current.autoSave) return false
+
+      const doc = stateRef.current.documents.find((item) => item.id === docId)
+      if (!doc || doc.path || doc.readOnly || !doc.draftId || doc.draftSavedContent === doc.content) {
+        return false
+      }
+
+      const inFlight = draftSavesInFlight.current.get(doc.draftId)
+      if (inFlight) return inFlight
+
+      const content = doc.content
+      const draft: AutoSaveDraft = {
+        id: doc.draftId,
+        title: documentName(doc, t('app.untitled')),
+        content
+      }
+
+      const operation = (async (): Promise<boolean> => {
+        try {
+          const result = await window.api.saveDraft(draft)
+          if (!result.ok) {
+            flash(t('notice.autoSaveFailed', { error: result.error }), true)
+            return false
+          }
+          setDocuments((prev) =>
+            prev.map((item) =>
+              item.id === docId && item.draftId === draft.id
+                ? { ...item, draftSavedContent: content }
+                : item
+            )
+          )
+          return true
+        } catch (err) {
+          flash(t('notice.autoSaveFailed', { error: (err as Error).message }), true)
+          return false
+        }
+      })()
+
+      draftSavesInFlight.current.set(draft.id, operation)
+      try {
+        return await operation
+      } finally {
+        draftSavesInFlight.current.delete(draft.id)
+      }
+    },
+    [flash, t]
+  )
+
+  useEffect(() => {
+    if (!settings.autoSave) return
+    const pending = documents.filter(
+      (doc) => !doc.path && !doc.readOnly && doc.draftId && doc.draftSavedContent !== doc.content
+    )
+    if (pending.length === 0) return
+
+    const timer = window.setTimeout(() => {
+      pending.forEach((doc) => void persistDraftDocument(doc.id))
+    }, AUTO_SAVE_DELAY_MS)
+
+    return () => window.clearTimeout(timer)
+  }, [documents, persistDraftDocument, settings.autoSave])
+
+  const removeDocumentDraft = useCallback(
+    async (doc: Pick<DocumentState, 'draftId'>): Promise<boolean> => {
+      if (!doc.draftId) return true
+      await draftSavesInFlight.current.get(doc.draftId)
+      try {
+        const result = await window.api.removeDraft(doc.draftId)
+        if (result.ok) return true
+        flash(t('notice.autoSaveCleanupFailed', { error: result.error }), true)
+        return false
+      } catch (err) {
+        flash(t('notice.autoSaveCleanupFailed', { error: (err as Error).message }), true)
+        return false
+      }
+    },
+    [flash, t]
+  )
+
   const saveDocumentAs = useCallback(
     async (docId: string): Promise<boolean> => {
       const doc = stateRef.current.documents.find((item) => item.id === docId)
@@ -392,8 +509,19 @@ export function App(): JSX.Element {
       const savedText = doc.content
       const res = await window.api.saveAs(savedText, suggested)
       if (res.ok) {
+        const draftRemoved = await removeDocumentDraft(doc)
         setDocuments((prev) =>
-          prev.map((item) => (item.id === docId ? { ...item, path: res.path, savedContent: savedText } : item))
+          prev.map((item) =>
+            item.id === docId
+              ? {
+                  ...item,
+                  path: res.path,
+                  savedContent: savedText,
+                  draftId: draftRemoved ? null : item.draftId,
+                  draftSavedContent: draftRemoved ? null : item.draftSavedContent
+                }
+              : item
+          )
         )
         flash(t('notice.saveSuccess'))
         return true
@@ -401,7 +529,7 @@ export function App(): JSX.Element {
       if (!res.canceled) flash(t('notice.saveFailed', { error: res.error }), true)
       return false
     },
-    [flash, t]
+    [flash, removeDocumentDraft, t]
   )
 
   const saveDocument = useCallback(
@@ -420,14 +548,26 @@ export function App(): JSX.Element {
       const savedText = doc.content
       const res = await window.api.save(doc.path, savedText)
       if (res.ok) {
-        setDocuments((prev) => prev.map((item) => (item.id === docId ? { ...item, savedContent: savedText } : item)))
+        const draftRemoved = await removeDocumentDraft(doc)
+        setDocuments((prev) =>
+          prev.map((item) =>
+            item.id === docId
+              ? {
+                  ...item,
+                  savedContent: savedText,
+                  draftId: draftRemoved ? null : item.draftId,
+                  draftSavedContent: draftRemoved ? null : item.draftSavedContent
+                }
+              : item
+          )
+        )
         flash(t('notice.saveSuccess'))
         return true
       }
       flash(t('notice.saveFailed', { error: res.error }), true)
       return false
     },
-    [flash, saveDocumentAs, t]
+    [flash, removeDocumentDraft, saveDocumentAs, t]
   )
 
   const doSave = useCallback(async (): Promise<boolean> => {
@@ -442,7 +582,7 @@ export function App(): JSX.Element {
   const confirmUnsavedDocument = useCallback(
     async (docId: string): Promise<'proceed' | 'cancel'> => {
       const doc = stateRef.current.documents.find((item) => item.id === docId)
-      if (!doc || doc.content === doc.savedContent) return 'proceed'
+      if (!doc || !needsUnsavedConfirmation(doc, stateRef.current.autoSave)) return 'proceed'
 
       setActiveDocId(docId)
       const choice = await askUnsaved()
@@ -454,12 +594,17 @@ export function App(): JSX.Element {
   )
 
   const confirmAnyUnsaved = useCallback(async (): Promise<'proceed' | 'cancel'> => {
-    const dirtyDocs = stateRef.current.documents.filter((doc) => doc.content !== doc.savedContent)
+    const dirtyDocs = stateRef.current.documents.filter((doc) =>
+      needsUnsavedConfirmation(doc, stateRef.current.autoSave)
+    )
     if (dirtyDocs.length === 0) return 'proceed'
 
     setActiveDocId(dirtyDocs[0].id)
     const choice = await askUnsaved()
-    if (choice === 'discard') return 'proceed'
+    if (choice === 'discard') {
+      const removed = await Promise.all(dirtyDocs.map(removeDocumentDraft))
+      return removed.every(Boolean) ? 'proceed' : 'cancel'
+    }
     if (choice !== 'save') return 'cancel'
 
     for (const doc of dirtyDocs) {
@@ -467,7 +612,7 @@ export function App(): JSX.Element {
       if (!(await saveDocument(doc.id))) return 'cancel'
     }
     return 'proceed'
-  }, [askUnsaved, saveDocument])
+  }, [askUnsaved, removeDocumentDraft, saveDocument])
 
   const doOpen = useCallback(async () => {
     const res = await window.api.openDialog()
@@ -668,6 +813,7 @@ export function App(): JSX.Element {
       const currentDocs = stateRef.current.documents
       const index = currentDocs.findIndex((doc) => doc.id === docId)
       if (index < 0) return
+      if (!(await removeDocumentDraft(currentDocs[index]))) return
 
       const nextDocs = currentDocs.filter((doc) => doc.id !== docId)
       const nextActive =
@@ -682,7 +828,7 @@ export function App(): JSX.Element {
       setSettingsOpen(false)
       setAboutOpen(false)
     },
-    [confirmUnsavedDocument]
+    [confirmUnsavedDocument, removeDocumentDraft]
   )
 
   const closeDocuments = useCallback(
@@ -692,13 +838,15 @@ export function App(): JSX.Element {
 
       // Confirm each dirty document in the set; abort all if the user cancels.
       const dirtyDocs = stateRef.current.documents.filter(
-        (doc) => idSet.has(doc.id) && doc.content !== doc.savedContent
+        (doc) => idSet.has(doc.id) && needsUnsavedConfirmation(doc, stateRef.current.autoSave)
       )
       for (const doc of dirtyDocs) {
         if ((await confirmUnsavedDocument(doc.id)) === 'cancel') return
       }
 
       const currentDocs = stateRef.current.documents
+      const removed = await Promise.all(currentDocs.filter((doc) => idSet.has(doc.id)).map(removeDocumentDraft))
+      if (!removed.every(Boolean)) return
       const nextDocs = currentDocs.filter((doc) => !idSet.has(doc.id))
       const survivorIds = new Set(nextDocs.map((doc) => doc.id))
 
@@ -729,7 +877,7 @@ export function App(): JSX.Element {
       setSettingsOpen(false)
       setAboutOpen(false)
     },
-    [confirmUnsavedDocument]
+    [confirmUnsavedDocument, removeDocumentDraft]
   )
 
   const closeOtherDocuments = useCallback(
@@ -1201,6 +1349,7 @@ export function App(): JSX.Element {
                 highlightActive={activeSearchIndex !== null}
                 headingToReveal={editorHeadingRequest}
                 onChange={updateActiveContent}
+                onBlur={() => void persistDraftDocument(activeDoc.id)}
               />
             ) : (
               <Preview

@@ -16,6 +16,9 @@ export const PREVIEW_WIDTH_MAX = 100
 export const PREVIEW_WIDTH_STEP = 5
 export const PREVIEW_WIDTH_DEFAULT = 60
 
+/** Delay after the latest edit before an untitled draft is persisted. */
+export const AUTO_SAVE_DELAY_MS = 750
+
 export function normalizePreviewWidth(value: unknown, fallback = PREVIEW_WIDTH_DEFAULT): number {
   if (typeof value !== 'number' || !Number.isFinite(value)) return fallback
   const bounded = Math.min(PREVIEW_WIDTH_MAX, Math.max(PREVIEW_WIDTH_MIN, value))
@@ -32,6 +35,8 @@ export interface Settings {
   previewFluidWidth: boolean
   /** Reading column width as a percentage (20-100, in steps of 5) of the available preview area. */
   previewWidth: number
+  /** Persist and restore untitled documents between app sessions. */
+  autoSave: boolean
   /** Absolute paths of recently opened documents, most-recent first. */
   recentFiles: string[]
   lastDialogDirectory?: string
@@ -49,6 +54,17 @@ export interface DocumentPayload {
   path: string
   content: string
 }
+
+/** App-managed recovery copy for a document that has no filesystem path yet. */
+export interface AutoSaveDraft {
+  id: string
+  title: string
+  content: string
+}
+
+export type DraftResult =
+  | { ok: true }
+  | { ok: false; error?: string }
 
 /** Result of an operation that reads/opens a file. */
 export type OpenResult =
@@ -129,6 +145,9 @@ export const IPC = {
   exportDiagramPng: 'diagram:export-png',
   getSettings: 'settings:get',
   setSettings: 'settings:set',
+  getDrafts: 'drafts:get',
+  saveDraft: 'drafts:save',
+  removeDraft: 'drafts:remove',
   confirmClose: 'app:confirm-close',
   getUpdateState: 'update:get-state',
   checkForUpdate: 'update:check',

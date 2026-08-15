@@ -1478,6 +1478,13 @@ body {
   height: 36px;
 }
 
+.settings-checkbox {
+  width: 16px;
+  height: 16px;
+  justify-self: end;
+  accent-color: var(--accent);
+}
+
 .settings-shortcuts {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));

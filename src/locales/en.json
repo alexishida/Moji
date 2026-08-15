@@ -168,6 +168,7 @@
     "fontSize": "Font Size",
     "lineHeight": "Line Height",
     "width": "Reading Width",
+    "autoSave": "Restore untitled documents after restart",
     "shortcutSections": {
       "file": "File",
       "search": "Search",
@@ -243,6 +244,9 @@
     "exportFailed": "Export failed: {{error}}",
     "saveSuccess": "Saved",
     "saveFailed": "Save failed: {{error}}",
+    "autoSaveFailed": "Could not save recovery draft: {{error}}",
+    "autoSaveCleanupFailed": "Could not remove recovery draft: {{error}}",
+    "draftRestoreFailed": "Could not restore recovery drafts: {{error}}",
     "openFailed": "Could not open file: {{error}}",
     "noDocument": "Open a document first.",
     "readOnlyGuide": "The bundled Markdown guide is read-only and cannot be saved.",

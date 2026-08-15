@@ -21,6 +21,7 @@ Projeto atual: Moji, aplicativo desktop Electron + React + TypeScript para abrir
 - `preload.ts`: expoe API segura ao renderer via `contextBridge` com tipagem completa (`RendererApi`).
 - `shared.ts`: tipos e constantes compartilhados entre main, preload e renderer (tipos de resultado IPC, `Settings`, `ExportFormat`, `SUPPORTED_LANGUAGES`, `IPC` channels).
 - `settings.ts`: persiste configuracoes do usuario em `settings.json` no `userData`; resolve idioma inicial a partir do locale do SO; aplica limites numericos (`boundedNumber`).
+- `drafts.ts`: persiste rascunhos internos de documentos sem caminho em `drafts.json` no `userData`, permitindo restauracao entre sessoes.
 - `export.ts`: exporta documento ativo como PDF (via `printToPDF` em `BrowserWindow` oculta), PNG (via `capturePage().toPNG()`) ou HTML (escrita direta). Suporta A4/Letter/Legal e portrait/landscape.
 - `updater.ts`: gerencia verificacao, download e instalacao de GitHub Releases com `electron-updater`; habilitado apenas em Windows NSIS empacotado e Linux AppImage.
 
@@ -79,6 +80,7 @@ Projeto atual: Moji, aplicativo desktop Electron + React + TypeScript para abrir
 - Dialogos nativos de abrir, salvar como e exportar usam `settings.lastDialogDirectory`; lembrar diretorio apos operacao concluida ou caminho escolhido.
 - Guias Markdown em `samples/` abrem como documentos somente leitura; nao permitir edicao, salvar ou salvar como sobre recursos empacotados.
 - Novos documentos sem arquivo devem receber titulo localizado: o primeiro usa `app.untitled`; os seguintes usam o mesmo titulo com sequencia crescente.
+- Documentos sem arquivo usam rascunho interno de recuperacao por padrao; reabrem na proxima sessao e removem o rascunho ao salvar como arquivo, fechar a aba ou descartar.
 - Atalhos globais devem respeitar composicao de texto, prevenir comportamento padrao quando acionados e ter referencia localizada em Configuracoes.
 - Atalhos de formatacao Markdown pertencem ao keymap do CodeMirror; preservar selecao e foco apos aplicar a transformacao.
 - Exportacoes PDF e PNG devem quebrar linhas longas de blocos de codigo, sem cortar conteudo horizontalmente.
