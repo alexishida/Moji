@@ -168,6 +168,7 @@
     "fontSize": "字号",
     "lineHeight": "行高",
     "width": "阅读宽度",
+    "autoSave": "重启后恢复未保存文档",
     "shortcutSections": {
       "file": "文件",
       "search": "搜索",
@@ -243,6 +244,9 @@
     "exportFailed": "导出失败：{{error}}",
     "saveSuccess": "已保存",
     "saveFailed": "保存失败：{{error}}",
+    "autoSaveFailed": "无法保存恢复草稿：{{error}}",
+    "autoSaveCleanupFailed": "无法删除恢复草稿：{{error}}",
+    "draftRestoreFailed": "无法恢复草稿：{{error}}",
     "openFailed": "无法打开文件：{{error}}",
     "noDocument": "请先打开一个文档。",
     "readOnlyGuide": "内置 Markdown 指南为只读内容，无法保存。",

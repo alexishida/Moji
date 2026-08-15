@@ -17,6 +17,7 @@ interface EditorProps {
   highlightActive: boolean
   headingToReveal: { id: string; request: number } | null
   onChange: (value: string) => void
+  onBlur: () => void
 }
 
 const externalSearchTerm = StateEffect.define<string>()
@@ -210,12 +211,14 @@ function activeElementAcceptsText(): boolean {
 }
 
 /** CodeMirror 6 Markdown source editor with theme-aware styling. */
-export function Editor({ value, theme, searchTerm, activeSearchIndex, highlightActive, headingToReveal, onChange }: EditorProps): JSX.Element {
+export function Editor({ value, theme, searchTerm, activeSearchIndex, highlightActive, headingToReveal, onChange, onBlur }: EditorProps): JSX.Element {
   const hostRef = useRef<HTMLDivElement>(null)
   const viewRef = useRef<EditorView | null>(null)
   const themeCompartment = useRef(new Compartment())
   const onChangeRef = useRef(onChange)
   onChangeRef.current = onChange
+  const onBlurRef = useRef(onBlur)
+  onBlurRef.current = onBlur
 
   // Create the editor once.
   useEffect(() => {
@@ -231,6 +234,9 @@ export function Editor({ value, theme, searchTerm, activeSearchIndex, highlightA
         externalSearchHighlight,
         syntaxHighlighting(defaultHighlightStyle, { fallback: true }),
         EditorView.lineWrapping,
+        EditorView.domEventHandlers({
+          blur: () => onBlurRef.current()
+        }),
         themeCompartment.current.of(theme === 'dark' ? oneDarkProExtensions : []),
         EditorView.updateListener.of((update) => {
           if (update.docChanged) onChangeRef.current(update.state.doc.toString())

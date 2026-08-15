@@ -51,6 +51,7 @@ describe('settings', () => {
       previewTheme: 'light',
       previewLineHeight: 2.4,
       previewWidth: 20,
+      autoSave: true,
       recentFiles: ['a.md', 'b.md', 'c.md'],
       windowBounds: { width: 640, height: 8192 }
     })
@@ -75,6 +76,16 @@ describe('settings', () => {
     expect(updateSettings({ previewWidth: 42 }).previewWidth).toBe(40)
   })
 
+  it('enables draft recovery by default and persists an explicit choice', async () => {
+    const { getSettings, updateSettings } = await import('./settings')
+
+    expect(getSettings().autoSave).toBe(true)
+    expect(updateSettings({ autoSave: false }).autoSave).toBe(false)
+
+    const persisted = JSON.parse(state.files.get(SETTINGS_FILE) ?? '{}')
+    expect(persisted.autoSave).toBe(false)
+  })
+
   it('falls back to defaults when settings file is invalid JSON', async () => {
     state.files.set(SETTINGS_FILE, '{ invalid')
     const { getSettings } = await import('./settings')
@@ -84,6 +95,7 @@ describe('settings', () => {
       previewTheme: 'dark',
       language: 'pt-BR',
       previewWidth: 60,
+      autoSave: true,
       recentFiles: []
     })
   })

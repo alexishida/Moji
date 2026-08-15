@@ -47,3 +47,21 @@ The system SHALL save the current document back to its file, and SHALL support s
 - **WHEN** the user invokes Save on a document with no file path yet
 - **THEN** the application prompts for a destination path before writing
 
+### Requirement: Recover untitled documents
+The system SHALL persist documents without a filesystem path as internal recovery drafts by default and SHALL restore those documents on the next app launch.
+
+#### Scenario: Recover after restart
+- **WHEN** an untitled document is open and its latest content has been persisted as a recovery draft
+- **THEN** closing and reopening the application restores that document with its title and content
+
+#### Scenario: Remove recovery after Save As
+- **WHEN** a recovered or untitled document is saved to a filesystem path
+- **THEN** the application removes its internal recovery draft
+
+#### Scenario: Remove recovery after closing tab
+- **WHEN** the user closes or discards an untitled document
+- **THEN** the application removes its internal recovery draft so it is not restored later
+
+#### Scenario: Disable recovery
+- **WHEN** the user disables untitled-document recovery in Settings
+- **THEN** new changes are not written to internal recovery storage and normal unsaved-change confirmation applies

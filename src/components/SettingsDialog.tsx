@@ -137,6 +137,16 @@ export function SettingsDialog({ settings, onClose, onChange }: SettingsDialogPr
                   ))}
                 </select>
               </label>
+
+              <label className="settings-field">
+                <span className="settings-field__label">{t('settingsDialog.autoSave')}</span>
+                <input
+                  className="settings-checkbox"
+                  type="checkbox"
+                  checked={settings.autoSave}
+                  onChange={(e) => onChange({ autoSave: e.currentTarget.checked })}
+                />
+              </label>
             </div>
           </section>
         )}

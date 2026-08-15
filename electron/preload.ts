@@ -1,7 +1,9 @@
 import { contextBridge, ipcRenderer, webUtils } from 'electron'
 import {
   IPC,
+  type AutoSaveDraft,
   type DiagramPngRequest,
+  type DraftResult,
   type DocumentPayload,
   type ExportRequest,
   type ImageDataResult,
@@ -15,6 +17,9 @@ import {
 const api = {
   getSettings: (): Promise<Settings> => ipcRenderer.invoke(IPC.getSettings),
   setSettings: (patch: Partial<Settings>): Promise<Settings> => ipcRenderer.invoke(IPC.setSettings, patch),
+  getDrafts: (): Promise<AutoSaveDraft[]> => ipcRenderer.invoke(IPC.getDrafts),
+  saveDraft: (draft: AutoSaveDraft): Promise<DraftResult> => ipcRenderer.invoke(IPC.saveDraft, draft),
+  removeDraft: (id: string): Promise<DraftResult> => ipcRenderer.invoke(IPC.removeDraft, id),
 
   openDialog: (): Promise<OpenManyResult> => ipcRenderer.invoke(IPC.openDialog),
   readPath: (filePath: string): Promise<OpenResult> => ipcRenderer.invoke(IPC.readPath, filePath),

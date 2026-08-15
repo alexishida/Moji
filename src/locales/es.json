@@ -168,6 +168,7 @@
     "fontSize": "Tamaño de fuente",
     "lineHeight": "Altura de línea",
     "width": "Ancho de lectura",
+    "autoSave": "Restaurar documentos sin archivo al reiniciar",
     "shortcutSections": {
       "file": "Archivo",
       "search": "Búsqueda",
@@ -243,6 +244,9 @@
     "exportFailed": "Error al exportar: {{error}}",
     "saveSuccess": "Guardado",
     "saveFailed": "Error al guardar: {{error}}",
+    "autoSaveFailed": "No se pudo guardar el borrador de recuperación: {{error}}",
+    "autoSaveCleanupFailed": "No se pudo eliminar el borrador de recuperación: {{error}}",
+    "draftRestoreFailed": "No se pudieron restaurar los borradores de recuperación: {{error}}",
     "openFailed": "No se pudo abrir el archivo: {{error}}",
     "noDocument": "Abre un documento primero.",
     "readOnlyGuide": "La guía de Markdown incluida es de solo lectura y no se puede guardar.",

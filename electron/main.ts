@@ -7,6 +7,8 @@ import {
   IPC,
   MARKDOWN_EXTENSIONS,
   SUPPORTED_LANGUAGES,
+  type AutoSaveDraft,
+  type DraftResult,
   type ImageDataResult,
   type Language,
   type OpenManyResult,
@@ -17,6 +19,7 @@ import {
   type WriteResult
 } from './shared'
 import { getSettings, updateSettings } from './settings'
+import { getDrafts, removeDraft, saveDraft } from './drafts'
 import { exportDiagramPng, exportDocument } from './export'
 import { createUpdateController, type UpdateController } from './updater'
 
@@ -74,10 +77,20 @@ function sanitizeSettingsPatch(value: unknown): Partial<Settings> {
   if (typeof raw['previewLineHeight'] === 'number') patch.previewLineHeight = raw['previewLineHeight']
   if (typeof raw['previewFluidWidth'] === 'boolean') patch.previewFluidWidth = raw['previewFluidWidth']
   if (typeof raw['previewWidth'] === 'number') patch.previewWidth = raw['previewWidth']
+  if (typeof raw['autoSave'] === 'boolean') patch.autoSave = raw['autoSave']
   if (Array.isArray(raw['recentFiles'])) patch.recentFiles = raw['recentFiles'].filter((p): p is string => typeof p === 'string')
   if (isWindowBounds(raw['windowBounds'])) patch.windowBounds = raw['windowBounds']
 
   return patch
+}
+
+function sanitizeDraft(value: unknown): AutoSaveDraft | null {
+  if (!value || typeof value !== 'object') return null
+  const raw = value as Record<string, unknown>
+  if (typeof raw['id'] !== 'string' || !/^draft-[a-zA-Z0-9-]+$/.test(raw['id'])) return null
+  if (typeof raw['title'] !== 'string' || raw['title'].length > 512) return null
+  if (typeof raw['content'] !== 'string' || raw['content'].length > 10 * 1024 * 1024) return null
+  return { id: raw['id'], title: raw['title'], content: raw['content'] }
 }
 
 function isWindowBounds(value: unknown): value is WindowBounds {
@@ -393,6 +406,31 @@ function registerIpc(): void {
   ipcMain.handle(IPC.getSettings, (): Settings => getSettings())
 
   ipcMain.handle(IPC.setSettings, (_e, patch: unknown): Settings => updateSettings(sanitizeSettingsPatch(patch)))
+
+  ipcMain.handle(IPC.getDrafts, (): Promise<AutoSaveDraft[]> => getDrafts())
+
+  ipcMain.handle(IPC.saveDraft, async (_e, value: unknown): Promise<DraftResult> => {
+    const draft = sanitizeDraft(value)
+    if (!draft) return { ok: false, error: 'invalid-draft' }
+    try {
+      await saveDraft(draft)
+      return { ok: true }
+    } catch (err) {
+      return { ok: false, error: (err as Error).message }
+    }
+  })
+
+  ipcMain.handle(IPC.removeDraft, async (_e, value: unknown): Promise<DraftResult> => {
+    if (typeof value !== 'string' || !/^draft-[a-zA-Z0-9-]+$/.test(value)) {
+      return { ok: false, error: 'invalid-draft' }
+    }
+    try {
+      await removeDraft(value)
+      return { ok: true }
+    } catch (err) {
+      return { ok: false, error: (err as Error).message }
+    }
+  })
 
   ipcMain.handle(IPC.openDialog, async (): Promise<OpenManyResult> => {
     const options: Electron.OpenDialogOptions = {

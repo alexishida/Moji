@@ -38,6 +38,7 @@ function defaults(): Settings {
     previewLineHeight: 1.7,
     previewFluidWidth: false,
     previewWidth: PREVIEW_WIDTH_DEFAULT,
+    autoSave: true,
     recentFiles: []
   }
 }
@@ -92,6 +93,7 @@ export function getSettings(): Settings {
       previewLineHeight: boundedNumber(raw.previewLineHeight, base.previewLineHeight, 1.2, 2.4),
       previewFluidWidth: base.previewFluidWidth,
       previewWidth: normalizePreviewWidth(raw.previewWidth, base.previewWidth),
+      autoSave: typeof raw.autoSave === 'boolean' ? raw.autoSave : base.autoSave,
       recentFiles: sanitizeRecentFiles(raw.recentFiles),
       lastDialogDirectory: typeof raw.lastDialogDirectory === 'string' ? raw.lastDialogDirectory : undefined,
       windowBounds: sanitizeWindowBounds(raw.windowBounds)
@@ -113,6 +115,7 @@ export function updateSettings(patch: Partial<Settings>): Settings {
     previewLineHeight: boundedNumber(merged.previewLineHeight, 1.7, 1.2, 2.4),
     previewFluidWidth: typeof merged.previewFluidWidth === 'boolean' ? merged.previewFluidWidth : false,
     previewWidth: normalizePreviewWidth(merged.previewWidth),
+    autoSave: typeof merged.autoSave === 'boolean' ? merged.autoSave : true,
     recentFiles: sanitizeRecentFiles(merged.recentFiles),
     lastDialogDirectory: typeof merged.lastDialogDirectory === 'string' ? merged.lastDialogDirectory : undefined,
     windowBounds: sanitizeWindowBounds(merged.windowBounds)
