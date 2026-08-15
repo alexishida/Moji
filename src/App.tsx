@@ -16,6 +16,7 @@ import { documentAssetBaseUrl, renderMarkdown } from './lib/markdown'
 import { buildOutline } from './lib/outline'
 import { scrollPreviewHeadingIntoView } from './lib/previewScroll'
 import { useDebounced } from './lib/useDebounced'
+import { countLiteralMatches, findLiteralMatches } from './lib/search'
 import { buildStandaloneHtml } from './lib/exportHtml'
 import { getExtraMermaidGuideExamples } from './lib/mermaidGuide'
 import { renderMermaidFlowcharts } from './lib/mermaid'
@@ -93,19 +94,6 @@ function markdownFileName(name: string): string {
   return /\.(md|markdown)$/i.test(name) ? name : `${name}.md`
 }
 
-function findLiteralMatches(text: string, search: string): Array<{ from: number; to: number }> {
-  if (!search) return []
-  const needle = search.toLowerCase()
-  const haystack = text.toLowerCase()
-  const matches: Array<{ from: number; to: number }> = []
-
-  for (let index = haystack.indexOf(needle); index >= 0; index = haystack.indexOf(needle, index + search.length)) {
-    matches.push({ from: index, to: index + search.length })
-  }
-
-  return matches
-}
-
 function replaceTextLiteral(
   text: string,
   search: string,
@@ -155,7 +143,7 @@ export function App(): JSX.Element {
   const [mdTheme, setMdTheme] = useState<Theme>('dark')
   const [searchTerm, setSearchTerm] = useState('')
   const [activeSearchIndex, setActiveSearchIndex] = useState<number | null>(null)
-  const [replaceActive, setReplaceActive] = useState(false)
+  const [previewSearchMatchCount, setPreviewSearchMatchCount] = useState(0)
   const [dragging, setDragging] = useState(false)
   const dragDepth = useRef(0)
   const [notice, setNotice] = useState<{ text: string; error?: boolean } | null>(null)
@@ -189,13 +177,18 @@ export function App(): JSX.Element {
   const hasDirtyDocs = documents.some((doc) => doc.content !== doc.savedContent)
 
   const debouncedContent = useDebounced(content, 150)
+  const debouncedSearchTerm = useDebounced(searchTerm, 200)
   const html = useMemo(
     () => renderMarkdown(debouncedContent, { documentPath: activeDoc?.path, assetMode: 'app' }),
     [activeDoc?.path, debouncedContent]
   )
   const outline = useMemo(() => buildOutline(html), [html])
   const stats = useMemo(() => getDocumentStats(content), [content])
-  const searchMatchCount = useMemo(() => findLiteralMatches(content, searchTerm.trim()).length, [content, searchTerm])
+  const sourceSearchMatchCount = useMemo(
+    () => countLiteralMatches(content, debouncedSearchTerm.trim()),
+    [content, debouncedSearchTerm]
+  )
+  const searchMatchCount = mode === 'view' ? previewSearchMatchCount : sourceSearchMatchCount
   const tabs = useMemo<DocumentTabItem[]>(
     () =>
       documents.map((doc) => ({
@@ -216,6 +209,7 @@ export function App(): JSX.Element {
     mdTheme,
     dirty,
     hasDirtyDocs,
+    searchMatchCount,
     exportDialogOpen: false,
     settingsOpen: false,
     aboutOpen: false
@@ -229,6 +223,7 @@ export function App(): JSX.Element {
     mdTheme,
     dirty,
     hasDirtyDocs,
+    searchMatchCount,
     exportDialogOpen: exportDialogFormat !== null,
     settingsOpen,
     aboutOpen
@@ -352,7 +347,7 @@ export function App(): JSX.Element {
       return
     }
     setActiveSearchIndex((index) => (index === null ? 0 : Math.min(index, searchMatchCount - 1)))
-  }, [searchMatchCount, searchTerm])
+  }, [debouncedSearchTerm, searchMatchCount])
 
   // --- Initial settings --------------------------------------------------
   useEffect(() => {
@@ -575,13 +570,13 @@ export function App(): JSX.Element {
 
   const doSearch = useCallback((term: string) => {
     setSearchTerm(term)
-    const nextCount = findLiteralMatches(stateRef.current.activeDoc?.content ?? '', term.trim()).length
-    setActiveSearchIndex(nextCount > 0 ? 0 : null)
+    setActiveSearchIndex(null)
+    setPreviewSearchMatchCount(0)
   }, [])
 
   const doFindNext = useCallback(() => {
     const term = searchTerm.trim()
-    const count = findLiteralMatches(stateRef.current.activeDoc?.content ?? '', term).length
+    const count = stateRef.current.searchMatchCount
     if (!term || count === 0) {
       flash(t('notice.replaceNone'), true)
       return
@@ -589,13 +584,12 @@ export function App(): JSX.Element {
     setExportDialogFormat(null)
     setSettingsOpen(false)
     setAboutOpen(false)
-    if (!stateRef.current.activeDoc?.readOnly) setMode('edit')
     setActiveSearchIndex((index) => (index === null ? 0 : (index + 1) % count))
   }, [flash, searchTerm, t])
 
   const doFindPrevious = useCallback(() => {
     const term = searchTerm.trim()
-    const count = findLiteralMatches(stateRef.current.activeDoc?.content ?? '', term).length
+    const count = stateRef.current.searchMatchCount
     if (!term || count === 0) {
       flash(t('notice.replaceNone'), true)
       return
@@ -603,7 +597,6 @@ export function App(): JSX.Element {
     setExportDialogFormat(null)
     setSettingsOpen(false)
     setAboutOpen(false)
-    if (!stateRef.current.activeDoc?.readOnly) setMode('edit')
     setActiveSearchIndex((index) => (index === null ? count - 1 : (index - 1 + count) % count))
   }, [flash, searchTerm, t])
 
@@ -1117,8 +1110,8 @@ export function App(): JSX.Element {
         onSave={doSave}
         onSearch={doSearch}
         onFindNext={doFindNext}
+        onFindPrevious={doFindPrevious}
         onReplace={doReplace}
-        onReplaceActiveChange={setReplaceActive}
         searchMatchCount={searchMatchCount}
         activeSearchIndex={activeSearchIndex}
         canToggleTheme={canToggleMdTheme()}
@@ -1203,9 +1196,9 @@ export function App(): JSX.Element {
               <Editor
                 value={content}
                 theme={'dark'}
-                searchTerm={searchTerm}
+                searchTerm={debouncedSearchTerm}
                 activeSearchIndex={activeSearchIndex}
-                highlightActive={replaceActive}
+                highlightActive={activeSearchIndex !== null}
                 headingToReveal={editorHeadingRequest}
                 onChange={updateActiveContent}
               />
@@ -1214,7 +1207,9 @@ export function App(): JSX.Element {
                 html={html}
                 documentName={activeDoc ? documentName(activeDoc, t('app.untitled')) : t('app.untitled')}
                 mdTheme={mdTheme}
-                searchTerm={searchTerm}
+                searchTerm={debouncedSearchTerm}
+                activeSearchIndex={activeSearchIndex}
+                onSearchMatchCountChange={setPreviewSearchMatchCount}
                 onActiveHeadingChange={setActiveHeadingId}
                 settings={settings}
                 onOpenLocalPath={(fileUrl) => void openLocalPath(fileUrl)}

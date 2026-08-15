@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState, type CSSProperties, type Mous
 import { useTranslation } from 'react-i18next'
 import type { Settings, Theme } from '../../electron/shared'
 import { getActivePreviewHeadingId, scrollPreviewHeadingIntoView } from '../lib/previewScroll'
+import { activatePreviewSearchMatch, highlightPreviewSearchMatches } from '../lib/previewSearch'
 import { renderMermaidFlowcharts } from '../lib/mermaid'
 import { MermaidDiagramDialog, type DiagramContent } from './MermaidDiagramDialog'
 
@@ -11,6 +12,8 @@ interface PreviewProps {
   mdTheme: Theme
   searchTerm: string
   onActiveHeadingChange: (id: string | null) => void
+  activeSearchIndex: number | null
+  onSearchMatchCountChange: (count: number) => void
   settings: Settings
   onOpenLocalPath: (fileUrl: string) => void
   className?: string
@@ -24,6 +27,7 @@ interface ActiveDiagram {
 }
 
 type PreviewGraphic = SVGSVGElement | HTMLImageElement
+const MAX_SEARCH_HIGHLIGHTS = 2_000
 
 function previewGraphics(body: HTMLDivElement | null): PreviewGraphic[] {
   if (!body) return []
@@ -55,6 +59,8 @@ export function Preview({
   mdTheme,
   searchTerm,
   onActiveHeadingChange,
+  activeSearchIndex,
+  onSearchMatchCountChange,
   settings,
   onOpenLocalPath,
   className
@@ -222,52 +228,15 @@ export function Preview({
 
   useEffect(() => {
     if (!bodyRef.current) return
-    const el = bodyRef.current
-    // Remove previous highlight spans
-    el.querySelectorAll('.search-highlight').forEach((s) => {
-      const parent = s.parentNode
-      if (parent) {
-        parent.replaceChild(document.createTextNode(s.textContent ?? ''), s)
-        parent.normalize()
-      }
-    })
-    if (!searchTerm.trim()) return
+    const count = highlightPreviewSearchMatches(bodyRef.current, searchTerm, MAX_SEARCH_HIGHLIGHTS)
+    onSearchMatchCountChange(count)
+  }, [onSearchMatchCountChange, renderedHtml, searchTerm])
 
-    const term = searchTerm.toLowerCase()
-    const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT, {
-      acceptNode: (node) =>
-        node.textContent && node.textContent.toLowerCase().includes(term)
-          ? NodeFilter.FILTER_ACCEPT
-          : NodeFilter.FILTER_REJECT
-    })
-    const nodes: Text[] = []
-    while (walker.nextNode()) {
-      if (!(walker.currentNode.parentElement?.closest('style,script,svg,mark,button'))) {
-        nodes.push(walker.currentNode as Text)
-      }
-    }
-
-    for (const node of nodes) {
-      const text = node.textContent ?? ''
-      const lower = text.toLowerCase()
-      const parts: (string | Node)[] = []
-      let lastIndex = 0
-      for (let i = lower.indexOf(term, lastIndex); i !== -1; i = lower.indexOf(term, lastIndex)) {
-        if (i > lastIndex) parts.push(text.slice(lastIndex, i))
-        const mark = document.createElement('mark')
-        mark.className = 'search-highlight'
-        mark.textContent = text.slice(i, i + term.length)
-        parts.push(mark)
-        lastIndex = i + term.length
-      }
-      if (lastIndex < text.length) parts.push(text.slice(lastIndex))
-      if (parts.length > 1) {
-        const frag = document.createDocumentFragment()
-        for (const part of parts) frag.append(part)
-        node.parentNode?.replaceChild(frag, node)
-      }
-    }
-  }, [renderedHtml, searchTerm])
+  useEffect(() => {
+    if (!bodyRef.current || !searchTerm.trim()) return
+    const activeMatch = activatePreviewSearchMatch(bodyRef.current, activeSearchIndex)
+    activeMatch?.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'nearest' })
+  }, [activeSearchIndex, renderedHtml, searchTerm])
 
   // Keep outline state tied to preview DOM currently displayed. `renderedHtml`
   // can differ from `html` while Mermaid diagrams finish rendering.
