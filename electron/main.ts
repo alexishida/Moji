@@ -195,13 +195,31 @@ async function openLocalPath(fileUrl: unknown): Promise<WriteResult> {
 /** Single funnel for every open entry point (association, CLI, dialog, drop). */
 async function openDocument(filePath: string): Promise<void> {
   const result = await readDocument(filePath)
-  if (!mainWindow) {
+  if (!mainWindow || mainWindow.isDestroyed()) {
     if (result.ok) pendingOpenPath = filePath
     return
   }
   if (result.ok) {
     mainWindow.webContents.send(IPC.openDocument, { path: result.path, content: result.content })
   }
+}
+
+function revealMainWindow(): void {
+  if (!mainWindow || mainWindow.isDestroyed()) return
+  if (mainWindow.isMinimized()) mainWindow.restore()
+  mainWindow.show()
+  mainWindow.focus()
+}
+
+function openAssociatedDocument(filePath: string): void {
+  if (!mainWindow || mainWindow.isDestroyed()) {
+    pendingOpenPath = filePath
+    if (app.isReady()) createWindow()
+    return
+  }
+
+  revealMainWindow()
+  void openDocument(filePath)
 }
 
 function requestClose(): void {
@@ -320,7 +338,7 @@ function createWindow(): void {
 
   mainWindow.once('ready-to-show', () => {
     mainWindow?.setMenuBarVisibility(false)
-    mainWindow?.show()
+    revealMainWindow()
     if (pendingOpenPath) {
       void openDocument(pendingOpenPath)
       pendingOpenPath = null
@@ -484,7 +502,7 @@ if (!gotLock) {
   // macOS / Linux file association via open-file event.
   app.on('open-file', (e, filePath) => {
     e.preventDefault()
-    void openDocument(filePath)
+    openAssociatedDocument(filePath)
   })
 
   // Dock "Quit" and Cmd+Q must pass through the unsaved-changes guard like any other exit.
@@ -495,7 +513,7 @@ if (!gotLock) {
   })
 
   app.whenReady().then(() => {
-    pendingOpenPath = fileFromArgv(process.argv)
+    pendingOpenPath ??= fileFromArgv(process.argv)
     registerIpc()
     installApplicationMenu()
     createWindow()
