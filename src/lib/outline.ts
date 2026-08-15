@@ -2,6 +2,7 @@ export interface OutlineItem {
   id: string
   text: string
   level: number
+  sourceLine?: number
 }
 
 /** Semantic kind inferred from a heading prefix. Drives the icon + emphasis. */

@@ -12,8 +12,7 @@ import { ExportDialog, type ExportDialogOptions } from './components/ExportDialo
 import { SettingsDialog } from './components/SettingsDialog'
 import { AboutDialog } from './components/AboutDialog'
 import { UpdateNotice } from './components/UpdateNotice'
-import { documentAssetBaseUrl, renderMarkdown } from './lib/markdown'
-import { buildOutline } from './lib/outline'
+import { documentAssetBaseUrl, extractMarkdownOutline, renderMarkdown, renderMarkdownDocument } from './lib/markdown'
 import { scrollPreviewHeadingIntoView } from './lib/previewScroll'
 import { useDebounced } from './lib/useDebounced'
 import { countLiteralMatches, findLiteralMatches } from './lib/search'
@@ -166,7 +165,7 @@ export function App(): JSX.Element {
   })
   const [dismissedUpdate, setDismissedUpdate] = useState<string | null>(null)
   const [activeHeadingId, setActiveHeadingId] = useState<string | null>(null)
-  const [editorHeadingRequest, setEditorHeadingRequest] = useState<{ id: string; request: number } | null>(null)
+  const [editorHeadingRequest, setEditorHeadingRequest] = useState<{ line: number; request: number } | null>(null)
 
   const [dialogOpen, setDialogOpen] = useState(false)
   const [exportDialogFormat, setExportDialogFormat] = useState<ExportFormat | null>(null)
@@ -180,6 +179,7 @@ export function App(): JSX.Element {
   const nextDocSeq = useRef(1)
   const draftsLoaded = useRef(false)
   const draftSavesInFlight = useRef(new Map<string, Promise<boolean>>())
+  const previewHeadingsRef = useRef<HTMLElement[]>([])
 
   const activeDoc = useMemo(
     () => documents.find((doc) => doc.id === activeDocId) ?? null,
@@ -193,12 +193,19 @@ export function App(): JSX.Element {
 
   const debouncedContent = useDebounced(content, 150)
   const debouncedSearchTerm = useDebounced(searchTerm, 200)
-  const html = useMemo(
-    () => renderMarkdown(debouncedContent, { documentPath: activeDoc?.path, assetMode: 'app' }),
-    [activeDoc?.path, debouncedContent]
+  const debouncedStatsContent = useDebounced(content, 350)
+  const preview = useMemo(
+    () => mode === 'view'
+      ? renderMarkdownDocument(debouncedContent, { documentPath: activeDoc?.path, assetMode: 'app' })
+      : { html: '', outline: [], headingLines: new Map() },
+    [activeDoc?.path, debouncedContent, mode]
   )
-  const outline = useMemo(() => buildOutline(html), [html])
-  const stats = useMemo(() => getDocumentStats(content), [content])
+  const html = preview.html
+  const outline = useMemo(() => {
+    if (!outlineVisible) return []
+    return mode === 'view' ? preview.outline : extractMarkdownOutline(debouncedContent)
+  }, [debouncedContent, mode, outlineVisible, preview.outline])
+  const stats = useMemo(() => getDocumentStats(debouncedStatsContent), [debouncedStatsContent])
   const sourceSearchMatchCount = useMemo(
     () => countLiteralMatches(content, debouncedSearchTerm.trim()),
     [content, debouncedSearchTerm]
@@ -911,15 +918,21 @@ export function App(): JSX.Element {
 
   const scrollToHeading = useCallback((id: string) => {
     if (mode === 'edit') {
-      setEditorHeadingRequest((previous) => ({ id, request: (previous?.request ?? 0) + 1 }))
+      const line = outline.find((item) => item.id === id)?.sourceLine
+      if (line === undefined) return
+      setEditorHeadingRequest((previous) => ({ line, request: (previous?.request ?? 0) + 1 }))
       setActiveHeadingId(id)
       return
     }
-    const target = document.getElementById(id)
+    const target = previewHeadingsRef.current.find((heading) => heading.id === id)
     if (!target) return
     scrollPreviewHeadingIntoView(target)
     setActiveHeadingId(id)
-  }, [mode])
+  }, [mode, outline])
+
+  const setPreviewHeadings = useCallback((headings: HTMLElement[]) => {
+    previewHeadingsRef.current = headings
+  }, [])
 
   const canToggleMdTheme = useCallback(() => {
     const s = stateRef.current
@@ -1362,6 +1375,7 @@ export function App(): JSX.Element {
                 onActiveHeadingChange={setActiveHeadingId}
                 settings={settings}
                 onOpenLocalPath={(fileUrl) => void openLocalPath(fileUrl)}
+                onPreviewHeadingsChange={setPreviewHeadings}
               />
             )}
           </div>

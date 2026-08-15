@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, expect, it } from 'vitest'
-import { documentAssetBaseUrl, findMarkdownHeadingLine, renderMarkdown } from './markdown'
+import { documentAssetBaseUrl, extractMarkdownOutline, findMarkdownHeadingLine, renderMarkdown, renderMarkdownDocument } from './markdown'
 
 describe('documentAssetBaseUrl', () => {
   it('converts Windows paths to an encoded file URL', () => {
@@ -32,6 +32,16 @@ describe('renderMarkdown', () => {
     })
 
     expect(html).toContain('src="file:///C:/notes/images/logo%20file.png"')
+  })
+
+  it.each([
+    ['UNC', '\\\\server\\share\\guide.md', 'file://server/share/images/logo.png'],
+    ['Linux', '/home/alex/notes/guide.md', 'file:///home/alex/notes/images/logo.png'],
+    ['macOS', '/Users/alex/notes/guide.md', 'file:///Users/alex/notes/images/logo.png']
+  ])('resolves local images for %s paths during token rendering', (_platform, documentPath, expectedUrl) => {
+    expect(renderMarkdown('![Logo](images/logo.png)', { documentPath, assetMode: 'file' })).toContain(
+      `src="${expectedUrl}"`
+    )
   })
 
   it('resolves local file links against the Markdown document directory', () => {
@@ -78,14 +88,40 @@ describe('renderMarkdown', () => {
 
 describe('findMarkdownHeadingLine', () => {
   it('locates an anchored heading in Markdown source', () => {
-    expect(findMarkdownHeadingLine('# Intro\n\n## Next section', 'next-section')).toBe(2)
+    expect(findMarkdownHeadingLine('# Intro\n\n## Next section', 'user-content-next-section')).toBe(2)
   })
 
   it('distinguishes repeated heading IDs', () => {
-    expect(findMarkdownHeadingLine('# Same\n\n# Same', 'same-1')).toBe(2)
+    expect(findMarkdownHeadingLine('# Same\n\n# Same', 'user-content-same-1')).toBe(2)
   })
 
   it('returns null when no matching heading exists', () => {
     expect(findMarkdownHeadingLine('# Intro', 'missing')).toBeNull()
+  })
+})
+
+describe('extractMarkdownOutline', () => {
+  it('returns anchored headings without rendering preview HTML', () => {
+    expect(extractMarkdownOutline('# Intro\n\n### Requirement: Keep data\n\n# Intro')).toEqual([
+      { id: 'user-content-intro', text: 'Intro', level: 1, sourceLine: 0 },
+      { id: 'user-content-requirement%3A-keep-data', text: 'Requirement: Keep data', level: 3, sourceLine: 2 },
+      { id: 'user-content-intro-1', text: 'Intro', level: 1, sourceLine: 4 }
+    ])
+  })
+
+  it('keeps unique anchor IDs shared by preview and outline', () => {
+    const result = renderMarkdownDocument('# Same\n\n# Same')
+
+    expect(result.outline.map((item) => item.id)).toEqual(['user-content-same', 'user-content-same-1'])
+    expect(result.html).toContain('id="user-content-same"')
+    expect(result.html).toContain('id="user-content-same-1"')
+  })
+
+  it('keeps a safe ID and internal link for DOM-clobbering heading names', () => {
+    const result = renderMarkdownDocument('## Links\n\n[Go to links](#links)')
+
+    expect(result.outline[0]?.id).toBe('user-content-links')
+    expect(result.html).toContain('id="user-content-links"')
+    expect(result.html).toContain('href="#user-content-links"')
   })
 })

@@ -13,10 +13,29 @@ import texmath from 'markdown-it-texmath'
 import katex from 'katex'
 import hljs from 'highlight.js'
 import DOMPurify from 'dompurify'
+import type { OutlineItem } from './outline'
 
 interface RenderMarkdownOptions {
   documentPath?: string | null
   assetMode?: 'app' | 'file'
+}
+
+interface MarkdownRenderEnvironment {
+  documentPath?: string | null
+  assetMode?: 'app' | 'file'
+  headingIds?: ReadonlySet<string>
+}
+
+export interface MarkdownRenderResult {
+  html: string
+  outline: OutlineItem[]
+  headingLines: ReadonlyMap<string, number>
+}
+
+const HEADING_ID_PREFIX = 'user-content-'
+
+function safeHeadingId(id: string): string {
+  return id.startsWith(HEADING_ID_PREFIX) ? id : `${HEADING_ID_PREFIX}${id}`
 }
 
 const md = new MarkdownIt({
@@ -39,7 +58,9 @@ const md = new MarkdownIt({
   }
 })
 
-md.use(anchor, { slugify: (s) => encodeURIComponent(String(s).trim().toLowerCase().replace(/\s+/g, '-')) })
+md.use(anchor, {
+  slugify: (s) => safeHeadingId(encodeURIComponent(String(s).trim().toLowerCase().replace(/\s+/g, '-')))
+})
 md.use(taskLists, { enabled: true, label: true })
 // Extended Markdown: subscript ~x~, superscript ^x^, insert ++x++, highlight ==x==.
 md.use(sub)
@@ -83,16 +104,23 @@ function filePathToFileUrl(filePath: string): string {
   return `file://${normalized.split('/').map(encodeURIComponent).join('/')}`
 }
 
-function prepareAppImage(image: Element, filePath: string): void {
-  image.setAttribute('data-local-src', filePath)
-  image.setAttribute('src', EMPTY_IMAGE)
-}
-
 function fileUrlToPath(fileUrl: string): string {
   const url = new URL(fileUrl)
   const pathname = decodeURIComponent(url.pathname)
   if (url.hostname) return `//${url.hostname}${pathname}`
   return /^\/[A-Za-z]:\//.test(pathname) ? pathname.slice(1) : pathname
+}
+
+function resolveLocalUrl(source: string, documentPath: string | null | undefined): string | null {
+  const baseUrl = documentAssetBaseUrl(documentPath)
+  if (!baseUrl) return null
+  if (/^[a-z][a-z\d+.-]*:/i.test(source)) return source
+
+  try {
+    return new URL(source.replace(/\\/g, '/'), baseUrl).toString()
+  } catch {
+    return null
+  }
 }
 
 export function documentAssetBaseUrl(documentPath: string | null | undefined): string | null {
@@ -103,64 +131,94 @@ export function documentAssetBaseUrl(documentPath: string | null | undefined): s
   return `${filePathToFileUrl(normalized.slice(0, lastSlash + 1))}/`.replace(/\/+$/, '/')
 }
 
-/** Returns zero-based source line for an anchored Markdown heading. */
-export function findMarkdownHeadingLine(source: string, headingId: string): number | null {
-  const token = md.parse(source ?? '', {}).find((item) =>
-    item.type === 'heading_open' && item.attrGet('id') === headingId && item.map
-  )
-  return token?.map?.[0] ?? null
+const defaultImageRenderer = md.renderer.rules.image
+md.renderer.rules.image = (tokens, index, options, env, self): string => {
+  const token = tokens[index]
+  const source = token.attrGet('src')?.trim()
+  const context = env as MarkdownRenderEnvironment
+  if (source && !source.startsWith('#')) {
+    const resolved = resolveLocalUrl(source, context.documentPath)
+    if (resolved?.startsWith('file:')) {
+      if (context.assetMode === 'app') {
+        token.attrSet('data-local-src', fileUrlToPath(resolved))
+        token.attrSet('src', EMPTY_IMAGE)
+      } else {
+        token.attrSet('src', resolved)
+      }
+    }
+  }
+  return defaultImageRenderer?.(tokens, index, options, env, self) ?? self.renderToken(tokens, index, options)
 }
 
-function resolveLocalSources(
-  html: string,
-  documentPath: string | null | undefined,
-  assetMode: RenderMarkdownOptions['assetMode']
-): string {
-  const baseUrl = documentAssetBaseUrl(documentPath)
-  if (!baseUrl) return html
+const defaultLinkRenderer = md.renderer.rules.link_open
+md.renderer.rules.link_open = (tokens, index, options, env, self): string => {
+  const token = tokens[index]
+  const source = token.attrGet('href')?.trim()
+  const context = env as MarkdownRenderEnvironment
+  if (source?.startsWith('#') && source.length > 1) {
+    const headingId = safeHeadingId(source.slice(1))
+    if (context.headingIds?.has(headingId)) token.attrSet('href', `#${headingId}`)
+  } else {
+    const resolved = source ? resolveLocalUrl(source, context.documentPath) : null
+    if (resolved?.startsWith('file:')) token.attrSet('href', resolved)
+  }
+  return defaultLinkRenderer?.(tokens, index, options, env, self) ?? self.renderToken(tokens, index, options)
+}
 
-  const template = document.createElement('template')
-  template.innerHTML = html
+/** Returns zero-based source line for an anchored Markdown heading. */
+function outlineText(token: ReturnType<typeof md.parse>[number] | undefined): string {
+  if (token?.type !== 'inline') return ''
+  return (token.children ?? []).map((child) => {
+    if (child.type === 'softbreak' || child.type === 'hardbreak') return ' '
+    return child.content
+  }).join('').trim()
+}
 
-  template.content.querySelectorAll('img[src]').forEach((image) => {
-    const src = image.getAttribute('src')?.trim()
-    if (!src || src.startsWith('#')) return
+function extractOutlineFromTokens(tokens: ReturnType<typeof md.parse>): OutlineItem[] {
+  const items: OutlineItem[] = []
 
-    if (/^file:/i.test(src)) {
-      if (assetMode === 'app') prepareAppImage(image, fileUrlToPath(src))
-      return
-    }
+  for (let index = 0; index < tokens.length; index += 1) {
+    const token = tokens[index]
+    if (token.type !== 'heading_open') continue
 
-    if (/^[a-z][a-z\d+.-]*:/i.test(src)) return
+    const id = token.attrGet('id')
+    const text = outlineText(tokens[index + 1])
+    if (!id || !text) continue
 
-    try {
-      const fileUrl = new URL(src.replace(/\\/g, '/'), baseUrl).toString()
-      if (assetMode === 'app') prepareAppImage(image, fileUrlToPath(fileUrl))
-      else image.setAttribute('src', fileUrl)
-    } catch {
-      /* Keep original src when URL parsing fails. */
-    }
-  })
+    items.push({ id, text, level: Number(token.tag.slice(1)), sourceLine: token.map?.[0] })
+  }
 
-  template.content.querySelectorAll('a[href]').forEach((anchor) => {
-    const href = anchor.getAttribute('href')?.trim()
-    if (!href || href.startsWith('#') || /^file:/i.test(href) || /^[a-z][a-z\d+.-]*:/i.test(href)) return
+  return items
+}
 
-    try {
-      anchor.setAttribute('href', new URL(href.replace(/\\/g, '/'), baseUrl).toString())
-    } catch {
-      /* Keep original href when URL parsing fails. */
-    }
-  })
+export function findMarkdownHeadingLine(source: string, headingId: string): number | null {
+  return extractOutlineFromTokens(md.parse((source ?? '').replace(/^\uFEFF/, ''), {}))
+    .find((item) => item.id === headingId)?.sourceLine ?? null
+}
 
-  return template.innerHTML
+/**
+ * Extract outline data from Markdown tokens without rendering or sanitizing the
+ * full document. Used while the editor is active, where preview HTML is absent.
+ */
+export function extractMarkdownOutline(source: string): OutlineItem[] {
+  return extractOutlineFromTokens(md.parse((source ?? '').replace(/^\uFEFF/, ''), {}))
 }
 
 /** Render Markdown to sanitized HTML safe to inject into the preview. */
 export function renderMarkdown(source: string, options: RenderMarkdownOptions = {}): string {
-  const rawHtml = md.render((source ?? '').replace(/^\uFEFF/, ''))
-  const htmlWithResolvedSources = resolveLocalSources(rawHtml, options.documentPath, options.assetMode ?? 'file')
-  return DOMPurify.sanitize(htmlWithResolvedSources, {
+  return renderMarkdownDocument(source, options).html
+}
+
+/** Render Markdown and derive its outline from same parser token stream. */
+export function renderMarkdownDocument(source: string, options: RenderMarkdownOptions = {}): MarkdownRenderResult {
+  const tokens = md.parse((source ?? '').replace(/^\uFEFF/, ''), {})
+  const outline = extractOutlineFromTokens(tokens)
+  const rawHtml = md.renderer.render(tokens, md.options, {
+    documentPath: options.documentPath,
+    assetMode: options.assetMode ?? 'file',
+    headingIds: new Set(outline.map((item) => item.id))
+  } satisfies MarkdownRenderEnvironment)
+  const html = DOMPurify.sanitize(rawHtml, {
     // html for the document, mathMl + svg for KaTeX output. `eq`/`eqn` are the
     // wrapper tags markdown-it-texmath emits around each formula.
     USE_PROFILES: { html: true, mathMl: true, svg: true },
@@ -169,4 +227,11 @@ export function renderMarkdown(source: string, options: RenderMarkdownOptions = 
     ADD_TAGS: ['eq', 'eqn'],
     ADD_ATTR: ['target', 'rel', 'id', 'src', 'data-local-src']
   })
+  return {
+    html,
+    outline,
+    headingLines: new Map(
+      outline.flatMap((item) => item.sourceLine === undefined ? [] : [[item.id, item.sourceLine] as const])
+    )
+  }
 }

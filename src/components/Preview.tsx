@@ -16,6 +16,7 @@ interface PreviewProps {
   onSearchMatchCountChange: (count: number) => void
   settings: Settings
   onOpenLocalPath: (fileUrl: string) => void
+  onPreviewHeadingsChange: (headings: HTMLElement[]) => void
   className?: string
 }
 
@@ -63,6 +64,7 @@ export function Preview({
   onSearchMatchCountChange,
   settings,
   onOpenLocalPath,
+  onPreviewHeadingsChange,
   className
 }: PreviewProps): JSX.Element {
   const { t } = useTranslation()
@@ -246,6 +248,7 @@ export function Preview({
     if (!body || !scroller) return
 
     const headings = Array.from(body.querySelectorAll<HTMLElement>('h1, h2, h3, h4, h5, h6'))
+    onPreviewHeadingsChange(headings)
     if (headings.length === 0) {
       onActiveHeadingChange(null)
       return
@@ -257,8 +260,11 @@ export function Preview({
 
     updateActiveHeading()
     scroller.addEventListener('scroll', updateActiveHeading, { passive: true })
-    return () => scroller.removeEventListener('scroll', updateActiveHeading)
-  }, [onActiveHeadingChange, renderedHtml])
+    return () => {
+      scroller.removeEventListener('scroll', updateActiveHeading)
+      onPreviewHeadingsChange([])
+    }
+  }, [onActiveHeadingChange, onPreviewHeadingsChange, renderedHtml])
 
   return (
     <div className={`pane ${className ?? ''}`} data-md-theme={mdTheme}>
