@@ -16,13 +16,11 @@ export function UpdateNotice({ state, onDismiss, onRetry }: UpdateNoticeProps): 
   if (!['available', 'error'].includes(state.status)) return <></>
 
   const title =
-    state.status === 'available'
-      ? t('update.availableTitle', { version: state.version })
-      : t('update.errorTitle')
+    state.status === 'available' ? t('update.availableTitle') : t('update.errorTitle')
 
   const body =
     state.status === 'available'
-      ? t('update.availableBody')
+      ? t('update.availableBody', { version: state.version })
       : t('update.errorBody', { error: state.error ?? t('update.unknownError') })
 
   return (

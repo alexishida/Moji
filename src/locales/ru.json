@@ -1,6 +1,6 @@
 {
   "app": {
-    "name": "Moji v0.1.4",
+    "name": "Moji v1.0.5",
     "untitled": "Без названия",
     "modifiedMarker": "•"
   },
@@ -40,6 +40,7 @@
     "search": "Поиск...",
     "replace": "Заменить",
     "replaceWith": "Заменить на...",
+    "findPrevious": "Найти предыдущее",
     "findNext": "Найти далее",
     "replaceOne": "Заменить",
     "replaceAll": "Заменить все",
@@ -78,7 +79,7 @@
     "noDocument": "Откройте или создайте документ, чтобы увидеть его структуру."
   },
   "statusbar": {
-    "brand": "Moji v0.1.4",
+    "brand": "Moji v1.0.5",
     "guide": "Руководство по Markdown",
     "exportPdf": "Экспорт в PDF",
     "lineCount": "Строк: {{count}}",
@@ -126,7 +127,7 @@
   },
   "welcome": {
     "tagline": "Лёгкая и простая программа для чтения Markdown",
-    "title": "Moji v0.1.4",
+    "title": "Moji v1.0.5",
     "subtitle": "Откройте файл Markdown, чтобы читать его в удобном виде.",
     "openButton": "Открыть файл",
     "newButton": "Новый файл",
@@ -226,8 +227,8 @@
     "whyNameBody": "Moji — короткое, легко запоминающееся имя, которое ассоциируется с символами и письмом. Оно отражает задачу приложения: плавно открывать, редактировать, просматривать и экспортировать Markdown — без отвлечений."
   },
   "update": {
-    "availableTitle": "Доступна версия Moji {{version}}",
-    "availableBody": "Откройте GitHub Releases, чтобы скачать последнюю версию.",
+    "availableTitle": "Доступна новая версия",
+    "availableBody": "Moji {{version}} можно скачать в GitHub Releases.",
     "errorTitle": "Ошибка обновления",
     "errorBody": "{{error}}",
     "unknownError": "Неизвестная ошибка обновления",

@@ -1,6 +1,6 @@
 {
   "app": {
-    "name": "Moji v0.1.4",
+    "name": "Moji v1.0.5",
     "untitled": "無題",
     "modifiedMarker": "•"
   },
@@ -40,6 +40,7 @@
     "search": "検索...",
     "replace": "置換",
     "replaceWith": "置換後の文字列...",
+    "findPrevious": "前を検索",
     "findNext": "次を検索",
     "replaceOne": "置換",
     "replaceAll": "すべて置換",
@@ -78,7 +79,7 @@
     "noDocument": "ドキュメントを開くか新規作成するとアウトラインが表示されます。"
   },
   "statusbar": {
-    "brand": "Moji v0.1.4",
+    "brand": "Moji v1.0.5",
     "guide": "Markdown ガイド",
     "exportPdf": "PDF をエクスポート",
     "lineCount": "行数: {{count}}",
@@ -126,7 +127,7 @@
   },
   "welcome": {
     "tagline": "軽くてシンプルな Markdown リーダー",
-    "title": "Moji v0.1.4",
+    "title": "Moji v1.0.5",
     "subtitle": "Markdown ファイルを開いて、すっきり読めます。",
     "openButton": "ファイルを開く",
     "newButton": "新規ファイル",
@@ -226,8 +227,8 @@
     "whyNameBody": "Moji は短く覚えやすく、文字や書くことを連想させます。この名前は、Markdown をスムーズに開き、編集し、プレビューし、エクスポートするという目的に合っています。余計な気を散らすものはありません。"
   },
   "update": {
-    "availableTitle": "Moji {{version}} を利用できます",
-    "availableBody": "GitHub Releases を開いて最新バージョンをダウンロードします。",
+    "availableTitle": "新しいバージョンがあります",
+    "availableBody": "Moji {{version}} を GitHub Releases からダウンロードできます。",
     "errorTitle": "更新に失敗しました",
     "errorBody": "{{error}}",
     "unknownError": "不明な更新エラー",

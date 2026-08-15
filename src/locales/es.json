@@ -1,6 +1,6 @@
 {
   "app": {
-    "name": "Moji v0.1.4",
+    "name": "Moji v1.0.5",
     "untitled": "Sin título",
     "modifiedMarker": "•"
   },
@@ -40,6 +40,7 @@
     "search": "Buscar...",
     "replace": "Reemplazar",
     "replaceWith": "Reemplazar con...",
+    "findPrevious": "Buscar anterior",
     "findNext": "Buscar siguiente",
     "replaceOne": "Reemplazar",
     "replaceAll": "Reemplazar todo",
@@ -78,7 +79,7 @@
     "noDocument": "Abre o crea un documento para ver su esquema."
   },
   "statusbar": {
-    "brand": "Moji v0.1.4",
+    "brand": "Moji v1.0.5",
     "guide": "Guía de Markdown",
     "exportPdf": "Exportar PDF",
     "lineCount": "Líneas: {{count}}",
@@ -126,7 +127,7 @@
   },
   "welcome": {
     "tagline": "Un lector de Markdown ligero y sencillo",
-    "title": "Moji v0.1.4",
+    "title": "Moji v1.0.5",
     "subtitle": "Abre un archivo Markdown para leerlo de forma limpia.",
     "openButton": "Abrir archivo",
     "newButton": "Nuevo archivo",
@@ -226,8 +227,8 @@
     "whyNameBody": "Moji es corto, fácil de recordar y evoca caracteres y escritura. El nombre encaja con su propósito: abrir, editar, previsualizar y exportar Markdown con fluidez, sin distracciones."
   },
   "update": {
-    "availableTitle": "Moji {{version}} está disponible",
-    "availableBody": "Abre GitHub Releases para descargar la versión más reciente.",
+    "availableTitle": "Nueva versión disponible",
+    "availableBody": "Moji {{version}} ya se puede descargar en GitHub Releases.",
     "errorTitle": "Error de actualización",
     "errorBody": "{{error}}",
     "unknownError": "Error de actualización desconocido",
