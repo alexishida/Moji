@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState, type CSSProperties, type MouseEvent } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { Settings, Theme } from '../../electron/shared'
-import { scrollPreviewHeadingIntoView } from '../lib/previewScroll'
+import { getActivePreviewHeadingId, scrollPreviewHeadingIntoView } from '../lib/previewScroll'
 import { renderMermaidFlowcharts } from '../lib/mermaid'
 import { MermaidDiagramDialog, type DiagramContent } from './MermaidDiagramDialog'
 
@@ -10,6 +10,7 @@ interface PreviewProps {
   documentName: string
   mdTheme: Theme
   searchTerm: string
+  onActiveHeadingChange: (id: string | null) => void
   settings: Settings
   onOpenLocalPath: (fileUrl: string) => void
   className?: string
@@ -53,6 +54,7 @@ export function Preview({
   documentName,
   mdTheme,
   searchTerm,
+  onActiveHeadingChange,
   settings,
   onOpenLocalPath,
   className
@@ -266,6 +268,28 @@ export function Preview({
       }
     }
   }, [renderedHtml, searchTerm])
+
+  // Keep outline state tied to preview DOM currently displayed. `renderedHtml`
+  // can differ from `html` while Mermaid diagrams finish rendering.
+  useEffect(() => {
+    const body = bodyRef.current
+    const scroller = body?.closest('.pane') as HTMLElement | null
+    if (!body || !scroller) return
+
+    const headings = Array.from(body.querySelectorAll<HTMLElement>('h1, h2, h3, h4, h5, h6'))
+    if (headings.length === 0) {
+      onActiveHeadingChange(null)
+      return
+    }
+
+    const updateActiveHeading = (): void => {
+      onActiveHeadingChange(getActivePreviewHeadingId(scroller, headings))
+    }
+
+    updateActiveHeading()
+    scroller.addEventListener('scroll', updateActiveHeading, { passive: true })
+    return () => scroller.removeEventListener('scroll', updateActiveHeading)
+  }, [onActiveHeadingChange, renderedHtml])
 
   return (
     <div className={`pane ${className ?? ''}`} data-md-theme={mdTheme}>
