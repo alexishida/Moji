@@ -7,7 +7,6 @@ import { HighlightStyle, syntaxHighlighting, defaultHighlightStyle } from '@code
 import { search, searchKeymap, SearchQuery } from '@codemirror/search'
 import { tags } from '@lezer/highlight'
 import type { Theme } from '../../electron/shared'
-import { findMarkdownHeadingLine } from '../lib/markdown'
 
 interface EditorProps {
   value: string
@@ -15,7 +14,7 @@ interface EditorProps {
   searchTerm: string
   activeSearchIndex: number | null
   highlightActive: boolean
-  headingToReveal: { id: string; request: number } | null
+  headingToReveal: { line: number; request: number } | null
   onChange: (value: string) => void
   onBlur: () => void
 }
@@ -313,9 +312,7 @@ export function Editor({ value, theme, searchTerm, activeSearchIndex, highlightA
   useEffect(() => {
     const view = viewRef.current
     if (!view || !headingToReveal) return
-    const line = findMarkdownHeadingLine(view.state.doc.toString(), headingToReveal.id)
-    if (line === null) return
-    const position = view.state.doc.line(line + 1).from
+    const position = view.state.doc.line(headingToReveal.line + 1).from
     view.dispatch({
       selection: { anchor: position },
       effects: EditorView.scrollIntoView(position, { y: 'center' }),
