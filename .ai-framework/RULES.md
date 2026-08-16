@@ -20,6 +20,8 @@ Projeto atual: Moji, aplicativo desktop Electron + React + TypeScript para abrir
 - `main.ts`: janela (`BrowserWindow` 1000x760, min 640x480), single-instance lock com forward de argumentos de arquivo, handlers IPC, abertura via dialogo nativo, CLI (`process.argv`), evento `open-file` (macOS/Linux), drag-drop (via `webUtils.getPathForFile`) e menu de aplicacao (apenas no macOS; Windows e Linux ficam sem menu).
 - `preload.ts`: expoe API segura ao renderer via `contextBridge` com tipagem completa (`RendererApi`).
 - `shared.ts`: tipos e constantes compartilhados entre main, preload e renderer (tipos de resultado IPC, `Settings`, `ExportFormat`, `SUPPORTED_LANGUAGES`, `IPC` channels).
+- `ipcInput.ts`: normaliza valores vindos do renderer por IPC (`sanitizeSettingsPatch`, `sanitizeDraft`, `suggestedMarkdownName`, `isMarkdown`). Todo payload do renderer passa por aqui antes de ser persistido ou usado em dialogo nativo.
+- `assetPaths.ts`: autorizacao do protocolo `moji-asset://` (`assetPathFromUrl`, `isPathWithin`, `authorizedAsset`, `assetContentType`). Resolve por `realpath` e so serve imagem dentro de diretorio liberado pelo documento aberto.
 - `settings.ts`: persiste configuracoes do usuario em `settings.json` no `userData`; resolve idioma inicial a partir do locale do SO; aplica limites numericos (`boundedNumber`).
 - `drafts.ts`: persiste rascunhos internos de documentos sem caminho em `drafts.json` no `userData`, permitindo restauracao entre sessoes.
 - `export.ts`: exporta documento ativo como PDF (via `printToPDF` em `BrowserWindow` oculta), PNG (via `capturePage().toPNG()`) ou HTML (escrita direta). Suporta A4/Letter/Legal e portrait/landscape.
@@ -117,6 +119,7 @@ O padrao visual esta documentado em `.ai-framework/DESIGN.md`.
 
 - Usar `src/styles/theme.css` como fonte de tokens.
 - Manter chrome do app escuro; alternancia de tema vale para o preview Markdown. Exportacao (HTML/PDF/PNG) sempre usa o tema claro.
+- A fonte padrao de exibicao e `Inter`; nao alterar o valor padrao, remove-la das configuracoes ou troca-la por stack de sistema sem pedido explicito do usuario.
 - Reutilizar classes/componentes existentes antes de criar variacoes.
 - Manter layout compacto: top bar, abas de documentos, sidebar/outline, workspace e status bar.
 - Priorizar leitura, contraste, truncamento de textos longos e estados visuais previsiveis.

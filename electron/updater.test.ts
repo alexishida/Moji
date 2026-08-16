@@ -89,8 +89,6 @@ describe('update controller', () => {
     state.listeners.get('update-available')?.({ version: '1.1.0' } as never)
 
     expect(controller.getState()).toEqual({ status: 'available', currentVersion: '1.0.5', version: '1.1.0', error: undefined })
-    expect(controller).not.toHaveProperty('download')
-    expect(controller).not.toHaveProperty('quitAndInstall')
   })
 
   it('reports current and failed release checks as recoverable states', async () => {

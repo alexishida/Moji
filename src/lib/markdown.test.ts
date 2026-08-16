@@ -1,6 +1,15 @@
 // @vitest-environment jsdom
 import { describe, expect, it } from 'vitest'
-import { documentAssetBaseUrl, extractMarkdownOutline, findMarkdownHeadingLine, renderMarkdown, renderMarkdownDocument } from './markdown'
+import {
+  documentAssetBaseUrl,
+  extractMarkdownOutline,
+  hasPotentialMath,
+  renderMarkdown,
+  renderMarkdownAsync,
+  renderMarkdownDocument,
+  sanitizeMarkdownHtml
+} from './markdown'
+import { renderMarkdownDocumentRaw } from './markdownCore'
 
 describe('documentAssetBaseUrl', () => {
   it('converts Windows paths to an encoded file URL', () => {
@@ -22,6 +31,15 @@ describe('renderMarkdown', () => {
 
     expect(html).toContain('target="_blank"')
     expect(html).toContain('rel="noopener noreferrer"')
+    expect(html).not.toContain('<script')
+  })
+
+  it('sanitizes worker-shaped raw HTML before it reaches preview state', () => {
+    const raw = renderMarkdownDocumentRaw('<img src="x" onerror="alert(1)"><script>alert(2)</script>')
+
+    expect(raw.rawHtml).toContain('onerror=')
+    const html = sanitizeMarkdownHtml(raw.rawHtml)
+    expect(html).not.toContain('onerror=')
     expect(html).not.toContain('<script')
   })
 
@@ -53,14 +71,16 @@ describe('renderMarkdown', () => {
     expect(html).toContain('href="file:///C:/notes/docs/report.pdf"')
   })
 
-  it('maps local images to app API data attributes in preview mode', () => {
+  it('maps local images to app asset protocol URLs in preview mode', () => {
     const html = renderMarkdown('![Logo](images/logo.png)', {
       documentPath: 'C:\\notes\\guide.md',
       assetMode: 'app'
     })
 
-    expect(html).toContain('data-local-src="C:/notes/images/logo.png"')
+    expect(html).toContain('data-local-asset="moji-asset://local/C%3A%2Fnotes%2Fimages%2Flogo.png"')
     expect(html).toContain('src="data:image/gif;base64,')
+    expect(html).toContain('loading="lazy"')
+    expect(html).toContain('decoding="async"')
   })
 
   it('removes unsafe URL schemes from rendered links', () => {
@@ -84,19 +104,26 @@ describe('renderMarkdown', () => {
     expect(html).toContain('<pre class="hljs mermaid-diagram-candidate">')
     expect(html).toContain('<code>flowchart TD')
   })
-})
 
-describe('findMarkdownHeadingLine', () => {
-  it('locates an anchored heading in Markdown source', () => {
-    expect(findMarkdownHeadingLine('# Intro\n\n## Next section', 'user-content-next-section')).toBe(2)
+  it.each(['ts', 'bash', 'json'])('highlights supported %s fences', (language) => {
+    const html = renderMarkdown(`\`\`\`${language}\nconst value = true\n\`\`\``)
+
+    expect(html).toContain('hljs-')
   })
 
-  it('distinguishes repeated heading IDs', () => {
-    expect(findMarkdownHeadingLine('# Same\n\n# Same', 'user-content-same-1')).toBe(2)
+  it('falls back to escaped plain text for an unsupported fence', () => {
+    const html = renderMarkdown('```unknown-language\n<tag>\n```')
+
+    expect(html).toContain('&lt;tag&gt;')
+    expect(html).not.toContain('hljs-')
   })
 
-  it('returns null when no matching heading exists', () => {
-    expect(findMarkdownHeadingLine('# Intro', 'missing')).toBeNull()
+  it('loads KaTeX on demand for dollar-delimited math and keeps invalid TeX renderable', async () => {
+    expect(hasPotentialMath('plain Markdown')).toBe(false)
+    expect(hasPotentialMath('Price: $10')).toBe(true)
+
+    await expect(renderMarkdownAsync('$x^2$')).resolves.toContain('class="katex"')
+    await expect(renderMarkdownAsync('$\\invalid$')).resolves.toContain('\\invalid')
   })
 })
 
@@ -123,5 +150,25 @@ describe('extractMarkdownOutline', () => {
     expect(result.outline[0]?.id).toBe('user-content-links')
     expect(result.html).toContain('id="user-content-links"')
     expect(result.html).toContain('href="#user-content-links"')
+  })
+
+  it('splits virtual preview into sanitized top-level blocks with heading metadata', () => {
+    const raw = renderMarkdownDocumentRaw('# First\n\nParagraph one.\n\n## Second\n\n```js\nalert(1)\n```', {
+      blockMode: true
+    })
+
+    expect(raw.rawHtml).toBe('')
+    expect(raw.blocks?.length).toBeGreaterThanOrEqual(2)
+    expect(raw.blocks?.flatMap((block) => block.headingIds)).toEqual([
+      'user-content-first',
+      'user-content-second'
+    ])
+    expect(raw.blocks?.every((block) => block.estimatedHeight > 0)).toBe(true)
+
+    const sanitized = renderMarkdownDocument('# Safe\n\n<img src="x" onerror="alert(1)">', {
+      blockMode: true
+    })
+    expect(sanitized.html).toBe('')
+    expect(sanitized.blocks?.map((block) => block.html).join('')).not.toContain('onerror')
   })
 })

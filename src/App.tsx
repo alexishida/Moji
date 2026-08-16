@@ -1,50 +1,55 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { TopBar } from './components/TopBar'
 import { Sidebar } from './components/Sidebar'
 import { StatusBar } from './components/StatusBar'
 import { Preview } from './components/Preview'
-import { Editor } from './components/Editor'
 import { Welcome } from './components/Welcome'
 import { DocumentTabs, type DocumentTabItem } from './components/DocumentTabs'
 import { ConfirmDialog, type ConfirmChoice } from './components/ConfirmDialog'
-import { ExportDialog, type ExportDialogOptions } from './components/ExportDialog'
+import type { ExportDialogOptions } from './components/ExportDialog'
+import type { EditorDocumentStats, EditorHandle, EditorIdleStats } from './components/Editor'
 import { SettingsDialog } from './components/SettingsDialog'
 import { AboutDialog } from './components/AboutDialog'
 import { UpdateNotice } from './components/UpdateNotice'
-import { documentAssetBaseUrl, extractMarkdownOutline, renderMarkdown, renderMarkdownDocument } from './lib/markdown'
+import { OpenProgress } from './components/OpenProgress'
+import {
+  documentAssetBaseUrl,
+  MarkdownWorkerRequestCanceledError,
+  renderMarkdownDocumentInWorker,
+  renderMarkdownInWorker,
+  type MarkdownRenderResult
+} from './lib/markdown'
 import { scrollPreviewHeadingIntoView } from './lib/previewScroll'
 import { useDebounced } from './lib/useDebounced'
-import { countLiteralMatches, findLiteralMatches } from './lib/search'
-import { buildStandaloneHtml } from './lib/exportHtml'
+import { useDocumentState, usePanelState, useSearchState, useSettingsState, useUpdateState, type WorkspaceDocument } from './hooks/useAppState'
+import { getPreviewSchedule } from './lib/previewSchedule'
+import { beginRendererMeasure } from './lib/performanceMetrics'
+import { findLiteralMatches } from './lib/search'
+import type { OutlineItem } from './lib/outline'
 import { getExtraMermaidGuideExamples } from './lib/mermaidGuide'
 import { renderMermaidFlowcharts } from './lib/mermaid'
 import {
   AUTO_SAVE_DELAY_MS,
   MAX_RECENT_FILES,
-  PREVIEW_WIDTH_DEFAULT,
-  type AutoSaveDraft,
+  type DocumentSizeProfile,
+  type DraftEditPayload,
   type ExportFormat,
   type Settings,
-  type Theme,
-  type UpdateState
 } from '../electron/shared'
 import packageJson from '../package.json'
+
+const Editor = lazy(async () => ({ default: (await import('./components/Editor')).Editor }))
+const ExportDialog = lazy(async () => ({ default: (await import('./components/ExportDialog')).ExportDialog }))
 
 const MIN_PREVIEW_FONT_SIZE = 12
 const MAX_PREVIEW_FONT_SIZE = 24
 const DEFAULT_PREVIEW_FONT_SIZE = 16
 
-interface DocumentState {
-  id: string
-  path: string | null
-  title: string | null
-  content: string
-  savedContent: string
-  draftId: string | null
-  draftSavedContent: string | null
-  readOnly: boolean
-}
+/** Below this file count, an open-dialog selection resolves fast enough that a progress banner would only flicker. */
+const LARGE_OPEN_SELECTION_THRESHOLD = 4
+
+type DocumentState = WorkspaceDocument
 
 interface DocumentInput {
   path: string | null
@@ -54,41 +59,46 @@ interface DocumentInput {
   draftId?: string | null
   draftSavedContent?: string | null
   readOnly?: boolean
+  sizeProfile?: DocumentSizeProfile
 }
 
 function needsUnsavedConfirmation(doc: DocumentState, autoSave: boolean): boolean {
-  if (autoSave && !doc.path && doc.draftId) return doc.draftSavedContent !== doc.content
-  return doc.content !== doc.savedContent
+  if (autoSave && !doc.path && doc.draftId) return doc.draftSavedRevision !== doc.revision
+  return doc.savedRevision !== doc.revision
 }
 
 interface DocumentStats {
+  length: number
   lines: number
   tokens: number
   words: number
 }
 
-function countWords(text: string): number {
-  const trimmed = text.trim()
-  return trimmed ? trimmed.split(/\s+/).length : 0
-}
-
-function countLines(text: string): number {
-  if (!text) return 0
-  return text.split(/\r?\n/).length
-}
-
-function countTokens(text: string): number {
-  const trimmed = text.trim()
-  if (!trimmed) return 0
-
-  return Math.ceil(Array.from(trimmed).length / 4)
-}
-
 function getDocumentStats(text: string): DocumentStats {
+  let lines = text ? 1 : 0
+  for (let index = 0; index < text.length; index += 1) {
+    if (text[index] === '\n') lines += 1
+  }
+
+  const trimmed = text.trim()
+  let words = 0
+  let characters = 0
+  let insideWord = false
+  for (const character of trimmed) {
+    characters += 1
+    if (/\s/.test(character)) {
+      insideWord = false
+    } else if (!insideWord) {
+      words += 1
+      insideWord = true
+    }
+  }
+
   return {
-    lines: countLines(text),
-    tokens: countTokens(text),
-    words: countWords(text)
+    length: text.length,
+    lines,
+    tokens: Math.ceil(characters / 4),
+    words
   }
 }
 
@@ -134,89 +144,92 @@ function replaceTextLiteral(
   return { text: `${nextText}${text.slice(lastIndex)}`, count: matches.length, nextIndex: null }
 }
 
+const EMPTY_MARKDOWN_RESULT: MarkdownRenderResult = { html: '', outline: [], headingLines: new Map() }
+
 export function App(): JSX.Element {
   const { t, i18n } = useTranslation()
 
-  const [settings, setSettings] = useState<Settings>({
-    theme: 'dark',
-    previewTheme: 'dark',
-    language: 'en',
-    previewFontFamily: 'Inter',
-    previewFontSize: 16,
-    previewLineHeight: 1.7,
-    previewFluidWidth: false,
-    previewWidth: PREVIEW_WIDTH_DEFAULT,
-    autoSave: true,
-    recentFiles: []
-  })
-  const [documents, setDocuments] = useState<DocumentState[]>([])
-  const [activeDocId, setActiveDocId] = useState<string | null>(null)
-  const [mode, setMode] = useState<'view' | 'edit'>('view')
-  const [mdTheme, setMdTheme] = useState<Theme>('dark')
-  const [searchTerm, setSearchTerm] = useState('')
-  const [activeSearchIndex, setActiveSearchIndex] = useState<number | null>(null)
-  const [previewSearchMatchCount, setPreviewSearchMatchCount] = useState(0)
+  const { settings, setSettings, mdTheme, setMdTheme } = useSettingsState()
+  const { documents, setDocuments, activeDocId, setActiveDocId, mode, setMode, activeDoc } = useDocumentState()
+  const { searchTerm, setSearchTerm, activeSearchIndex, setActiveSearchIndex, editorSearchMatchCount, setEditorSearchMatchCount, previewSearchMatchCount, setPreviewSearchMatchCount } = useSearchState()
+  const [editorOutline, setEditorOutline] = useState<OutlineItem[]>([])
+  const [previewState, setPreviewState] = useState<{
+    documentId: string | null
+    result: MarkdownRenderResult
+  }>({ documentId: null, result: EMPTY_MARKDOWN_RESULT })
   const [dragging, setDragging] = useState(false)
   const dragDepth = useRef(0)
   const [notice, setNotice] = useState<{ text: string; error?: boolean } | null>(null)
-  const [updateState, setUpdateState] = useState<UpdateState>({
-    status: 'idle',
-    currentVersion: packageJson.version
-  })
-  const [dismissedUpdate, setDismissedUpdate] = useState<string | null>(null)
+  const [openProgress, setOpenProgress] = useState<{ completed: number; total: number; canceling: boolean } | null>(null)
+  const openSessionRef = useRef<{ sessionId: string; showProgress: boolean; paths: string[] } | null>(null)
+  const { updateState, setUpdateState, dismissedUpdate, setDismissedUpdate } = useUpdateState()
   const [activeHeadingId, setActiveHeadingId] = useState<string | null>(null)
   const [editorHeadingRequest, setEditorHeadingRequest] = useState<{ line: number; request: number } | null>(null)
+  const [previewHeadingRequest, setPreviewHeadingRequest] = useState<{ id: string; request: number } | null>(null)
 
-  const [dialogOpen, setDialogOpen] = useState(false)
-  const [exportDialogFormat, setExportDialogFormat] = useState<ExportFormat | null>(null)
-  const [settingsOpen, setSettingsOpen] = useState(false)
-  const [aboutOpen, setAboutOpen] = useState(false)
-  const [outlineVisible, setOutlineVisible] = useState(true)
-  const [searchFocusRequest, setSearchFocusRequest] = useState(0)
-  const [replaceFocusRequest, setReplaceFocusRequest] = useState(0)
-  const [topBarDismissRequest, setTopBarDismissRequest] = useState(0)
+  const { dialogOpen, setDialogOpen, exportDialogFormat, setExportDialogFormat, settingsOpen, setSettingsOpen, aboutOpen, setAboutOpen, outlineVisible, setOutlineVisible, searchFocusRequest, setSearchFocusRequest, replaceFocusRequest, setReplaceFocusRequest, topBarDismissRequest, setTopBarDismissRequest } = usePanelState()
   const dialogResolver = useRef<((c: ConfirmChoice) => void) | null>(null)
   const nextDocSeq = useRef(1)
   const draftsLoaded = useRef(false)
   const draftSavesInFlight = useRef(new Map<string, Promise<boolean>>())
+  /** Editor transactions awaiting autosave, per draft, kept as ordered batches. */
+  const pendingDraftEdits = useRef(new Map<string, DraftEditPayload[][]>())
   const previewHeadingsRef = useRef<HTMLElement[]>([])
+  const editorRef = useRef<EditorHandle | null>(null)
 
-  const activeDoc = useMemo(
-    () => documents.find((doc) => doc.id === activeDocId) ?? null,
-    [documents, activeDocId]
-  )
   const hasDoc = activeDoc !== null
   const content = activeDoc?.content ?? ''
-  const savedContent = activeDoc?.savedContent ?? ''
-  const dirty = hasDoc && content !== savedContent
+  const dirty = hasDoc && activeDoc.revision !== activeDoc.savedRevision
   const hasDirtyDocs = documents.some((doc) => needsUnsavedConfirmation(doc, settings.autoSave))
+  const previewSchedule = getPreviewSchedule(activeDoc?.stats.length ?? 0)
+  const virtualizedPreview = activeDoc?.sizeProfile === 'very-large'
 
-  const debouncedContent = useDebounced(content, 150)
+  const debouncedContent = useDebounced(content, previewSchedule.debounceMs)
   const debouncedSearchTerm = useDebounced(searchTerm, 200)
-  const debouncedStatsContent = useDebounced(content, 350)
-  const preview = useMemo(
-    () => mode === 'view'
-      ? renderMarkdownDocument(debouncedContent, { documentPath: activeDoc?.path, assetMode: 'app' })
-      : { html: '', outline: [], headingLines: new Map() },
-    [activeDoc?.path, debouncedContent, mode]
-  )
+  useEffect(() => {
+    if (mode !== 'view' || debouncedContent !== content) {
+      return
+    }
+
+    let canceled = false
+    const documentId = activeDoc?.id ?? null
+    const documentPath = activeDoc?.path
+    void renderMarkdownDocumentInWorker(debouncedContent, {
+      documentPath,
+      assetMode: 'app',
+      blockMode: virtualizedPreview
+    })
+      .then((result) => {
+        if (!canceled) setPreviewState({ documentId, result })
+      })
+      .catch((error: unknown) => {
+        if (!canceled && !(error instanceof MarkdownWorkerRequestCanceledError)) {
+          console.error('Markdown preview failed:', error)
+        }
+      })
+
+    return () => {
+      canceled = true
+    }
+  }, [activeDoc?.id, activeDoc?.path, content, debouncedContent, mode, virtualizedPreview])
+  const preview = mode === 'view' && previewState.documentId === (activeDoc?.id ?? null)
+    ? previewState.result
+    : EMPTY_MARKDOWN_RESULT
   const html = preview.html
   const outline = useMemo(() => {
     if (!outlineVisible) return []
-    return mode === 'view' ? preview.outline : extractMarkdownOutline(debouncedContent)
-  }, [debouncedContent, mode, outlineVisible, preview.outline])
-  const stats = useMemo(() => getDocumentStats(debouncedStatsContent), [debouncedStatsContent])
-  const sourceSearchMatchCount = useMemo(
-    () => countLiteralMatches(content, debouncedSearchTerm.trim()),
-    [content, debouncedSearchTerm]
-  )
-  const searchMatchCount = mode === 'view' ? previewSearchMatchCount : sourceSearchMatchCount
+    return mode === 'view' ? preview.outline : editorOutline
+  }, [editorOutline, mode, outlineVisible, preview.outline])
+  const outlineRef = useRef(outline)
+  outlineRef.current = outline
+  const stats = activeDoc?.stats ?? { length: 0, lines: 0, tokens: 0, words: 0 }
+  const searchMatchCount = mode === 'view' ? previewSearchMatchCount : editorSearchMatchCount
   const tabs = useMemo<DocumentTabItem[]>(
     () =>
       documents.map((doc) => ({
         id: doc.id,
         title: documentName(doc, t('app.untitled')),
-        dirty: doc.content !== doc.savedContent
+        dirty: doc.revision !== doc.savedRevision
       })),
     [documents, t]
   )
@@ -311,9 +324,10 @@ export function App(): JSX.Element {
     (items: DocumentInput[], nextMode: 'view' | 'edit' = 'view') => {
       if (items.length === 0) return
 
-      const currentDocs = stateRef.current.documents
-      const nextDocs = [...currentDocs]
-      let nextActiveId: string | null = null
+       const currentDocs = stateRef.current.documents
+       const nextDocs = [...currentDocs]
+       const addedDocs: DocumentState[] = []
+       let nextActiveId: string | null = null
 
       for (const item of items) {
         const existingIndex = item.path ? nextDocs.findIndex((doc) => doc.path === item.path) : -1
@@ -321,12 +335,15 @@ export function App(): JSX.Element {
         if (existingIndex >= 0) {
           const existing = nextDocs[existingIndex]
           nextActiveId ??= existing.id
-          if (existing.content === existing.savedContent) {
+          if (existing.revision === existing.savedRevision) {
             nextDocs[existingIndex] = {
               ...existing,
               content: item.content,
-              savedContent: item.content,
-              readOnly: existing.readOnly || item.readOnly === true
+              stats: getDocumentStats(item.content),
+              revision: 0,
+              savedRevision: 0,
+              readOnly: existing.readOnly || item.readOnly === true,
+              sizeProfile: item.sizeProfile ?? existing.sizeProfile
             }
           }
           continue
@@ -337,18 +354,27 @@ export function App(): JSX.Element {
           path: item.path,
           title: item.title ?? null,
           content: item.content,
-          savedContent: item.savedContent ?? item.content,
+          stats: getDocumentStats(item.content),
+          revision: item.savedContent === undefined || item.savedContent === item.content ? 0 : 1,
+          savedRevision: 0,
           draftId: item.draftId ?? (item.path ? null : `draft-${newDocumentId()}`),
-          draftSavedContent: item.draftSavedContent ?? null,
-          readOnly: item.readOnly === true
-        }
-        nextDocs.push(doc)
-        nextActiveId ??= doc.id
+          draftSavedRevision: item.draftSavedContent === undefined ? null : 1,
+          readOnly: item.readOnly === true,
+          sizeProfile: item.sizeProfile
+         }
+         nextDocs.push(doc)
+         addedDocs.push(doc)
+         nextActiveId ??= doc.id
       }
 
       setDocuments(nextDocs)
       setActiveDocId(nextActiveId)
-      setMode(nextMode)
+       // Very large editable documents open in the editor. Preview remains an
+       // explicit action, avoiding an immediate full Markdown parse on open.
+       const deferPreview = nextMode === 'view' && addedDocs.some(
+         (doc) => !doc.readOnly && (doc.sizeProfile === 'very-large' || getPreviewSchedule(doc.content.length).deferred)
+       )
+       setMode(deferPreview ? 'edit' : nextMode)
       setExportDialogFormat(null)
       setSettingsOpen(false)
       setAboutOpen(false)
@@ -356,10 +382,44 @@ export function App(): JSX.Element {
     [newDocumentId]
   )
 
-  const updateActiveContent = useCallback((nextContent: string) => {
-    const id = stateRef.current.activeDocId
-    if (!id || stateRef.current.activeDoc?.readOnly) return
-    setDocuments((prev) => prev.map((doc) => (doc.id === id ? { ...doc, content: nextContent } : doc)))
+  const materializeEditorContent = useCallback((): string | null => {
+    const doc = stateRef.current.activeDoc
+    if (!doc || stateRef.current.mode !== 'edit') return null
+    const nextContent = editorRef.current?.getContent()
+    if (nextContent === undefined || nextContent === doc.content) return nextContent ?? null
+    setDocuments((prev) => prev.map((item) => (item.id === doc.id ? { ...item, content: nextContent } : item)))
+    return nextContent
+  }, [])
+
+  const updateActiveRevision = useCallback((documentId: string, nextStats: EditorDocumentStats) => {
+    if (stateRef.current.activeDocId !== documentId || stateRef.current.activeDoc?.readOnly) return
+    setDocuments((prev) => prev.map((doc) => (
+      doc.id === documentId
+        ? { ...doc, revision: doc.revision + 1, stats: { ...doc.stats, ...nextStats } }
+        : doc
+    )))
+  }, [])
+
+  /**
+   * Queues one transaction for the next autosave. Batches stay separate because each is expressed
+   * against the text the previous one produced.
+   */
+  const recordEditorEdits = useCallback((documentId: string, edits: DraftEditPayload[]) => {
+    const doc = stateRef.current.documents.find((item) => item.id === documentId)
+    if (!doc?.draftId || doc.path || doc.readOnly || !stateRef.current.autoSave) return
+    const queued = pendingDraftEdits.current.get(doc.draftId)
+    if (queued) queued.push(edits)
+    else pendingDraftEdits.current.set(doc.draftId, [edits])
+  }, [])
+
+  const updateIdleStats = useCallback((documentId: string, nextStats: EditorIdleStats) => {
+    setDocuments((prev) => prev.map((doc) => (doc.id === documentId ? { ...doc, stats: nextStats } : doc)))
+  }, [])
+
+  const updateEditorOutline = useCallback((documentId: string, nextOutline: OutlineItem[]) => {
+    if (stateRef.current.activeDocId === documentId && stateRef.current.mode === 'edit') {
+      setEditorOutline(nextOutline)
+    }
   }, [])
 
   // Keep active tab valid when the last active document is removed.
@@ -427,31 +487,57 @@ export function App(): JSX.Element {
       if (!stateRef.current.autoSave) return false
 
       const doc = stateRef.current.documents.find((item) => item.id === docId)
-      if (!doc || doc.path || doc.readOnly || !doc.draftId || doc.draftSavedContent === doc.content) {
+      if (!doc || doc.path || doc.readOnly || !doc.draftId || doc.draftSavedRevision === doc.revision) {
         return false
       }
 
       const inFlight = draftSavesInFlight.current.get(doc.draftId)
       if (inFlight) return inFlight
 
-      const content = doc.content
-      const draft: AutoSaveDraft = {
-        id: doc.draftId,
-        title: documentName(doc, t('app.untitled')),
-        content
-      }
+      const draftId = doc.draftId
+      const revision = doc.revision
+      const title = documentName(doc, t('app.untitled'))
+      // Drained together with the length they produce: both are updated by the same editor
+      // transaction, and nothing can run between these two synchronous reads.
+      const batches = pendingDraftEdits.current.get(draftId) ?? []
+      pendingDraftEdits.current.delete(draftId)
+      const editedLength = doc.stats.length
+      // Journaling only works on top of a snapshot this draft already has on disk.
+      const canJournal = doc.draftSavedRevision !== null && batches.length > 0
 
       const operation = (async (): Promise<boolean> => {
         try {
-          const result = await window.api.saveDraft(draft)
+          if (canJournal) {
+            const appended = await window.api.appendDraftEdits(draftId, batches, editedLength)
+            if (appended.ok) {
+              setDocuments((prev) =>
+                prev.map((item) =>
+                  item.id === docId && item.draftId === draftId
+                    ? { ...item, draftSavedRevision: revision }
+                    : item
+                )
+              )
+              return true
+            }
+            if (appended.reason === 'error') {
+              flash(t('notice.autoSaveFailed', { error: appended.error }), true)
+              return false
+            }
+            // The journal cannot describe this state; fall through to a full snapshot.
+          }
+
+          const content = doc.id === stateRef.current.activeDocId
+            ? materializeEditorContent() ?? doc.content
+            : doc.content
+          const result = await window.api.saveDraft({ id: draftId, title, content })
           if (!result.ok) {
             flash(t('notice.autoSaveFailed', { error: result.error }), true)
             return false
           }
           setDocuments((prev) =>
             prev.map((item) =>
-              item.id === docId && item.draftId === draft.id
-                ? { ...item, draftSavedContent: content }
+              item.id === docId && item.draftId === draftId
+                ? { ...item, content, draftSavedRevision: revision }
                 : item
             )
           )
@@ -462,20 +548,20 @@ export function App(): JSX.Element {
         }
       })()
 
-      draftSavesInFlight.current.set(draft.id, operation)
+      draftSavesInFlight.current.set(draftId, operation)
       try {
         return await operation
       } finally {
-        draftSavesInFlight.current.delete(draft.id)
+        draftSavesInFlight.current.delete(draftId)
       }
     },
-    [flash, t]
+    [flash, materializeEditorContent, t]
   )
 
   useEffect(() => {
     if (!settings.autoSave) return
     const pending = documents.filter(
-      (doc) => !doc.path && !doc.readOnly && doc.draftId && doc.draftSavedContent !== doc.content
+      (doc) => !doc.path && !doc.readOnly && doc.draftId && doc.draftSavedRevision !== doc.revision
     )
     if (pending.length === 0) return
 
@@ -485,6 +571,19 @@ export function App(): JSX.Element {
 
     return () => window.clearTimeout(timer)
   }, [documents, persistDraftDocument, settings.autoSave])
+
+  /**
+   * Writes every draft whose edits are still only in memory. Autosave is debounced, so leaving the
+   * editor, switching tabs or quitting must not drop the window between the last keystroke and the
+   * next tick.
+   */
+  const flushPendingDrafts = useCallback(async (): Promise<void> => {
+    if (!stateRef.current.autoSave) return
+    const pending = stateRef.current.documents.filter(
+      (doc) => !doc.path && !doc.readOnly && doc.draftId && doc.draftSavedRevision !== doc.revision
+    )
+    await Promise.all(pending.map((doc) => persistDraftDocument(doc.id)))
+  }, [persistDraftDocument])
 
   const removeDocumentDraft = useCallback(
     async (doc: Pick<DocumentState, 'draftId'>): Promise<boolean> => {
@@ -513,7 +612,10 @@ export function App(): JSX.Element {
       }
 
       const suggested = markdownFileName(documentName(doc, 'untitled'))
-      const savedText = doc.content
+      const savedText = doc.id === stateRef.current.activeDocId
+        ? materializeEditorContent() ?? doc.content
+        : doc.content
+      const savedRevision = doc.revision
       const res = await window.api.saveAs(savedText, suggested)
       if (res.ok) {
         const draftRemoved = await removeDocumentDraft(doc)
@@ -523,9 +625,10 @@ export function App(): JSX.Element {
               ? {
                   ...item,
                   path: res.path,
-                  savedContent: savedText,
+                  content: savedText,
+                  savedRevision,
                   draftId: draftRemoved ? null : item.draftId,
-                  draftSavedContent: draftRemoved ? null : item.draftSavedContent
+                  draftSavedRevision: draftRemoved ? null : item.draftSavedRevision
                 }
               : item
           )
@@ -552,7 +655,10 @@ export function App(): JSX.Element {
       }
       if (!doc.path) return saveDocumentAs(docId)
 
-      const savedText = doc.content
+      const savedText = doc.id === stateRef.current.activeDocId
+        ? materializeEditorContent() ?? doc.content
+        : doc.content
+      const savedRevision = doc.revision
       const res = await window.api.save(doc.path, savedText)
       if (res.ok) {
         const draftRemoved = await removeDocumentDraft(doc)
@@ -561,9 +667,10 @@ export function App(): JSX.Element {
             item.id === docId
               ? {
                   ...item,
-                  savedContent: savedText,
+                  content: savedText,
+                  savedRevision,
                   draftId: draftRemoved ? null : item.draftId,
-                  draftSavedContent: draftRemoved ? null : item.draftSavedContent
+                  draftSavedRevision: draftRemoved ? null : item.draftSavedRevision
                 }
               : item
           )
@@ -601,6 +708,8 @@ export function App(): JSX.Element {
   )
 
   const confirmAnyUnsaved = useCallback(async (): Promise<'proceed' | 'cancel'> => {
+    // Persist debounced draft edits first, so quitting never asks about work autosave already owns.
+    await flushPendingDrafts()
     const dirtyDocs = stateRef.current.documents.filter((doc) =>
       needsUnsavedConfirmation(doc, stateRef.current.autoSave)
     )
@@ -619,35 +728,50 @@ export function App(): JSX.Element {
       if (!(await saveDocument(doc.id))) return 'cancel'
     }
     return 'proceed'
-  }, [askUnsaved, removeDocumentDraft, saveDocument])
+  }, [askUnsaved, flushPendingDrafts, removeDocumentDraft, saveDocument])
 
   const doOpen = useCallback(async () => {
     const res = await window.api.openDialog()
-    if (res.ok) {
-      addDocuments(res.documents)
-      rememberRecent(res.documents.map((doc) => doc.path))
-    } else if (!res.canceled) flash(t('notice.openFailed', { error: res.error }), true)
-  }, [addDocuments, flash, rememberRecent, t])
+    if (!res.ok) {
+      if (!res.canceled) flash(t('notice.openFailed', { error: res.error }), true)
+      return
+    }
+    materializeEditorContent()
+    const showProgress = res.total >= LARGE_OPEN_SELECTION_THRESHOLD
+    openSessionRef.current = { sessionId: res.sessionId, showProgress, paths: [] }
+    setOpenProgress(showProgress ? { completed: 0, total: res.total, canceling: false } : null)
+  }, [flash, materializeEditorContent, t])
+
+  const cancelOpenMany = useCallback(() => {
+    const session = openSessionRef.current
+    if (!session) return
+    setOpenProgress((prev) => (prev ? { ...prev, canceling: true } : prev))
+    void window.api.cancelOpenMany(session.sessionId)
+  }, [])
 
   const openPaths = useCallback(
     async (paths: string[]) => {
       const opened: DocumentInput[] = []
       const failed: string[] = []
       for (const path of paths) {
+        // Covers the whole delivery: main's chunked read, IPC, and streaming UTF-8 decode.
+        const finishMeasure = beginRendererMeasure('document:ipc-delivery')
         const res = await window.api.readPath(path)
-        if (res.ok) opened.push({ path: res.path, content: res.content })
+        finishMeasure({ sizeBytes: res.ok ? res.sizeBytes : 0 })
+        if (res.ok) opened.push({ path: res.path, content: res.content, sizeProfile: res.sizeProfile })
         else {
           failed.push(path)
           if (res.error === 'unsupported') flash(t('notice.unsupported'), true)
           else flash(t('notice.openFailed', { error: res.error }), true)
         }
       }
+      materializeEditorContent()
       addDocuments(opened)
       rememberRecent(opened.map((doc) => doc.path))
       // Drop paths that no longer open (e.g. a recent file that was moved/deleted).
       forgetRecent(failed)
     },
-    [addDocuments, flash, forgetRecent, rememberRecent, t]
+    [addDocuments, flash, forgetRecent, materializeEditorContent, rememberRecent, t]
   )
 
   const openRecent = useCallback((path: string) => void openPaths([path]), [openPaths])
@@ -673,8 +797,12 @@ export function App(): JSX.Element {
         flash(t('notice.noDocument'), true)
         return
       }
-      const renderedMarkdown = renderMarkdown(s.activeDoc.content, { documentPath: s.activeDoc.path })
+      const sourceContent = s.activeDoc.id === s.activeDocId
+        ? materializeEditorContent() ?? s.activeDoc.content
+        : s.activeDoc.content
+      const renderedMarkdown = await renderMarkdownInWorker(sourceContent, { documentPath: s.activeDoc.path })
       const rendered = await renderMermaidFlowcharts(renderedMarkdown, 'light')
+      const { buildStandaloneHtml } = await import('./lib/exportHtml')
       const name = documentName(s.activeDoc, t('app.untitled'))
       // Exports (HTML/PDF/PNG) always use the light theme, regardless of the preview theme.
       const doc = buildStandaloneHtml(rendered, 'light', name, {
@@ -694,7 +822,7 @@ export function App(): JSX.Element {
       if (res.ok) flash(t('notice.exportSuccess', { path: res.path }))
       else if (!res.canceled) flash(t('notice.exportFailed', { error: res.error }), true)
     },
-    [flash, settings.previewFontFamily, settings.previewFontSize, settings.previewLineHeight, t]
+    [flash, materializeEditorContent, settings.previewFontFamily, settings.previewFontSize, settings.previewLineHeight, t]
   )
 
   const confirmExport = useCallback(
@@ -708,21 +836,24 @@ export function App(): JSX.Element {
   const setModeSafe = useCallback((next: 'view' | 'edit') => {
     if (!stateRef.current.hasDoc) return
     if (next === 'edit' && stateRef.current.activeDoc?.readOnly) return
+    if (stateRef.current.mode === 'edit' && next === 'view') materializeEditorContent()
     setExportDialogFormat(null)
     setSettingsOpen(false)
     setAboutOpen(false)
     setMode(next)
-  }, [])
+  }, [materializeEditorContent])
 
   const doNew = useCallback(() => {
     const documentCount = stateRef.current.documents.length
     const title = documentCount === 0 ? t('app.untitled') : `${t('app.untitled')} ${documentCount + 1}`
+    materializeEditorContent()
     addDocuments([{ path: null, title, content: '' }], 'edit')
-  }, [addDocuments, t])
+  }, [addDocuments, materializeEditorContent, t])
 
   const doSearch = useCallback((term: string) => {
     setSearchTerm(term)
     setActiveSearchIndex(null)
+    setEditorSearchMatchCount(0)
     setPreviewSearchMatchCount(0)
   }, [])
 
@@ -769,20 +900,21 @@ export function App(): JSX.Element {
         return
       }
 
-      const result = replaceTextLiteral(doc.content, term, replacement, all, activeSearchIndex)
+      const sourceContent = materializeEditorContent() ?? doc.content
+      const result = replaceTextLiteral(sourceContent, term, replacement, all, activeSearchIndex)
       if (result.count === 0) {
         flash(t('notice.replaceNone'), true)
         return
       }
 
-      setDocuments((prev) => prev.map((item) => (item.id === doc.id ? { ...item, content: result.text } : item)))
+      editorRef.current?.replaceContent(result.text)
       setActiveSearchIndex(result.nextIndex)
       setExportDialogFormat(null)
       setSettingsOpen(false)
       setAboutOpen(false)
       flash(t(all ? 'notice.replaceAllSuccess' : 'notice.replaceOneSuccess', { count: result.count }))
     },
-    [activeSearchIndex, flash, t]
+    [activeSearchIndex, flash, materializeEditorContent, t]
   )
 
   const doGuide = useCallback(async () => {
@@ -796,22 +928,30 @@ export function App(): JSX.Element {
     }
     const guideFile = guideFiles[settings.language] ?? guideFiles['en']
     const res = await window.api.readSample(guideFile)
-    if (res.ok) addDocuments([{
+    if (res.ok) {
+      materializeEditorContent()
+      addDocuments([{
       path: res.path,
       content: res.content.replace('<!-- MERMAID_EXAMPLES -->', getExtraMermaidGuideExamples(settings.language)),
+      sizeProfile: res.sizeProfile,
       readOnly: true
-    }])
+      }])
+    }
     else flash(t('notice.openFailed', { error: res.error }), true)
-  }, [addDocuments, flash, settings.language, t])
+  }, [addDocuments, flash, materializeEditorContent, settings.language, t])
 
   const selectDocument = useCallback((docId: string) => {
     const selected = stateRef.current.documents.find((doc) => doc.id === docId)
+    if (docId !== stateRef.current.activeDocId) {
+      materializeEditorContent()
+      void flushPendingDrafts()
+    }
     setActiveDocId(docId)
     if (selected?.readOnly) setMode('view')
     setExportDialogFormat(null)
     setSettingsOpen(false)
     setAboutOpen(false)
-  }, [])
+  }, [flushPendingDrafts, materializeEditorContent])
 
   const closeDocument = useCallback(
     async (docId: string) => {
@@ -905,9 +1045,13 @@ export function App(): JSX.Element {
     [closeDocuments]
   )
 
+  const closeDocumentFromTab = useCallback((docId: string) => {
+    void closeDocument(docId)
+  }, [closeDocument])
+
   const closeSavedDocuments = useCallback(() => {
     const ids = stateRef.current.documents
-      .filter((doc) => doc.content === doc.savedContent)
+      .filter((doc) => doc.revision === doc.savedRevision)
       .map((doc) => doc.id)
     void closeDocuments(ids)
   }, [closeDocuments])
@@ -918,17 +1062,17 @@ export function App(): JSX.Element {
 
   const scrollToHeading = useCallback((id: string) => {
     if (mode === 'edit') {
-      const line = outline.find((item) => item.id === id)?.sourceLine
+      const line = outlineRef.current.find((item) => item.id === id)?.sourceLine
       if (line === undefined) return
       setEditorHeadingRequest((previous) => ({ line, request: (previous?.request ?? 0) + 1 }))
       setActiveHeadingId(id)
       return
     }
     const target = previewHeadingsRef.current.find((heading) => heading.id === id)
-    if (!target) return
-    scrollPreviewHeadingIntoView(target)
+    if (target) scrollPreviewHeadingIntoView(target)
+    else setPreviewHeadingRequest((previous) => ({ id, request: (previous?.request ?? 0) + 1 }))
     setActiveHeadingId(id)
-  }, [mode, outline])
+  }, [mode])
 
   const setPreviewHeadings = useCallback((headings: HTMLElement[]) => {
     previewHeadingsRef.current = headings
@@ -974,6 +1118,11 @@ export function App(): JSX.Element {
       })
     },
     [i18n]
+  )
+
+  const togglePreviewFluidWidth = useCallback(
+    () => changeSettings({ previewFluidWidth: !settings.previewFluidWidth }),
+    [changeSettings, settings.previewFluidWidth]
   )
 
   const openSettings = useCallback(() => {
@@ -1207,21 +1356,37 @@ export function App(): JSX.Element {
     const offClose = window.api.onCloseRequest(() => {
       void confirmAnyUnsaved().then((result) => window.api.confirmClose(result === 'proceed'))
     })
+    // Main pushes only metadata; the content arrives through the same streamed read as every
+    // other open, so document text is fetched in exactly one place.
     const offDoc = window.api.onOpenDocument((doc) => {
-      addDocuments([{ path: doc.path, content: doc.content }])
-      rememberRecent([doc.path])
+      void openPaths([doc.path])
+    })
+    const offProgress = window.api.onOpenManyProgress((progress) => {
+      const session = openSessionRef.current
+      if (!session || session.sessionId !== progress.sessionId) return
+      if (progress.document) {
+        addDocuments([{ path: progress.document.path, content: progress.document.content, sizeProfile: progress.document.sizeProfile }])
+        session.paths.push(progress.document.path)
+      }
+      if (session.showProgress) {
+        setOpenProgress((prev) => (prev ? { ...prev, completed: progress.completed, total: progress.total } : prev))
+      }
+    })
+    const offDone = window.api.onOpenManyDone((done) => {
+      const session = openSessionRef.current
+      if (!session || session.sessionId !== done.sessionId) return
+      openSessionRef.current = null
+      setOpenProgress(null)
+      if (session.paths.length > 0) rememberRecent(session.paths)
+      if (done.errors.length > 0) flash(t('notice.openFailed', { error: done.errors[0] }), true)
     })
     return () => {
       offClose()
       offDoc()
+      offProgress()
+      offDone()
     }
-  }, [confirmAnyUnsaved, addDocuments, rememberRecent])
-
-  useEffect(() => {
-    const offUpdate = window.api.onUpdateState(setUpdateState)
-    void window.api.getUpdateState().then(setUpdateState)
-    return offUpdate
-  }, [])
+  }, [confirmAnyUnsaved, addDocuments, openPaths, rememberRecent, flash, t])
 
   // --- Drag & drop -------------------------------------------------------
   const onDrop = useCallback(
@@ -1278,10 +1443,10 @@ export function App(): JSX.Element {
         canToggleTheme={canToggleMdTheme()}
         previewFontSize={settings.previewFontSize}
         canAdjustFontSize={canToggleMdTheme()}
-        onFontSizeChange={(previewFontSize) => changeSettings({ previewFontSize })}
+        onFontSizeChange={changePreviewFontSize}
         previewFluidWidth={settings.previewFluidWidth}
         canTogglePreviewWidth={canToggleMdTheme()}
-        onTogglePreviewWidth={() => changeSettings({ previewFluidWidth: !settings.previewFluidWidth })}
+        onTogglePreviewWidth={togglePreviewFluidWidth}
         outlineVisible={outlineVisible}
         canToggleOutline={canToggleOutline()}
         onToggleOutline={toggleOutline}
@@ -1299,7 +1464,7 @@ export function App(): JSX.Element {
           tabs={tabs}
           activeId={activeDocId}
           onSelect={selectDocument}
-          onClose={(id) => void closeDocument(id)}
+          onClose={closeDocumentFromTab}
           onCloseOthers={closeOtherDocuments}
           onCloseToRight={closeDocumentsToRight}
           onCloseSaved={closeSavedDocuments}
@@ -1347,26 +1512,40 @@ export function App(): JSX.Element {
               />
             ) : exportDialogFormat ? (
               <div className="export-workspace">
-                <ExportDialog
-                  initialFormat={exportDialogFormat}
-                  onCancel={() => setExportDialogFormat(null)}
-                  onExport={confirmExport}
-                />
+                <Suspense fallback={null}>
+                  <ExportDialog
+                    initialFormat={exportDialogFormat}
+                    onCancel={() => setExportDialogFormat(null)}
+                    onExport={confirmExport}
+                  />
+                </Suspense>
               </div>
             ) : mode === 'edit' ? (
-              <Editor
-                value={content}
-                theme={'dark'}
-                searchTerm={debouncedSearchTerm}
-                activeSearchIndex={activeSearchIndex}
-                highlightActive={activeSearchIndex !== null}
-                headingToReveal={editorHeadingRequest}
-                onChange={updateActiveContent}
-                onBlur={() => void persistDraftDocument(activeDoc.id)}
-              />
+              <Suspense fallback={null}>
+                <Editor
+                  ref={editorRef}
+                  documentId={activeDoc.id}
+                  value={content}
+                  theme={'dark'}
+                  searchTerm={debouncedSearchTerm}
+                  activeSearchIndex={activeSearchIndex}
+                  highlightActive={activeSearchIndex !== null}
+                  headingToReveal={editorHeadingRequest}
+                  outlineVisible={outlineVisible}
+                  onSearchMatchCountChange={setEditorSearchMatchCount}
+                  onChange={updateActiveRevision}
+                  onEdits={recordEditorEdits}
+                  onIdleStatsChange={updateIdleStats}
+                  onOutlineChange={updateEditorOutline}
+                  onBlur={() => void persistDraftDocument(activeDoc.id)}
+                />
+              </Suspense>
             ) : (
               <Preview
                 html={html}
+                blocks={preview.blocks}
+                virtualized={virtualizedPreview}
+                headingRequest={previewHeadingRequest}
                 documentName={activeDoc ? documentName(activeDoc, t('app.untitled')) : t('app.untitled')}
                 mdTheme={mdTheme}
                 searchTerm={debouncedSearchTerm}
@@ -1390,6 +1569,14 @@ export function App(): JSX.Element {
           state={updateState}
           onDismiss={() => setDismissedUpdate(updateKey)}
           onRetry={checkForUpdate}
+        />
+      )}
+      {openProgress && (
+        <OpenProgress
+          completed={openProgress.completed}
+          total={openProgress.total}
+          canceling={openProgress.canceling}
+          onCancel={cancelOpenMany}
         />
       )}
       {notice && <div className={`notice ${notice.error ? 'notice--error' : ''}`}>{notice.text}</div>}

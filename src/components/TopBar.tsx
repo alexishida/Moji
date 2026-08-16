@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, useRef, type ChangeEvent, type FormEvent } from 'react'
+import { memo, useState, useCallback, useEffect, useRef, type ChangeEvent, type FormEvent } from 'react'
 import { useTranslation } from 'react-i18next'
 import { SettingsButton } from './SettingsButton'
 import { FontSizeButton } from './FontSizeButton'
@@ -43,7 +43,7 @@ interface TopBarProps {
   dismissRequest: number
 }
 
-export function TopBar(props: TopBarProps): JSX.Element {
+export const TopBar = memo(function TopBar(props: TopBarProps): JSX.Element {
   const { t } = useTranslation()
   const [searchTerm, setSearchTerm] = useState('')
   const [replaceTerm, setReplaceTerm] = useState('')
@@ -357,4 +357,4 @@ export function TopBar(props: TopBarProps): JSX.Element {
       </div>
     </header>
   )
-}
+})

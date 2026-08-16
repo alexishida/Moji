@@ -14,6 +14,14 @@ describe('literal search', () => {
     ])
   })
 
+  it('matches case-insensitively without normalizing the full document', () => {
+    expect(findLiteralMatches('Árvore ÁRVORE árvore', 'árvore')).toEqual([
+      { from: 0, to: 6 },
+      { from: 7, to: 13 },
+      { from: 14, to: 20 }
+    ])
+  })
+
   it('handles an empty search term', () => {
     expect(countLiteralMatches('content', '')).toBe(0)
     expect(findLiteralMatches('content', '')).toEqual([])

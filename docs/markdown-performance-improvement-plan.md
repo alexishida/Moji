@@ -62,36 +62,40 @@ Métricas principais:
 
 #### PERF-001 — Criar corpus de desempenho
 
-- [ ] Gerar documentos sintéticos de 1, 5, 20 e 50 MB sem versionar arquivos gigantes.
-- [ ] Cobrir texto simples, headings, código, tabelas, KaTeX, Mermaid e imagens.
-- [ ] Criar cenário com muitas abas abertas.
-- [ ] Criar cenário com arquivo contendo muitas linhas curtas.
-- [ ] Criar cenário com poucas linhas muito longas.
+- [x] Gerar documentos sintéticos de 1, 5, 20 e 50 MB sem versionar arquivos gigantes.
+- [x] Cobrir texto simples, headings, código, tabelas, KaTeX, Mermaid e imagens.
+- [x] Criar cenário com muitas abas abertas.
+- [x] Criar cenário com arquivo contendo muitas linhas curtas.
+- [x] Criar cenário com poucas linhas muito longas.
 
 Critério de aceite:
 
 - Corpus reproduzível por script e utilizável em benchmark local e CI dedicada.
 
+Comando: `npm run benchmark:corpus`. Saída padrão: `.tmp/benchmark-corpus/` (ignorada pelo Git).
+
 #### PERF-002 — Instrumentar operações principais
 
-- [ ] Adicionar `performance.mark`/`performance.measure` na abertura, parse, sanitização, outline, Mermaid e montagem do preview.
-- [ ] Medir latência entre transação CodeMirror e próximo frame.
-- [ ] Medir memória de renderer, main process e janela de exportação.
-- [ ] Registrar tamanho do Markdown, tamanho do HTML e quantidade de nós/blocos.
-- [ ] Manter telemetria local; não enviar dados do usuário.
+- [x] Adicionar `performance.mark`/`performance.measure` na abertura, parse, sanitização, outline, Mermaid e montagem do preview.
+- [x] Medir latência entre transação CodeMirror e próximo frame.
+- [x] Medir memória de renderer, main process e janela de exportação.
+- [x] Registrar tamanho do Markdown, tamanho do HTML e quantidade de nós/blocos.
+- [x] Manter telemetria local; não enviar dados do usuário.
 
 Critério de aceite:
 
-- Relatório local mostra tempo e memória por etapa sem registrar conteúdo do documento.
+- Relatório local mostra tempo e memória por etapa sem registrar conteúdo do documento. Em DevTools, use `window.__mojiPerformance.getReport()`.
 
 #### PERF-003 — Definir orçamento de desempenho
 
-- [ ] Registrar baseline do estado atual.
-- [ ] Definir hardware de referência.
-- [ ] Definir limites para abertura, digitação, preview, memória e exportação.
-- [ ] Definir tolerância de regressão para CI.
+- [x] Registrar baseline do estado atual em `docs/baseline-v1.json` (`npm run benchmark:record`).
+- [x] Definir hardware de referência.
+- [x] Definir limites para abertura, digitação, preview, memória e exportação.
+- [x] Definir tolerância de regressão para CI.
 
 Dependência: `PERF-001`, `PERF-002`.
+
+Documento: `docs/performance-budget.md`.
 
 ### Fase 1 — Digitação e estado React
 
@@ -112,11 +116,11 @@ Impacto: muito alto. Esforço: médio.
 
 #### PERF-102 — Desacoplar CodeMirror do conteúdo integral React
 
-- [ ] Manter estado CodeMirror como fonte principal enquanto documento está em edição.
-- [ ] Enviar imediatamente ao React somente revisão, `dirty` e metadados necessários.
-- [ ] Materializar `string` completa apenas para salvar, exportar, autosave, trocar aba ou gerar preview.
-- [ ] Preservar histórico, seleção e cursor ao trocar abas.
-- [ ] Garantir que fechamento com alterações não salvas continue protegido.
+- [x] Manter estado CodeMirror como fonte principal enquanto documento está em edição.
+- [x] Enviar imediatamente ao React somente revisão, `dirty` e metadados necessários.
+- [x] Materializar `string` completa apenas para salvar, exportar, autosave, trocar aba ou gerar preview.
+- [x] Preservar histórico, seleção e cursor ao trocar abas enquanto o Editor está montado.
+- [x] Garantir que fechamento com alterações não salvas continue protegido.
 
 Critério de aceite:
 
@@ -127,9 +131,9 @@ Impacto: muito alto. Esforço: alto.
 
 #### PERF-103 — Representar estado sujo por revisão
 
-- [ ] Substituir comparações repetidas entre `content` e `savedContent` por revisões ou flag explícita.
-- [ ] Manter revisão salva, revisão editada e revisão persistida do rascunho.
-- [ ] Validar fluxos salvar, salvar como, descartar, fechar aba e encerrar app.
+- [x] Substituir comparações repetidas entre `content` e `savedContent` por revisões ou flag explícita.
+- [x] Manter revisão salva, revisão editada e revisão persistida do rascunho.
+- [x] Validar fluxos salvar, salvar como, descartar, fechar aba e encerrar app.
 
 Critério de aceite:
 
@@ -139,11 +143,11 @@ Dependência: pode ser feita junto de `PERF-102`.
 
 #### PERF-104 — Tornar estatísticas incrementais ou ociosas
 
-- [ ] Obter linhas por `state.doc.lines`.
-- [ ] Obter comprimento por `state.doc.length`.
+- [x] Obter linhas por `state.doc.lines`.
+- [x] Obter comprimento por `state.doc.length`.
 - [x] Calcular palavras e tokens após debounce ou período ocioso.
 - [x] Evitar `split` e `Array.from` sobre documento inteiro por tecla.
-- [ ] Avaliar atualização incremental pelas regiões alteradas.
+- [x] Avaliar atualização incremental pelas regiões alteradas: `length` e `lines` vêm do estado incremental do CodeMirror; palavras/tokens exigem contexto de fronteira e seguem cálculo ocioso após 350 ms.
 
 Critério de aceite:
 
@@ -153,10 +157,10 @@ Impacto: alto. Esforço: baixo a médio.
 
 #### PERF-105 — Isolar rerenders do chrome
 
-- [ ] Separar estado de documento, busca, configurações, exportação e atualização.
-- [ ] Evitar rerender de `TopBar`, `DocumentTabs`, `Sidebar` e `StatusBar` por cada tecla quando dados usados não mudaram.
-- [ ] Remover callbacks inline que invalidem memoização onde medição provar custo.
-- [ ] Dividir responsabilidades atualmente concentradas em `App.tsx`.
+- [x] Separar estado de documento, busca, configurações, exportação e atualização.
+- [x] Evitar rerender de `TopBar`, `DocumentTabs`, `Sidebar` e `StatusBar` por cada tecla quando dados usados não mudaram.
+- [x] Remover callbacks inline que invalidem memoização onde medição provar custo.
+- [x] Dividir responsabilidades atualmente concentradas em `App.tsx` com hooks de estado por domínio.
 
 Critério de aceite:
 
@@ -192,11 +196,11 @@ Critério de aceite:
 
 #### PERF-203 — Mover CPU pesada para worker
 
-- [ ] Avaliar Web Worker, worker thread ou `utilityProcess` para Markdown, highlight e KaTeX.
-- [ ] Manter renderer livre para entrada e pintura.
-- [ ] Definir contrato tipado de pedido e resposta.
-- [ ] Não expor Node ou IPC genérico ao renderer.
-- [ ] Preservar sanitização antes de `dangerouslySetInnerHTML`.
+- [x] Avaliar Web Worker, worker thread ou `utilityProcess` para Markdown, highlight e KaTeX: Web Worker atende parse/highlight; processos Node não possuem DOM para sanitização; KaTeX exige carregamento assíncrono compatível com worker.
+- [x] Manter renderer livre para entrada e pintura.
+- [x] Definir contrato tipado de pedido e resposta.
+- [x] Não expor Node ou IPC genérico ao renderer.
+- [x] Preservar sanitização antes de `dangerouslySetInnerHTML`.
 
 Critério de aceite:
 
@@ -206,11 +210,11 @@ Dependência: `PERF-201`.
 
 #### PERF-204 — Implementar fila “latest wins”
 
-- [ ] Associar geração crescente a cada pedido de preview.
-- [ ] Descartar resultado obsoleto.
-- [ ] Remover trabalho ainda não iniciado quando pedido novo substituir anterior.
-- [ ] Impedir acúmulo de renderizações Mermaid obsoletas.
-- [ ] Registrar quantidade de trabalhos descartados nas métricas locais.
+- [x] Associar geração crescente a cada pedido de preview.
+- [x] Descartar resultado obsoleto.
+- [x] Remover trabalho ainda não iniciado quando pedido novo substituir anterior.
+- [x] Impedir acúmulo de renderizações Mermaid obsoletas.
+- [x] Registrar quantidade de trabalhos descartados nas métricas locais.
 
 Critério de aceite:
 
@@ -218,10 +222,10 @@ Critério de aceite:
 
 #### PERF-205 — Adotar agendamento adaptativo
 
-- [ ] Manter resposta rápida para documentos pequenos.
-- [ ] Aumentar debounce conforme bytes, linhas ou custo medido.
-- [ ] Usar processamento sob demanda no perfil muito grande.
-- [ ] Não usar `startTransition` como substituto de trabalho fora da thread principal.
+- [x] Manter resposta rápida para documentos pequenos.
+- [x] Aumentar debounce conforme tamanho do documento.
+- [x] Usar processamento sob demanda no perfil muito grande.
+- [x] Não usar `startTransition` como substituto de trabalho fora da thread principal.
 
 Critério de aceite:
 
@@ -231,38 +235,42 @@ Critério de aceite:
 
 #### PERF-301 — Reduzir custo de layout fora da tela
 
-- [ ] Aplicar `content-visibility: auto` em blocos seguros do preview.
-- [ ] Definir `contain-intrinsic-size` para reduzir salto visual.
-- [ ] Medir tabelas, imagens, blocos de código e fórmulas.
-- [ ] Validar seleção de texto, anchors, scroll-spy e busca.
+- [x] Aplicar `content-visibility: auto` em blocos seguros do preview.
+- [x] Definir `contain-intrinsic-size` para reduzir salto visual.
+- [x] Medir tabelas, imagens, blocos de código e fórmulas.
+- [x] Validar seleção de texto, anchors, scroll-spy e busca.
 
 Critério de aceite:
 
 - Documento longo reduz tempo de layout e pintura sem quebrar navegação.
 
+Captura diagnóstica em build de produção (`docs/baseline-v1.json`): 458 tabelas montaram em 49,9 ms; 565 imagens em 42,7 ms, com 8 assets próximos carregados sob demanda; 585 blocos de código em 124,3 ms; 259 fórmulas em 195,4 ms. Testes DOM cobrem seleção atravessando código, anchors codificados, scroll-spy com bloco pulado por `content-visibility` e busca em tabela, código e fórmula.
+
 #### PERF-302 — Implementar preview por blocos ou virtualizado
 
-- [ ] Dividir documento por blocos ou seções de primeiro nível.
-- [ ] Renderizar viewport com overscan no perfil muito grande.
-- [ ] Preservar altura estimada, scroll e navegação por heading.
-- [ ] Tratar busca ativa em bloco ainda não montado.
-- [ ] Manter exportação fora da virtualização.
+- [x] Dividir documento por blocos ou seções de primeiro nível.
+- [x] Renderizar viewport com overscan no perfil muito grande.
+- [x] Preservar altura estimada, scroll e navegação por heading.
+- [x] Tratar busca ativa em bloco ainda não montado.
+- [x] Manter exportação fora da virtualização.
 
 Critério de aceite:
 
 - Quantidade de nós montados fica limitada pela viewport em documento muito grande.
 
+Captura diagnóstica em build de produção (`docs/baseline-v1.json`): o cenário de 50 MB foi dividido em 51 blocos virtuais e manteve apenas 2 montados (6 nós DOM) na viewport inicial, com montagem em 121 ms. A exportação continua solicitando uma renderização integral independente.
+
 Dependência: iniciar somente se `PERF-301` não atingir orçamento.
 
 #### PERF-303 — Substituir imagens base64 por protocolo local seguro
 
-- [ ] Criar protocolo interno específico para assets locais.
-- [ ] Autorizar somente caminhos ligados ao documento aberto.
-- [ ] Servir bytes sem conversão base64.
-- [ ] Adicionar `loading="lazy"` e `decoding="async"`.
-- [ ] Limitar concorrência de carregamento.
-- [ ] Cachear por caminho, tamanho e `mtime`.
-- [ ] Invalidar cache após alteração externa.
+- [x] Criar protocolo interno específico para assets locais.
+- [x] Autorizar somente caminhos ligados ao documento aberto.
+- [x] Servir bytes sem conversão base64.
+- [x] Adicionar `loading="lazy"` e `decoding="async"`.
+- [x] Limitar concorrência de carregamento.
+- [x] Cachear por caminho, tamanho e `mtime`.
+- [x] Invalidar cache após alteração externa.
 
 Critério de aceite:
 
@@ -273,38 +281,42 @@ Impacto: alto em documentos com imagens. Esforço: alto.
 
 #### PERF-304 — Otimizar busca
 
-- [ ] Evitar cópias integrais com `toLowerCase` quando busca estiver ativa.
-- [ ] Compartilhar resultado de busca entre contador, decoração e navegação.
-- [ ] Usar API do CodeMirror no Editor como fonte única de matches.
-- [ ] Tornar varredura do preview incremental por bloco.
-- [ ] Parar varredura ao atingir limite, sem montar primeiro todos os grupos de texto.
-- [ ] Preservar busca por frase atravessando elementos inline.
+- [x] Evitar cópias integrais com `toLowerCase` quando busca estiver ativa.
+- [x] Compartilhar resultado de busca entre contador, decoração e navegação no Editor.
+- [x] Usar API do CodeMirror no Editor como fonte única de matches.
+- [x] Tornar varredura do preview incremental por bloco.
+- [x] Parar varredura do Editor ao atingir limite de decorações.
+- [x] Preservar busca por frase atravessando elementos inline.
 
 Critério de aceite:
 
 - Uma mudança de termo produz uma varredura lógica, não múltiplas varreduras integrais.
 
+Varredura do preview processa blocos em fatias de até 8 ms, com cancelamento de termo/faixa obsoletos. Teste DOM confirma frase única atravessando nós de texto dentro de elementos inline.
+
 #### PERF-305 — Coalescer Mermaid
 
-- [ ] Manter cache atual por tema e fonte.
-- [ ] Cancelar ou ignorar renderizações obsoletas antes de iniciar Mermaid.
-- [ ] Evitar recriar DOM completo duas vezes ao concluir diagramas.
-- [ ] Avaliar patch apenas nos placeholders Mermaid.
-- [ ] Limitar concorrência e memória do cache por bytes, não somente quantidade.
+- [x] Manter cache atual por tema e fonte.
+- [x] Cancelar ou ignorar renderizações obsoletas antes de iniciar Mermaid.
+- [x] Evitar recriar DOM completo duas vezes ao concluir diagramas.
+- [x] Avaliar patch apenas nos placeholders Mermaid.
+- [x] Limitar concorrência e memória do cache por bytes, não somente quantidade.
 
 Critério de aceite:
 
 - Troca rápida de documento/tema não cria fila longa de diagramas antigos.
 
+Preview aplica SVG sanitizado diretamente em cada `pre.mermaid-diagram-candidate`; HTML completo continua reservado à exportação. Teste DOM preserva identidade dos nós vizinhos, e benchmark registra uma única montagem não vazia do preview antes do patch Mermaid.
+
 ### Fase 4 — Arquivos, IPC e rascunhos
 
 #### PERF-401 — Medir arquivo antes de ler
 
-- [ ] Executar `stat` antes da leitura.
-- [ ] Classificar documento nos perfis Normal, Grande e Muito grande.
-- [ ] Exibir modo escolhido sem bloquear arquivo apenas pelo tamanho.
-- [ ] Validar arquivo regular e extensão suportada.
-- [ ] Tratar mudança ou remoção entre `stat` e leitura.
+- [x] Executar `stat` antes da leitura.
+- [x] Classificar documento nos perfis Normal, Grande e Muito grande.
+- [x] Selecionar Editor para perfil Muito grande, sem bloquear abertura por tamanho.
+- [x] Validar arquivo regular e extensão suportada.
+- [x] Tratar mudança ou remoção entre `stat` e leitura.
 
 Critério de aceite:
 
@@ -312,54 +324,88 @@ Critério de aceite:
 
 #### PERF-402 — Limitar abertura múltipla
 
-- [ ] Substituir `Promise.all` irrestrito por concorrência limitada.
-- [ ] Entregar documentos ao renderer progressivamente.
-- [ ] Manter sucessos mesmo quando outro arquivo falhar.
-- [ ] Exibir progresso para seleção grande.
-- [ ] Permitir cancelamento antes de carregar todos.
+- [x] Substituir `Promise.all` irrestrito por concorrência limitada (3 leituras).
+- [x] Entregar documentos ao renderer progressivamente.
+- [x] Manter sucessos mesmo quando outro arquivo falhar.
+- [x] Exibir progresso para seleção grande.
+- [x] Permitir cancelamento antes de carregar todos.
 
 Critério de aceite:
 
 - Pico de memória não cresce com todos os arquivos selecionados sendo lidos ao mesmo tempo.
 
+`file:open-dialog` retorna `sessionId` assim que o diálogo fecha; cada arquivo lido é enviado ao renderer por `file:open-many-progress` conforme conclui, com `document` só quando bem-sucedido. `file:open-many-done` fecha a sessão com o resumo de erros e a flag `canceled`. Seleções com 4 ou mais arquivos exibem banner de progresso com contagem e botão cancelar; `file:open-many-cancel` aborta leituras ainda não iniciadas via `AbortSignal` repassado ao `readFile`, preservando os documentos já entregues.
+
 #### PERF-403 — Reduzir cópias entre main e renderer
 
-- [ ] Medir custo atual de string pelo `ipcRenderer.invoke`.
-- [ ] Avaliar `MessagePort` com `ArrayBuffer` transferível.
-- [ ] Avaliar leitura em chunks e `TextDecoder` no renderer.
-- [ ] Garantir tratamento correto de UTF-8 e BOM entre chunks.
-- [ ] Manter API preload estreita e tipada.
+- [x] Medir custo atual de string pelo `ipcRenderer.invoke`.
+- [x] Avaliar `MessagePort` com `ArrayBuffer` transferível.
+- [x] Avaliar leitura em chunks e `TextDecoder` no renderer.
+- [x] Garantir tratamento correto de UTF-8 e BOM entre chunks.
+- [x] Manter API preload estreita e tipada.
 
 Critério de aceite:
 
 - Conteúdo grande não fica duplicado desnecessariamente durante entrega IPC.
 
+Medição: `npm run benchmark:ipc` compara os transportes; as tabelas estão em `docs/performance-budget.md`. Em documento de 50 MB o pico em main cai de 240 MB para 2 MB e o payload do IPC cai de 94,9 MB para 50,1 MB. No aplicativo empacotado, a entrega completa de 50 MB — leitura, IPC, decodificação e context bridge — leva 73 ms, medida por `document:ipc-delivery`.
+
+`ArrayBuffer` transferível foi avaliado e **não** é aplicável: o transfer list de `MessagePortMain` aceita somente `MessagePortMain`, e main e renderer são processos distintos, onde transferência sem cópia é impossível — os bytes sempre atravessam o pipe por clone estruturado. O `MessagePort` foi adotado por outro motivo: dá um canal privado por pedido, o que permite emitir chunks conforme são lidos em vez de devolver um único valor completo como `invoke` exige. É isso que mantém o pico de main constante.
+
+Entrega atual: `readPathStream` recebe uma porta criada no preload, responde `meta`, uma sequência de `chunk` de 1 MiB e `end`. O preload decodifica com `TextDecoder` em modo streaming, que resolve sequências multibyte partidas na fronteira e consome o BOM mesmo quando seus três bytes caem em chunks diferentes; `electron/documentDecoder.test.ts` cobre todo tamanho de chunk de 1 até o documento inteiro. A API do preload não cresceu: `readPath` mantém assinatura e tipo de retorno, e apenas o `OpenResult` final atravessa o context bridge.
+
+`doc:open` passou a enviar somente metadados, e o renderer busca o conteúdo pelo mesmo `readPath`, de modo que texto de documento cruza o processo em um único caminho. Isto mudou um contrato do main: resolver `openDocument` deixou de significar que o renderer já tem o documento, e o harness de benchmark passou a esperar a aba correspondente ficar ativa antes de interagir. A entrega de `PERF-402` continua enviando strings por sessão, com pico limitado pelas 3 leituras concorrentes.
+
 #### PERF-404 — Separar rascunhos em arquivos
 
-- [ ] Substituir `drafts.json` com conteúdos integrais por manifesto pequeno.
-- [ ] Persistir conteúdo de cada rascunho em arquivo próprio.
-- [ ] Usar arquivo temporário e rename atômico.
-- [ ] Recuperar rascunhos após interrupção no meio de escrita.
-- [ ] Migrar `drafts.json` existente sem perda.
-- [ ] Remover arquivo antigo somente após migração confirmada.
+- [x] Substituir `drafts.json` com conteúdos integrais por manifesto pequeno.
+- [x] Persistir conteúdo de cada rascunho em arquivo próprio.
+- [x] Usar arquivo temporário e rename atômico.
+- [x] Recuperar rascunhos após interrupção no meio de escrita.
+- [x] Migrar `drafts.json` existente sem perda.
+- [x] Remover arquivo antigo somente após migração confirmada.
 
 Critério de aceite:
 
 - Salvar um rascunho não serializa nem reescreve todos os demais.
 
+Layout em `userData`: `drafts/manifest.json` guarda apenas `{ id, title }` por rascunho, e cada conteúdo vive em `drafts/<id>.md`, legível à mão se a recuperação precisar ser manual. Salvar um rascunho escreve o arquivo dele e, somente quando o título muda ou o rascunho é novo, reescreve o manifesto — os demais conteúdos nunca são reserializados. Teste dedicado grava um sentinela no arquivo de outro rascunho e confirma que ele sobrevive a um `saveDraft` vizinho.
+
+Toda escrita usa arquivo `.tmp` e `rename`. A ordem é deliberada: em `saveDraft` o conteúdo é gravado antes do manifesto, de modo que o manifesto nunca aponta para arquivo inexistente; em `removeDraft` o manifesto é gravado antes do `unlink`. Uma interrupção em qualquer ponto deixa no máximo um arquivo órfão, e a carga seguinte remove órfãos e `.tmp` residuais, além de descartar entrada de manifesto cujo conteúdo não chegou.
+
+Migração ocorre na primeira carga: conteúdos são gravados, o manifesto é escrito e relido para confirmação, e só então o `drafts.json` antigo é removido. Se a interrupção acontecer antes do `unlink`, a carga seguinte encontra manifesto já preenchido e descarta o legado sem sobrescrever o dado novo. `DraftStore` recebe o diretório por parâmetro, então os 12 testes rodam contra sistema de arquivos real, não contra mock.
+
+`electron/drafts.ts` passou a ser apenas o wrapper que fornece `app.getPath('userData')`, e `main.ts` reusa `isDraft`/`isDraftId` do store em vez de repetir os limites de validação.
+
+Migração verificada no aplicativo empacotado contra `userData` real: `drafts.json` com dois rascunhos foi convertido em `manifest.json` de 180 bytes mais dois arquivos de conteúdo, com o legado removido e o texto preservado.
+
+Essa verificação revelou dois defeitos que os testes iniciais não pegavam. `JSON.parse` falha quando o arquivo legado tem BOM, e o tratamento desse erro apagava o arquivo — ou seja, um `drafts.json` gravado por editor que usa assinatura UTF-8 seria descartado com todos os rascunhos dentro. A leitura passou a remover BOM, reusando `stripLeadingBom`, agora exportado de `documentDecoder.ts` e compartilhado com `main.ts`. Além disso, legado ilegível deixou de ser apagado: ele é a única cópia daqueles rascunhos, então permanece no disco para recuperação manual.
+
 #### PERF-405 — Tornar autosave incremental
 
-- [ ] Registrar mudanças CodeMirror em journal por rascunho.
-- [ ] Compactar journal periodicamente em snapshot.
-- [ ] Forçar flush ao perder foco, trocar aba e fechar app.
-- [ ] Serializar operações concorrentes por rascunho.
-- [ ] Recuperar snapshot + journal na inicialização.
+- [x] Registrar mudanças CodeMirror em journal por rascunho.
+- [x] Compactar journal periodicamente em snapshot.
+- [x] Forçar flush ao perder foco, trocar aba e fechar app.
+- [x] Serializar operações concorrentes por rascunho.
+- [x] Recuperar snapshot + journal na inicialização.
 
 Critério de aceite:
 
 - Editar um rascunho grande não reescreve conteúdo inteiro a cada 750 ms.
 
 Dependência: `PERF-102`, `PERF-404`.
+
+Cada rascunho ganhou `drafts/<id>.journal`, com um array JSON por linha. O autosave envia os lotes acumulados por `drafts:append-edits`, e o custo de uma tecla passa a acompanhar o tamanho da edição, não o do documento. O snapshot só é reescrito quando o journal passa de 256 KB, quando um salvamento completo o substitui, ou quando o journal não descreve o estado atual.
+
+Lotes não podem ser achatados: as edições de cada transação são expressas contra o texto que a transação anterior produziu, então o protocolo transporta `DraftEditPayload[][]` e aplica um lote por vez. `collectDraftEdits` isola a extração de `iterChanges`, e `src/lib/draftEdits.test.ts` roda transações reais do CodeMirror para provar que replay e editor chegam ao mesmo texto.
+
+Segurança contra divergência: o renderer envia o comprimento esperado; se o texto reconstruído não bater, nada é gravado e o retorno é `out-of-sync`, o que faz o renderer gravar um snapshot completo. Uma entrada de journal errada corromperia todo replay futuro, então o caminho de dúvida sempre degrada para o comportamento anterior em vez de escrever. Entrada final truncada por queda é descartada, preservando tudo que veio antes.
+
+Flush forçado ocorre ao perder foco do editor, ao trocar de aba e antes de avaliar alterações não salvas no fechamento — assim sair do app não descarta a janela entre a última tecla e o próximo tick do debounce.
+
+Verificado no aplicativo empacotado: após digitar 40 caracteres, esperar o autosave e digitar outros 40, o snapshot permaneceu com 40 bytes e o journal recebeu 40 entradas, uma por transação. O replay do que ficou em disco reconstrói exatamente os 80 caracteres. O benchmark ganhou o cenário `draft/autosave` para manter esse caminho exercitado.
+
+Concorrência: as filas passaram a ser por rascunho, com o manifesto serializado à parte. Isso expôs três defeitos que só aparecem com escritas paralelas, todos corrigidos e cobertos por teste: a lista compartilhada era reconstruída a partir de uma cópia lida antes de um `await`, perdendo o rascunho mais lento; a carga rodava por operação e sua limpeza de órfãos apagava o `.tmp` de outro rascunho entre `writeFile` e `rename`; e a ordem armazenada seguia a conclusão das escritas, fazendo as abas trocarem de posição entre sessões. A carga agora acontece uma única vez e a posição de cada rascunho é fixada na ordem em que foi solicitada.
 
 #### PERF-406 — Revisar limite de rascunho
 
@@ -435,11 +481,11 @@ Critério de aceite:
 
 #### PERF-601 — Reduzir linguagens do highlight.js
 
-- [ ] Trocar import completo por `highlight.js/lib/core`.
-- [ ] Registrar conjunto comum definido pelo produto.
+- [x] Trocar import completo por `highlight.js/lib/core`.
+- [x] Registrar conjunto comum definido pelo produto.
 - [ ] Importar linguagens adicionais sob demanda quando viável.
-- [ ] Manter fallback escapado para linguagem desconhecida.
-- [ ] Medir redução do bundle principal.
+- [x] Manter fallback escapado para linguagem desconhecida.
+- [x] Medir redução do bundle principal: 3,66 MB sem compressão (`npm run build`), ante aproximadamente 4,71 MB.
 
 Critério de aceite:
 
@@ -449,9 +495,9 @@ Impacto: alto na inicialização. Esforço: médio.
 
 #### PERF-602 — Carregar editor e painéis pesados sob demanda
 
-- [ ] Aplicar import dinâmico no Editor.
-- [ ] Carregar código de exportação somente ao abrir exportação.
-- [ ] Avaliar carregamento tardio do visualizador Mermaid.
+- [x] Aplicar import dinâmico no Editor.
+- [x] Carregar código de exportação somente ao abrir exportação.
+- [x] Avaliar carregamento tardio do visualizador Mermaid: import dinâmico já ocorre ao renderizar diagrama.
 - [ ] Manter preload previsível para evitar atraso ao primeiro uso.
 
 Critério de aceite:
@@ -460,10 +506,10 @@ Critério de aceite:
 
 #### PERF-603 — Carregar KaTeX sob demanda
 
-- [ ] Detectar presença potencial de matemática antes de carregar engine.
-- [ ] Separar pipeline base do pipeline matemático.
-- [ ] Preservar comportamento para TeX inválido.
-- [ ] Evitar falso negativo em documentos compatíveis.
+- [x] Detectar presença potencial de matemática antes de carregar engine.
+- [x] Separar pipeline base do pipeline matemático.
+- [x] Preservar comportamento para TeX inválido.
+- [x] Evitar falso negativo em documentos compatíveis: qualquer `$` aciona o pipeline matemático.
 
 Critério de aceite:
 
@@ -471,17 +517,17 @@ Critério de aceite:
 
 #### PERF-604 — Reduzir fontes empacotadas
 
-- [ ] Manter WOFF2 onde Chromium não precisa de WOFF/TTF.
+- [x] Manter WOFF2 onde Chromium não precisa de WOFF/TTF.
 - [ ] Carregar CSS com fontes embutidas de exportação somente ao exportar.
-- [ ] Medir tamanho do renderer e instaladores.
+- [x] Medir renderer após build: 19 WOFF2 (256.168 bytes), sem WOFF/TTF.
 - [ ] Validar KaTeX em Windows, Linux e macOS.
 
 #### PERF-605 — Remover dependência de Google Fonts no runtime
 
-- [ ] Usar fonte local empacotada ou stack do sistema.
-- [ ] Remover preconnect e stylesheet remotos da aplicação.
-- [ ] Definir política para HTML exportado portátil/offline.
-- [ ] Ajustar CSP após remoção dos domínios externos.
+- [ ] Usar stack do sistema.
+- [x] Remover preconnect e stylesheet remotos da aplicação.
+- [x] Exportar HTML sem dependência externa de fonte.
+- [x] Ajustar CSP após remoção dos domínios externos.
 - [ ] Validar PDF/PNG offline sem espera de rede.
 
 Critério de aceite:

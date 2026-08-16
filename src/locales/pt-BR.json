@@ -238,6 +238,12 @@
     "later": "Depois",
     "dismiss": "Dispensar aviso de atualização"
   },
+  "openProgress": {
+    "title": "Abrindo arquivos…",
+    "count": "{{completed}} de {{total}} abertos",
+    "cancel": "Cancelar",
+    "canceling": "Cancelando…"
+  },
   "notice": {
     "unsupported": "Tipo de arquivo não suportado. Apenas arquivos .md e .markdown podem ser abertos.",
     "exportSuccess": "Exportado para {{path}}",

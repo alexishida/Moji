@@ -16,6 +16,15 @@ interface NodeHighlight {
   matchIndex: number
 }
 
+export interface IncrementalPreviewSearchOptions {
+  matchIndexOffset?: number
+  /** Stops obsolete scans after term, document, or virtual range changes. */
+  shouldContinue?: () => boolean
+  onProgress?: (count: number) => void
+  yieldControl?: () => Promise<void>
+  timeSliceMs?: number
+}
+
 const SEARCH_BLOCK_SELECTOR = 'p,h1,h2,h3,h4,h5,h6,li,td,th,pre,blockquote,dt,dd,figcaption'
 const SEARCH_EXCLUDED_SELECTOR = 'style,script,svg,button'
 
@@ -35,11 +44,21 @@ export function clearPreviewSearchHighlights(root: HTMLElement): void {
 export function highlightPreviewSearchMatches(
   root: HTMLElement,
   rawTerm: string,
-  maxMatches: number
+  maxMatches: number,
+  matchIndexOffset = 0
 ): number {
   clearPreviewSearchHighlights(root)
-  const term = rawTerm.trim().toLowerCase()
-  if (!term || maxMatches <= 0) return 0
+  return highlightPreviewSearchBlock(root, rawTerm, maxMatches, matchIndexOffset)
+}
+
+function highlightPreviewSearchBlock(
+  root: HTMLElement,
+  rawTerm: string,
+  maxMatches: number,
+  matchIndexOffset: number
+): number {
+  const matcher = createCaseInsensitiveMatcher(rawTerm.trim())
+  if (!matcher || maxMatches <= 0) return 0
 
   const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT)
   const groups: TextGroup[] = []
@@ -68,13 +87,12 @@ export function highlightPreviewSearchMatches(
   let matchCount = 0
 
   for (const group of groups) {
-    const lower = group.text.toLowerCase()
     for (
-      let index = lower.indexOf(term);
+      let index = matcher.findNext(group.text, 0);
       index >= 0 && matchCount < maxMatches;
-      index = lower.indexOf(term, index + term.length)
+      index = matcher.findNext(group.text, index + matcher.length)
     ) {
-      const matchEnd = index + term.length
+      const matchEnd = index + matcher.length
       for (const segment of group.segments) {
         if (segment.end <= index) continue
         if (segment.start >= matchEnd) break
@@ -83,7 +101,7 @@ export function highlightPreviewSearchMatches(
         highlights.push({
           from: Math.max(index, segment.start) - segment.start,
           to: Math.min(matchEnd, segment.end) - segment.start,
-          matchIndex: matchCount
+          matchIndex: matchIndexOffset + matchCount
         })
         highlightsByNode.set(segment.node, highlights)
       }
@@ -114,6 +132,48 @@ export function highlightPreviewSearchMatches(
   return matchCount
 }
 
+function nextAnimationFrame(): Promise<void> {
+  return new Promise((resolve) => requestAnimationFrame(() => resolve()))
+}
+
+/** Scans top-level preview blocks in short slices so large DOM trees do not monopolize one frame. */
+export async function highlightPreviewSearchMatchesIncremental(
+  root: HTMLElement,
+  rawTerm: string,
+  maxMatches: number,
+  options: IncrementalPreviewSearchOptions = {}
+): Promise<number> {
+  clearPreviewSearchHighlights(root)
+  const term = rawTerm.trim()
+  if (!term || maxMatches <= 0) return 0
+
+  const shouldContinue = options.shouldContinue ?? (() => true)
+  const yieldControl = options.yieldControl ?? nextAnimationFrame
+  const blocks = Array.from(root.children).filter((child): child is HTMLElement => (
+    child instanceof HTMLElement && !child.classList.contains('virtual-preview__spacer')
+  ))
+  const scanBlocks = blocks.length > 0 ? blocks : [root]
+  let count = 0
+  let sliceStartedAt = performance.now()
+
+  for (const block of scanBlocks) {
+    if (!shouldContinue()) return count
+    count += highlightPreviewSearchBlock(
+      block,
+      term,
+      maxMatches - count,
+      (options.matchIndexOffset ?? 0) + count
+    )
+    if (count >= maxMatches) break
+    if (performance.now() - sliceStartedAt >= (options.timeSliceMs ?? 8)) {
+      options.onProgress?.(count)
+      await yieldControl()
+      sliceStartedAt = performance.now()
+    }
+  }
+  return count
+}
+
 /** Marks and returns first segment of active visible match. */
 export function activatePreviewSearchMatch(root: HTMLElement, activeIndex: number | null): HTMLElement | null {
   const highlights = Array.from(root.querySelectorAll<HTMLElement>('.search-highlight'))
@@ -131,3 +191,4 @@ export function activatePreviewSearchMatch(root: HTMLElement, activeIndex: numbe
 
   return activeMatch
 }
+import { createCaseInsensitiveMatcher } from './search'

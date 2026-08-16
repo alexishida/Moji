@@ -50,10 +50,30 @@ export interface WindowBounds {
   height: number
 }
 
-export interface DocumentPayload {
+/** Everything known about a document before its bytes are read. */
+export interface DocumentMetadata {
   path: string
+  /** File size observed immediately before content is read. */
+  sizeBytes: number
+  sizeProfile: DocumentSizeProfile
+}
+
+export interface DocumentPayload extends DocumentMetadata {
   content: string
 }
+
+/**
+ * Chunked document delivery over a `MessagePort`. Content crosses the process boundary as UTF-8
+ * bytes, so main never materializes the UTF-16 string that `invoke` would have to clone, and its
+ * peak memory stays at one chunk instead of the whole file.
+ */
+export type DocumentStreamMessage =
+  | ({ type: 'meta' } & DocumentMetadata)
+  | { type: 'chunk'; buffer: ArrayBuffer; byteLength: number }
+  | { type: 'end' }
+  | { type: 'error'; error: string }
+
+export type DocumentSizeProfile = 'normal' | 'large' | 'very-large'
 
 /** App-managed recovery copy for a document that has no filesystem path yet. */
 export interface AutoSaveDraft {
@@ -66,24 +86,51 @@ export type DraftResult =
   | { ok: true }
   | { ok: false; error?: string }
 
+/** One splice recorded by the editor, in the coordinates of the text it was produced against. */
+export interface DraftEditPayload {
+  from: number
+  to: number
+  insert: string
+}
+
+/**
+ * Result of journaling edits. `out-of-sync` and `unknown-draft` are not failures: they mean the
+ * renderer must fall back to persisting the whole draft.
+ */
+export type DraftAppendResult =
+  | { ok: true }
+  | { ok: false; reason: 'out-of-sync' | 'unknown-draft' | 'error'; error?: string }
+
 /** Result of an operation that reads/opens a file. */
 export type OpenResult =
-  | { ok: true; path: string; content: string }
+  | { ok: true; path: string; content: string; sizeBytes: number; sizeProfile: DocumentSizeProfile }
   | { ok: false; canceled?: boolean; error?: string }
 
-/** Result of an operation that opens one or more files. */
-export type OpenManyResult =
-  | { ok: true; documents: DocumentPayload[] }
+/** Result of starting a multi-file open session from the OS dialog. Documents stream in afterward via `openManyProgress`. */
+export type OpenDialogResult =
+  | { ok: true; sessionId: string; total: number }
   | { ok: false; canceled?: boolean; error?: string }
+
+/** One file finishing (successfully or not) within an open-many session. */
+export interface OpenManyProgress {
+  sessionId: string
+  completed: number
+  total: number
+  document?: DocumentPayload
+  error?: string
+}
+
+/** Final summary of an open-many session: natural completion or user cancellation. */
+export interface OpenManyDone {
+  sessionId: string
+  canceled: boolean
+  errors: string[]
+}
 
 /** Result of a write-style operation (save / export). */
 export type WriteResult =
   | { ok: true; path: string }
   | { ok: false; canceled?: boolean; error?: string }
-
-export type ImageDataResult =
-  | { ok: true; dataUrl: string }
-  | { ok: false; error?: string }
 
 export type UpdateStatus =
   | 'unsupported'
@@ -106,6 +153,18 @@ export type ExportFormat = 'pdf' | 'html' | 'png'
 export type ExportPageSize = 'A4' | 'Letter' | 'Legal'
 
 export type ExportPageOrientation = 'portrait' | 'landscape'
+
+/** Numeric local performance sample. Never carries document content, paths, or user data. */
+export interface PerformanceMetric {
+  name: string
+  durationMs: number
+  timestamp: number
+  details: Record<string, number>
+}
+
+export interface PerformanceReport {
+  metrics: PerformanceMetric[]
+}
 
 export const EXPORT_PAGE_SIZES: Array<{ value: ExportPageSize; label: string; width: number; height: number }> = [
   { value: 'A4', label: 'A4 (210 x 297 mm)', width: 794, height: 1123 },
@@ -135,8 +194,8 @@ export interface DiagramPngRequest {
 /** IPC channel names. */
 export const IPC = {
   openDialog: 'file:open-dialog',
-  readPath: 'file:read-path',
-  readImage: 'file:read-image',
+  cancelOpenMany: 'file:open-many-cancel',
+  readPathStream: 'file:read-path-stream',
   openLocalPath: 'file:open-local-path',
   readSample: 'file:read-sample',
   save: 'file:save',
@@ -147,12 +206,16 @@ export const IPC = {
   setSettings: 'settings:set',
   getDrafts: 'drafts:get',
   saveDraft: 'drafts:save',
+  appendDraftEdits: 'drafts:append-edits',
   removeDraft: 'drafts:remove',
   confirmClose: 'app:confirm-close',
   getUpdateState: 'update:get-state',
   checkForUpdate: 'update:check',
+  getPerformanceReport: 'performance:get-report',
   // main -> renderer push channels
   requestClose: 'app:request-close',
   openDocument: 'doc:open',
+  openManyProgress: 'file:open-many-progress',
+  openManyDone: 'file:open-many-done',
   updateState: 'update:state'
 } as const

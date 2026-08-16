@@ -117,6 +117,7 @@ Useful scripts:
 - `npm run typecheck`: run TypeScript checks without emitting files.
 - `npm test`: run the Vitest suite once (`npm run test:watch` for watch mode).
 - `npm run build`: build main, preload, and renderer into `out/`.
+- `npm run benchmark:corpus`: generate local 1/5/20/50 MB Markdown corpus under `.tmp/benchmark-corpus/`.
 - `npm run preview`: run the built app preview.
 
 ## Packaging

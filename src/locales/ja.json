@@ -238,6 +238,12 @@
     "later": "後で",
     "dismiss": "更新通知を閉じる"
   },
+  "openProgress": {
+    "title": "ファイルを開いています…",
+    "count": "{{total}} 件中 {{completed}} 件開きました",
+    "cancel": "キャンセル",
+    "canceling": "キャンセル中…"
+  },
   "notice": {
     "unsupported": "未対応のファイル形式です。.md と .markdown ファイルのみ開けます。",
     "exportSuccess": "{{path}} にエクスポートしました",

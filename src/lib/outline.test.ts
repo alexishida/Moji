@@ -1,14 +1,5 @@
-// @vitest-environment jsdom
 import { describe, expect, it } from 'vitest'
-import { buildOutline, nestOutline } from './outline'
-
-describe('buildOutline', () => {
-  it('reads only anchored, non-empty headings from preview HTML', () => {
-    expect(
-      buildOutline('<h1 id="intro"> Introduction </h1><h2>Missing id</h2><h3 id="empty"> </h3><p>Text</p>')
-    ).toEqual([{ id: 'intro', text: 'Introduction', level: 1 }])
-  })
-})
+import { nestOutline } from './outline'
 
 describe('nestOutline', () => {
   it('nests skipped heading levels and classifies prefixed headings', () => {

@@ -1,27 +1,37 @@
-import { app, BrowserWindow, dialog, ipcMain, Menu, shell } from 'electron'
-import { readFile, writeFile } from 'node:fs/promises'
+import { app, BrowserWindow, dialog, ipcMain, Menu, protocol, shell } from 'electron'
+import { readFile, stat, writeFile } from 'node:fs/promises'
 import { existsSync } from 'node:fs'
-import { dirname, extname, isAbsolute, join } from 'node:path'
+import { randomUUID } from 'node:crypto'
+import { dirname, isAbsolute, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import {
   IPC,
-  MARKDOWN_EXTENSIONS,
-  SUPPORTED_LANGUAGES,
   type AutoSaveDraft,
+  type DocumentMetadata,
+  type DocumentSizeProfile,
+  type DocumentStreamMessage,
+  type DraftAppendResult,
   type DraftResult,
-  type ImageDataResult,
-  type Language,
-  type OpenManyResult,
+  type OpenDialogResult,
   type OpenResult,
   type Settings,
   type UpdateState,
-  type WindowBounds,
   type WriteResult
 } from './shared'
 import { getSettings, updateSettings } from './settings'
-import { getDrafts, removeDraft, saveDraft } from './drafts'
+import { appendDraftEdits, getDrafts, removeDraft, saveDraft } from './drafts'
+import { isDraftId } from './draftStore'
+import { areDraftEditBatches } from './draftJournal'
+import { assetContentType, assetPathFromUrl, authorizedAsset } from './assetPaths'
+import { isMarkdown, sanitizeDraft, sanitizeSettingsPatch, suggestedMarkdownName } from './ipcInput'
 import { exportDiagramPng, exportDocument } from './export'
+import { benchmarkRequested, recordBenchmark } from './benchmark'
 import { createUpdateController, type UpdateController } from './updater'
+import { mapWithConcurrency } from './openPool'
+import { readFileChunks } from './documentStream'
+import { stripLeadingBom } from './documentDecoder'
+import { AssetCache } from './assetCache'
+import { beginMainMeasure, captureMainMemory, getMainPerformanceReport } from './performance'
 
 let mainWindow: BrowserWindow | null = null
 let pendingOpenPath: string | null = null
@@ -29,6 +39,14 @@ let forceQuit = false
 let pendingQuit = false
 let updateController: UpdateController | null = null
 let persistWindowBoundsTimer: NodeJS.Timeout | null = null
+const allowedAssetDirectories = new Set<string>()
+const assetCache = new AssetCache(readFile)
+const openManySessions = new Map<string, AbortController>()
+
+protocol.registerSchemesAsPrivileged([{
+  scheme: 'moji-asset',
+  privileges: { secure: true, standard: true, supportFetchAPI: true }
+}])
 
 if (process.platform === 'linux') {
   app.setDesktopName('moji.desktop')
@@ -47,7 +65,9 @@ const SETTINGS_DIRECTORY = 'moji'
 app.setName('Moji')
 app.setPath('userData', join(app.getPath('appData'), SETTINGS_DIRECTORY))
 
-const IMAGE_EXTENSIONS = new Set(['.avif', '.bmp', '.gif', '.ico', '.jpeg', '.jpg', '.png', '.svg', '.webp'])
+const NORMAL_DOCUMENT_SIZE_LIMIT = 5 * 1024 * 1024
+const LARGE_DOCUMENT_SIZE_LIMIT = 20 * 1024 * 1024
+const DOCUMENT_OPEN_CONCURRENCY = 3
 const SAMPLE_FILES = new Set([
   'markdown-guide.en.md',
   'markdown-guide.pt-BR.md',
@@ -59,51 +79,6 @@ const SAMPLE_FILES = new Set([
 
 function asString(value: unknown): string | null {
   return typeof value === 'string' ? value : null
-}
-
-function isLanguage(value: unknown): value is Language {
-  return typeof value === 'string' && (SUPPORTED_LANGUAGES as readonly string[]).includes(value)
-}
-
-function sanitizeSettingsPatch(value: unknown): Partial<Settings> {
-  if (!value || typeof value !== 'object') return {}
-  const raw = value as Record<string, unknown>
-  const patch: Partial<Settings> = {}
-
-  if (isLanguage(raw['language'])) patch.language = raw['language']
-  if (raw['previewTheme'] === 'light' || raw['previewTheme'] === 'dark') patch.previewTheme = raw['previewTheme']
-  if (typeof raw['previewFontFamily'] === 'string') patch.previewFontFamily = raw['previewFontFamily']
-  if (typeof raw['previewFontSize'] === 'number') patch.previewFontSize = raw['previewFontSize']
-  if (typeof raw['previewLineHeight'] === 'number') patch.previewLineHeight = raw['previewLineHeight']
-  if (typeof raw['previewFluidWidth'] === 'boolean') patch.previewFluidWidth = raw['previewFluidWidth']
-  if (typeof raw['previewWidth'] === 'number') patch.previewWidth = raw['previewWidth']
-  if (typeof raw['autoSave'] === 'boolean') patch.autoSave = raw['autoSave']
-  if (Array.isArray(raw['recentFiles'])) patch.recentFiles = raw['recentFiles'].filter((p): p is string => typeof p === 'string')
-  if (isWindowBounds(raw['windowBounds'])) patch.windowBounds = raw['windowBounds']
-
-  return patch
-}
-
-function sanitizeDraft(value: unknown): AutoSaveDraft | null {
-  if (!value || typeof value !== 'object') return null
-  const raw = value as Record<string, unknown>
-  if (typeof raw['id'] !== 'string' || !/^draft-[a-zA-Z0-9-]+$/.test(raw['id'])) return null
-  if (typeof raw['title'] !== 'string' || raw['title'].length > 512) return null
-  if (typeof raw['content'] !== 'string' || raw['content'].length > 10 * 1024 * 1024) return null
-  return { id: raw['id'], title: raw['title'], content: raw['content'] }
-}
-
-function isWindowBounds(value: unknown): value is WindowBounds {
-  if (!value || typeof value !== 'object') return false
-  const raw = value as Record<string, unknown>
-  return typeof raw['width'] === 'number' && typeof raw['height'] === 'number'
-}
-
-function suggestedMarkdownName(value: unknown): string {
-  if (typeof value !== 'string') return 'untitled.md'
-  const name = value.replace(/[\\/]/g, '').trim()
-  if (!name) return 'untitled.md'
-  return isMarkdown(name) ? name : `${name}.md`
 }
 
 function lastDialogDirectory(): string | undefined {
@@ -120,52 +95,30 @@ function dialogDefaultPath(fileName: string): string {
   return directory ? join(directory, fileName) : fileName
 }
 
-function stripLeadingBom(content: string): string {
-  return content.startsWith('\uFEFF') ? content.slice(1) : content
+function documentSizeProfile(sizeBytes: number): DocumentSizeProfile {
+  if (sizeBytes <= NORMAL_DOCUMENT_SIZE_LIMIT) return 'normal'
+  if (sizeBytes <= LARGE_DOCUMENT_SIZE_LIMIT) return 'large'
+  return 'very-large'
 }
 
-function isMarkdown(filePath: unknown): filePath is string {
-  if (typeof filePath !== 'string') return false
-  return (MARKDOWN_EXTENSIONS as readonly string[]).includes(extname(filePath).toLowerCase())
+function allowDocumentAssets(documentPath: string): void {
+  allowedAssetDirectories.add(resolve(dirname(documentPath)))
 }
 
-function isSupportedImage(filePath: string): boolean {
-  return IMAGE_EXTENSIONS.has(extname(filePath).toLowerCase())
-}
-
-function imageMimeType(filePath: string): string {
-  switch (extname(filePath).toLowerCase()) {
-    case '.avif':
-      return 'image/avif'
-    case '.bmp':
-      return 'image/bmp'
-    case '.gif':
-      return 'image/gif'
-    case '.ico':
-      return 'image/x-icon'
-    case '.jpeg':
-    case '.jpg':
-      return 'image/jpeg'
-    case '.png':
-      return 'image/png'
-    case '.svg':
-      return 'image/svg+xml'
-    case '.webp':
-      return 'image/webp'
-    default:
-      return 'application/octet-stream'
-  }
-}
-
-async function readImageAsDataUrl(filePath: unknown): Promise<ImageDataResult> {
-  if (typeof filePath !== 'string') return { ok: false, error: 'unsupported' }
-  if (!isAbsolute(filePath) || !isSupportedImage(filePath)) return { ok: false, error: 'unsupported' }
-  try {
-    const image = await readFile(filePath)
-    return { ok: true, dataUrl: `data:${imageMimeType(filePath)};base64,${image.toString('base64')}` }
-  } catch (err) {
-    return { ok: false, error: (err as Error).message }
-  }
+function registerAssetProtocol(): void {
+  protocol.handle('moji-asset', async (request) => {
+    const filePath = assetPathFromUrl(request.url)
+    const asset = filePath ? await authorizedAsset(filePath, allowedAssetDirectories) : null
+    if (!asset) {
+      return new Response('Forbidden', { status: 403 })
+    }
+    try {
+      const bytes = await assetCache.read(asset.path, asset)
+      return new Response(new Uint8Array(bytes), { headers: { 'content-type': assetContentType(asset.path) } })
+    } catch {
+      return new Response('Not found', { status: 404 })
+    }
+  })
 }
 
 function fileFromArgv(argv: string[]): string | null {
@@ -182,13 +135,133 @@ function samplePath(sampleName: unknown): string | null {
   return join(app.getAppPath(), 'samples', sampleName)
 }
 
-async function readDocument(filePath: unknown): Promise<OpenResult> {
+async function readDocument(filePath: unknown, signal?: AbortSignal): Promise<OpenResult> {
   if (!isMarkdown(filePath)) return { ok: false, error: 'unsupported' }
+  if (signal?.aborted) return { ok: false, canceled: true }
+  const finishMeasure = beginMainMeasure('document:open')
+  let sizeBytes = 0
   try {
-    const content = stripLeadingBom(await readFile(filePath, 'utf-8'))
-    return { ok: true, path: filePath, content }
+    const fileStat = await stat(filePath)
+    if (!fileStat.isFile()) return { ok: false, error: 'unsupported' }
+    if (signal?.aborted) return { ok: false, canceled: true }
+    const content = stripLeadingBom(await readFile(filePath, { encoding: 'utf-8', signal }))
+    sizeBytes = fileStat.size
+    allowDocumentAssets(filePath)
+    void captureMainMemory('main:memory:document-open')
+    return {
+      ok: true,
+      path: filePath,
+      content,
+      sizeBytes: fileStat.size,
+      sizeProfile: documentSizeProfile(fileStat.size)
+    }
   } catch (err) {
+    if (signal?.aborted) return { ok: false, canceled: true }
     return { ok: false, error: (err as Error).message }
+  } finally {
+    finishMeasure({ sizeBytes })
+  }
+}
+
+/** Validates a document and measures it without reading a single byte of content. */
+async function statDocument(filePath: unknown): Promise<DocumentMetadata | null> {
+  if (!isMarkdown(filePath)) return null
+  try {
+    const fileStat = await stat(filePath)
+    if (!fileStat.isFile()) return null
+    return { path: filePath, sizeBytes: fileStat.size, sizeProfile: documentSizeProfile(fileStat.size) }
+  } catch {
+    return null
+  }
+}
+
+/**
+ * Streams a document to the renderer as UTF-8 chunks over a `MessagePort`.
+ *
+ * The renderer decodes incrementally, so no step of the delivery ever holds a second full copy of
+ * the document: main reads one chunk at a time and never builds the UTF-16 string that
+ * `ipcRenderer.invoke` would have had to serialize.
+ */
+async function streamDocumentToPort(filePath: unknown, port: Electron.MessagePortMain): Promise<void> {
+  const finishMeasure = beginMainMeasure('document:open-stream')
+  let sizeBytes = 0
+  let chunks = 0
+  // The renderer may close its end mid-stream (window closed, reload). Reporting the failure must
+  // never throw a second time out of an unawaited call.
+  const postError = (error: string): void => {
+    try {
+      port.postMessage({ type: 'error', error } satisfies DocumentStreamMessage)
+    } catch {
+      // Port already gone; the pending read is abandoned with it.
+    }
+  }
+
+  try {
+    const metadata = await statDocument(filePath)
+    if (!metadata) {
+      postError('unsupported')
+      return
+    }
+
+    sizeBytes = metadata.sizeBytes
+    allowDocumentAssets(metadata.path)
+    port.postMessage({ type: 'meta', ...metadata } satisfies DocumentStreamMessage)
+    for await (const chunk of readFileChunks(metadata.path)) {
+      chunks += 1
+      port.postMessage({ type: 'chunk', buffer: chunk.buffer, byteLength: chunk.byteLength } satisfies DocumentStreamMessage)
+    }
+    port.postMessage({ type: 'end' } satisfies DocumentStreamMessage)
+    void captureMainMemory('main:memory:document-open')
+  } catch (err) {
+    postError((err as Error).message)
+  } finally {
+    finishMeasure({ sizeBytes, chunks })
+    port.close()
+  }
+}
+
+/**
+ * Reads many files with bounded concurrency, streaming each result to the renderer as it
+ * completes instead of waiting for the whole batch. Lets a large selection show progress and
+ * be canceled mid-flight without discarding files already opened.
+ */
+async function runOpenManySession(sessionId: string, filePaths: string[], sender: Electron.WebContents): Promise<void> {
+  const controller = new AbortController()
+  openManySessions.set(sessionId, controller)
+  const total = filePaths.length
+  let completed = 0
+  const errors: string[] = []
+
+  const send = (channel: string, payload: unknown): void => {
+    if (!sender.isDestroyed()) sender.send(channel, payload)
+  }
+
+  try {
+    await mapWithConcurrency(
+      filePaths,
+      DOCUMENT_OPEN_CONCURRENCY,
+      (filePath) => readDocument(filePath, controller.signal),
+      {
+        signal: controller.signal,
+        onResult: (result) => {
+          completed += 1
+          if (result.ok) {
+            send(IPC.openManyProgress, {
+              sessionId,
+              completed,
+              total,
+              document: { path: result.path, content: result.content, sizeBytes: result.sizeBytes, sizeProfile: result.sizeProfile }
+            })
+          } else {
+            if (!result.canceled && result.error) errors.push(result.error)
+            send(IPC.openManyProgress, { sessionId, completed, total, error: result.canceled ? undefined : result.error })
+          }
+        }
+      }
+    )
+  } finally {
+    openManySessions.delete(sessionId)
+    send(IPC.openManyDone, { sessionId, canceled: controller.signal.aborted, errors })
   }
 }
 
@@ -205,16 +278,18 @@ async function openLocalPath(fileUrl: unknown): Promise<WriteResult> {
   }
 }
 
-/** Single funnel for every open entry point (association, CLI, dialog, drop). */
+/**
+ * Single funnel for every open entry point (association, CLI, dialog, drop). Only metadata is
+ * pushed: the renderer pulls the bytes through `readPathStream`, so document text crosses the
+ * process boundary exactly once, in one place.
+ */
 async function openDocument(filePath: string): Promise<void> {
-  const result = await readDocument(filePath)
+  const metadata = await statDocument(filePath)
   if (!mainWindow || mainWindow.isDestroyed()) {
-    if (result.ok) pendingOpenPath = filePath
+    if (metadata) pendingOpenPath = filePath
     return
   }
-  if (result.ok) {
-    mainWindow.webContents.send(IPC.openDocument, { path: result.path, content: result.content })
-  }
+  if (metadata) mainWindow.webContents.send(IPC.openDocument, metadata)
 }
 
 function revealMainWindow(): void {
@@ -356,6 +431,11 @@ function createWindow(): void {
       void openDocument(pendingOpenPath)
       pendingOpenPath = null
     }
+    if (benchmarkRequested()) {
+      void recordBenchmark(mainWindow as BrowserWindow, openDocument)
+        .then(() => app.quit())
+        .catch((error: Error) => { console.error('Benchmark failed:', error); app.exit(1) })
+    }
   })
 
   // Open external links in the OS browser, never in-app.
@@ -420,10 +500,25 @@ function registerIpc(): void {
     }
   })
 
-  ipcMain.handle(IPC.removeDraft, async (_e, value: unknown): Promise<DraftResult> => {
-    if (typeof value !== 'string' || !/^draft-[a-zA-Z0-9-]+$/.test(value)) {
-      return { ok: false, error: 'invalid-draft' }
+  ipcMain.handle(
+    IPC.appendDraftEdits,
+    async (_e, id: unknown, batches: unknown, expectedLength: unknown): Promise<DraftAppendResult> => {
+      if (!isDraftId(id) || !areDraftEditBatches(batches)) return { ok: false, reason: 'error', error: 'invalid-draft' }
+      if (typeof expectedLength !== 'number' || !Number.isInteger(expectedLength) || expectedLength < 0) {
+        return { ok: false, reason: 'error', error: 'invalid-draft' }
+      }
+      try {
+        const outcome = await appendDraftEdits(id, batches, expectedLength)
+        if (outcome === 'out-of-sync' || outcome === 'unknown-draft') return { ok: false, reason: outcome }
+        return { ok: true }
+      } catch (err) {
+        return { ok: false, reason: 'error', error: (err as Error).message }
+      }
     }
+  )
+
+  ipcMain.handle(IPC.removeDraft, async (_e, value: unknown): Promise<DraftResult> => {
+    if (!isDraftId(value)) return { ok: false, error: 'invalid-draft' }
     try {
       await removeDraft(value)
       return { ok: true }
@@ -432,7 +527,7 @@ function registerIpc(): void {
     }
   })
 
-  ipcMain.handle(IPC.openDialog, async (): Promise<OpenManyResult> => {
+  ipcMain.handle(IPC.openDialog, async (event): Promise<OpenDialogResult> => {
     const options: Electron.OpenDialogOptions = {
       properties: ['openFile', 'multiSelections'],
       filters: [{ name: 'Markdown', extensions: ['md', 'markdown'] }],
@@ -443,20 +538,21 @@ function registerIpc(): void {
       : await dialog.showOpenDialog(options)
     if (canceled || filePaths.length === 0) return { ok: false, canceled: true }
     rememberDialogDirectory(filePaths[0])
-    const results = await Promise.all(filePaths.map((filePath) => readDocument(filePath)))
-    const failed = results.find((result) => !result.ok)
-    if (failed && !failed.ok) return { ok: false, error: failed.error ?? 'open failed' }
-    return {
-      ok: true,
-      documents: results
-        .filter((result): result is { ok: true; path: string; content: string } => result.ok)
-        .map(({ path, content }) => ({ path, content }))
-    }
+    const sessionId = randomUUID()
+    void runOpenManySession(sessionId, filePaths, event.sender)
+    return { ok: true, sessionId, total: filePaths.length }
   })
 
-  ipcMain.handle(IPC.readPath, (_e, filePath: unknown): Promise<OpenResult> => readDocument(filePath))
+  ipcMain.handle(IPC.cancelOpenMany, (_e, sessionId: unknown): void => {
+    if (typeof sessionId !== 'string') return
+    openManySessions.get(sessionId)?.abort()
+  })
 
-  ipcMain.handle(IPC.readImage, (_e, filePath: unknown): Promise<ImageDataResult> => readImageAsDataUrl(filePath))
+  ipcMain.on(IPC.readPathStream, (event, filePath: unknown): void => {
+    const [port] = event.ports
+    if (!port) return
+    void streamDocumentToPort(filePath, port)
+  })
 
   ipcMain.handle(IPC.openLocalPath, (_e, fileUrl: unknown): Promise<WriteResult> => openLocalPath(fileUrl))
 
@@ -501,6 +597,8 @@ function registerIpc(): void {
   ipcMain.handle(IPC.exportDiagramPng, (_e, request: unknown): Promise<WriteResult> => exportDiagramPng(request))
 
   ipcMain.handle(IPC.getUpdateState, (): UpdateState => updateController?.getState() ?? unavailableUpdateState())
+
+  ipcMain.handle(IPC.getPerformanceReport, () => getMainPerformanceReport())
 
   ipcMain.handle(
     IPC.checkForUpdate,
@@ -552,6 +650,7 @@ if (!gotLock) {
 
   app.whenReady().then(() => {
     pendingOpenPath ??= fileFromArgv(process.argv)
+    registerAssetProtocol()
     registerIpc()
     installApplicationMenu()
     createWindow()

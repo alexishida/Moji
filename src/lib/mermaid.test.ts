@@ -13,7 +13,7 @@ vi.mock('mermaid', () => ({
   }
 }))
 
-import { renderMermaidFlowcharts } from './mermaid'
+import { getMermaidRenderMetrics, patchMermaidFlowcharts, renderMermaidFlowcharts } from './mermaid'
 
 const flowchart = '<pre class="hljs mermaid-diagram-candidate"><code>flowchart TD\n  Start --&gt; End</code></pre>'
 
@@ -37,6 +37,20 @@ describe('renderMermaidFlowcharts', () => {
     expect(html).toContain('<svg class="mermaid">')
     expect(html).toContain('<style>.node{fill:red}</style>')
     expect(html).not.toContain('onclick')
+  })
+
+  it('patches only live placeholders and preserves surrounding DOM identity', async () => {
+    const root = document.createElement('div')
+    root.innerHTML = '<p id="before">Before</p><pre class="hljs mermaid-diagram-candidate"><code>flowchart TD\n  Patch --&gt; DOM</code></pre><p id="after">After</p>'
+    const before = root.querySelector('#before')
+    const after = root.querySelector('#after')
+
+    await expect(patchMermaidFlowcharts(root, 'light')).resolves.toBe(1)
+
+    expect(root.querySelector('#before')).toBe(before)
+    expect(root.querySelector('#after')).toBe(after)
+    expect(root.querySelector('.mermaid-diagram svg')).not.toBeNull()
+    expect(root.querySelector('.mermaid-diagram-candidate')).toBeNull()
   })
 
   it('renders legacy graph declarations', async () => {
@@ -69,26 +83,44 @@ describe('renderMermaidFlowcharts', () => {
     expect(html).not.toContain('data-mermaid-title')
   })
 
-  it.each([
-    ['sequence', 'sequenceDiagram\n  Alice->>Bob: Hi'],
-    ['Gantt', 'gantt\n  title Roadmap\n  section Build\n  Feature :done, 2026-07-01, 2d'],
-    ['class', 'classDiagram\n  User --> Order'],
-    ['entity-relationship', 'erDiagram\n  USER ||--o{ ORDER : places'],
-    ['state', 'stateDiagram-v2\n  [*] --> Active'],
-    ['journey', 'journey\n  title Checkout\n  section Buy\n    Pay: 5: User']
-  ])('renders %s diagrams', async (_name, definition) => {
-    const source = `<pre class="hljs mermaid-diagram-candidate"><code>${definition.replaceAll('>', '&gt;')}</code></pre>`
+  it('maps each declaration to its canonical type key', async () => {
+    // Mermaid itself is mocked, so what is worth asserting here is the declaration
+    // parsing: every supported keyword must reach the same canonical key the UI translates.
+    const cases: Array<[string, string]> = [
+      ['sequenceDiagram\n  Alice->>Bob: Hi', 'sequenceDiagram'],
+      ['gantt\n  section Build\n  Feature :done, 2026-07-01, 2d', 'gantt'],
+      ['erDiagram\n  USER ||--o{ ORDER : places', 'erDiagram'],
+      ['stateDiagram-v2\n  [*] --> Active', 'stateDiagram'],
+      ['journey\n  section Buy\n    Pay: 5: User', 'journey'],
+      ['unknownDiagram\n  a --> b', 'diagram']
+    ]
 
-    const html = await renderMermaidFlowcharts(source, 'light')
+    for (const [definition, expectedType] of cases) {
+      const source = `<pre class="hljs mermaid-diagram-candidate"><code>${definition.replaceAll('>', '&gt;')}</code></pre>`
 
-    expect(state.render).toHaveBeenCalledWith(expect.stringMatching(/^moji-mermaid-/), definition)
-    expect(html).toContain('data-mermaid-rendered="true"')
+      const html = await renderMermaidFlowcharts(source, 'light')
+
+      expect(state.render).toHaveBeenCalledWith(expect.stringMatching(/^moji-mermaid-/), definition)
+      expect(html).toContain(`data-mermaid-type="${expectedType}"`)
+    }
   })
 
   it('keeps invalid flowchart source as code when Mermaid fails', async () => {
     state.render.mockRejectedValue(new Error('Invalid syntax'))
 
     await expect(renderMermaidFlowcharts(flowchart, 'light')).resolves.toBe(flowchart)
+  })
+
+  it('turns an invalid live placeholder back into an ordinary code block', async () => {
+    state.render.mockRejectedValue(new Error('Invalid syntax'))
+    const root = document.createElement('div')
+    root.innerHTML = '<pre class="hljs mermaid-diagram-candidate"><code>flowchart TD\n  PatchInvalid --&gt;</code></pre>'
+
+    await expect(patchMermaidFlowcharts(root, 'light')).resolves.toBe(1)
+
+    expect(root.querySelector('pre.hljs')).not.toBeNull()
+    expect(root.querySelector('.mermaid-diagram-candidate')).toBeNull()
+    expect(root.querySelector('.mermaid-diagram')).toBeNull()
   })
 
   it('reuses the cached SVG for an identical source and theme', async () => {
@@ -110,5 +142,25 @@ describe('renderMermaidFlowcharts', () => {
     await expect(renderMermaidFlowcharts(source, 'dark')).resolves.toBe(source)
 
     expect(state.render).toHaveBeenCalledTimes(1)
+  })
+
+  it('skips an obsolete request that waits behind the current render', async () => {
+    const initialDiscardCount = getMermaidRenderMetrics().discardedRequests
+    let releaseCurrent: (() => void) | undefined
+    state.render.mockImplementation(() => new Promise((resolve) => {
+      releaseCurrent = () => resolve({ svg: '<svg><rect /></svg>' })
+    }))
+    const currentSource = '<pre class="hljs mermaid-diagram-candidate"><code>flowchart LR\n  Current --&gt; Work</code></pre>'
+    const current = renderMermaidFlowcharts(currentSource, 'dark')
+    await vi.waitFor(() => expect(state.render).toHaveBeenCalledTimes(1))
+
+    const obsoleteSource = '<pre class="hljs mermaid-diagram-candidate"><code>flowchart LR\n  Old --&gt; Work</code></pre>'
+    const obsolete = renderMermaidFlowcharts(obsoleteSource, 'dark', () => false)
+    releaseCurrent?.()
+
+    await expect(current).resolves.toContain('data-mermaid-rendered="true"')
+    await expect(obsolete).resolves.toBe(obsoleteSource)
+    expect(state.render).toHaveBeenCalledTimes(1)
+    expect(getMermaidRenderMetrics().discardedRequests).toBe(initialDiscardCount + 1)
   })
 })

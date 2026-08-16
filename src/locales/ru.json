@@ -238,6 +238,12 @@
     "later": "Позже",
     "dismiss": "Закрыть уведомление об обновлении"
   },
+  "openProgress": {
+    "title": "Открытие файлов…",
+    "count": "Открыто {{completed}} из {{total}}",
+    "cancel": "Отмена",
+    "canceling": "Отмена…"
+  },
   "notice": {
     "unsupported": "Неподдерживаемый тип файла. Можно открывать только файлы .md и .markdown.",
     "exportSuccess": "Экспортировано в {{path}}",
