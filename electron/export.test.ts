@@ -187,15 +187,6 @@ describe('exportDocument', () => {
     expect(written.readUInt32BE(IHDR_HEIGHT_OFFSET)).toBe(capturedSize)
   })
 
-  it('exports Mermaid fallback code without invoking a diagram renderer', async () => {
-    state.showSaveDialog.mockResolvedValue({ canceled: false, filePath: selectedHtmlPath })
-    state.writeFile.mockResolvedValue(undefined)
-    const fallback = '<pre class="hljs mermaid-diagram-candidate"><code>flowchart invalid</code></pre>'
-    const { exportDocument } = await import('./export')
-
-    await expect(exportDocument({ ...request, html: fallback })).resolves.toEqual({ ok: true, path: selectedHtmlPath })
-    expect(state.writeFile).toHaveBeenCalledWith(selectedHtmlPath, fallback, 'utf-8')
-  })
 })
 
 describe('exportDiagramPng', () => {

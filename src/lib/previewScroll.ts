@@ -8,6 +8,21 @@ function getHeadingTopInScroller(scroller: HTMLElement, heading: HTMLElement): n
   return headingRect.top - scrollerRect.top + scroller.scrollTop
 }
 
+export function findPreviewHeadingTarget(root: HTMLElement, href: string): HTMLElement | null {
+  if (!href.startsWith('#') || href.length < 2) return null
+  try {
+    const fragment = href.slice(1)
+    const ids = [fragment, decodeURIComponent(fragment)]
+    for (const id of ids) {
+      const target = root.ownerDocument.getElementById(id)
+      if (target instanceof HTMLElement && root.contains(target)) return target
+    }
+    return null
+  } catch {
+    return null
+  }
+}
+
 export function scrollPreviewHeadingIntoView(target: HTMLElement, behavior: ScrollBehavior = 'smooth'): void {
   const scroller = getPreviewScroller(target)
   if (!scroller) {

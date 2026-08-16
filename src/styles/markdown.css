@@ -19,6 +19,24 @@
   max-width: var(--reading-width-fluid);
 }
 
+.markdown-body--virtual {
+  overflow-anchor: none;
+}
+
+.virtual-preview__spacer {
+  width: 1px;
+  min-height: 0;
+  pointer-events: none;
+}
+
+.virtual-preview__block {
+  display: flow-root;
+}
+
+.virtual-preview__block:first-of-type > *:first-child {
+  margin-top: 0;
+}
+
 .markdown-body > *:first-child {
   margin-top: 0;
 }
@@ -350,4 +368,22 @@
   padding: 0.4em 0;
   overflow-x: auto;
   overflow-y: hidden;
+}
+
+/*
+ * Large block-level content can be skipped until it approaches viewport. Keep
+ * this screen-only and scoped to preview pane: exports must lay out every
+ * block, and headings remain available to anchors and scroll-spy immediately.
+ * The fallback size limits scroll-bar changes before Chromium learns a block's
+ * real dimensions.
+ */
+@media screen {
+  .pane[data-md-theme] .markdown-body > table,
+  .pane[data-md-theme] .markdown-body > blockquote,
+  .pane[data-md-theme] .markdown-body > .code-block,
+  .pane[data-md-theme] .markdown-body > .mermaid-diagram,
+  .pane[data-md-theme] .markdown-body > .katex-display {
+    content-visibility: auto;
+    contain-intrinsic-size: auto 12rem;
+  }
 }

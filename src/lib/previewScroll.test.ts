@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, expect, it, vi } from 'vitest'
-import { getActivePreviewHeadingId, scrollPreviewHeadingIntoView } from './previewScroll'
+import { findPreviewHeadingTarget, getActivePreviewHeadingId, scrollPreviewHeadingIntoView } from './previewScroll'
 
 function setMetric(target: HTMLElement, name: string, value: number): void {
   Object.defineProperty(target, name, { configurable: true, value })
@@ -79,5 +79,41 @@ describe('preview scrolling', () => {
     setTop(second, 300)
 
     expect(getActivePreviewHeadingId(scroller, [first, second])).toBe('first')
+  })
+
+  it('resolves encoded anchors only inside current preview', () => {
+    const root = document.createElement('div')
+    const heading = document.createElement('h2')
+    const outside = document.createElement('h2')
+    heading.id = 'user-content-requirement%3A-layout'
+    outside.id = 'outside'
+    root.append(heading)
+    document.body.append(root, outside)
+
+    expect(findPreviewHeadingTarget(root, '#user-content-requirement%253A-layout')).toBe(heading)
+    expect(findPreviewHeadingTarget(root, '#user-content-requirement%3A-layout')).toBe(heading)
+    expect(findPreviewHeadingTarget(root, '#outside')).toBeNull()
+    expect(findPreviewHeadingTarget(root, '#%E0%A4%A')).toBeNull()
+    root.remove()
+    outside.remove()
+  })
+
+  it('keeps scroll-spy order with skipped layout blocks between headings', () => {
+    const scroller = document.createElement('div')
+    const first = document.createElement('h1')
+    const skippedTable = document.createElement('table')
+    const second = document.createElement('h2')
+    skippedTable.style.contentVisibility = 'auto'
+    first.id = 'first'
+    second.id = 'second'
+    scroller.append(first, skippedTable, second)
+    setMetric(scroller, 'scrollHeight', 2000)
+    setMetric(scroller, 'clientHeight', 500)
+    setMetric(scroller, 'scrollTop', 700)
+    setTop(scroller, 0)
+    setTop(first, -680)
+    setTop(second, 40)
+
+    expect(getActivePreviewHeadingId(scroller, [first, second])).toBe('second')
   })
 })

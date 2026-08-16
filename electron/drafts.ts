@@ -1,68 +1,32 @@
 import { app } from 'electron'
-import { readFile, rename, writeFile } from 'node:fs/promises'
-import { join } from 'node:path'
 import type { AutoSaveDraft } from './shared'
+import { DraftStore, type AppendEditsOutcome } from './draftStore'
+import type { DraftEdit } from './draftJournal'
 
-let cache: AutoSaveDraft[] | null = null
-let mutationQueue = Promise.resolve()
+let store: DraftStore | null = null
 
-function draftsFile(): string {
-  return join(app.getPath('userData'), 'drafts.json')
+/** Built lazily: `app.getPath` is only valid once Electron is ready. */
+function draftStore(): DraftStore {
+  store ??= new DraftStore(app.getPath('userData'))
+  return store
 }
 
-function isDraft(value: unknown): value is AutoSaveDraft {
-  if (!value || typeof value !== 'object') return false
-  const raw = value as Record<string, unknown>
-  return (
-    typeof raw['id'] === 'string' &&
-    /^draft-[a-zA-Z0-9-]+$/.test(raw['id']) &&
-    typeof raw['title'] === 'string' &&
-    raw['title'].length <= 512 &&
-    typeof raw['content'] === 'string' &&
-    raw['content'].length <= 10 * 1024 * 1024
-  )
-}
-
-async function persist(drafts: AutoSaveDraft[]): Promise<void> {
-  const file = draftsFile()
-  const temporaryFile = `${file}.tmp`
-  await writeFile(temporaryFile, JSON.stringify(drafts, null, 2), 'utf-8')
-  await rename(temporaryFile, file)
-}
-
-export async function getDrafts(): Promise<AutoSaveDraft[]> {
-  if (cache) return cache
-  try {
-    const raw = JSON.parse(await readFile(draftsFile(), 'utf-8')) as unknown
-    cache = Array.isArray(raw) ? raw.filter(isDraft) : []
-  } catch {
-    cache = []
-  }
-  return cache
-}
-
-function enqueueMutation(operation: () => Promise<void>): Promise<void> {
-  const queued = mutationQueue.then(operation, operation)
-  mutationQueue = queued.catch(() => undefined)
-  return queued
+export function getDrafts(): Promise<AutoSaveDraft[]> {
+  return draftStore().getDrafts()
 }
 
 export function saveDraft(draft: AutoSaveDraft): Promise<void> {
-  return enqueueMutation(async () => {
-    const drafts = await getDrafts()
-    const index = drafts.findIndex((item) => item.id === draft.id)
-    const next = [...drafts]
-    if (index >= 0) next[index] = draft
-    else next.push(draft)
-    await persist(next)
-    cache = next
-  })
+  return draftStore().saveDraft(draft)
+}
+
+export function appendDraftEdits(
+  id: string,
+  batches: readonly (readonly DraftEdit[])[],
+  expectedLength: number
+): Promise<AppendEditsOutcome> {
+  return draftStore().appendEdits(id, batches, expectedLength)
 }
 
 export function removeDraft(id: string): Promise<void> {
-  return enqueueMutation(async () => {
-    const next = (await getDrafts()).filter((draft) => draft.id !== id)
-    await persist(next)
-    cache = next
-  })
+  return draftStore().removeDraft(id)
 }

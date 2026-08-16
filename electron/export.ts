@@ -12,6 +12,7 @@ import {
 } from './shared'
 import { getSettings, updateSettings } from './settings'
 import { createPngEncoder } from './png'
+import { beginMainMeasure, captureMainMemory, captureWebContentsMemory } from './performance'
 
 const FILTERS: Record<ExportFormat, Electron.FileFilter> = {
   html: { name: 'HTML', extensions: ['html'] },
@@ -93,28 +94,37 @@ function rememberDialogDirectory(filePath: string): void {
 export async function exportDocument(request: unknown): Promise<WriteResult> {
   if (!isExportRequest(request)) return { ok: false, error: 'Invalid export request.' }
 
-  const { format, pageSize, pageOrientation, html, assetBaseUrl, baseName } = request
-
-  const { canceled, filePath } = await dialog.showSaveDialog({
-    defaultPath: exportDefaultPath(baseName, format),
-    filters: [FILTERS[format]]
-  })
-  if (canceled || !filePath) return { ok: false, canceled: true }
-  rememberDialogDirectory(filePath)
+  const { format, baseName } = request
 
   try {
-    if (format === 'html') {
-      await writeFile(filePath, html, 'utf-8')
-    } else if (format === 'pdf') {
-      const pdf = await htmlToPdf(html, pageSize, pageOrientation, assetBaseUrl)
-      await writeFile(filePath, pdf)
-    } else {
-      const png = await htmlToPng(html, pageSize, pageOrientation, assetBaseUrl)
-      await writeFile(filePath, png)
-    }
+    const { canceled, filePath } = await dialog.showSaveDialog({
+      defaultPath: exportDefaultPath(baseName, format),
+      filters: [FILTERS[format]]
+    })
+    if (canceled || !filePath) return { ok: false, canceled: true }
+    rememberDialogDirectory(filePath)
+
+    return await exportDocumentToPath(request, filePath)
+  } catch (err) {
+    return { ok: false, error: (err as Error).message }
+  }
+}
+
+/** Export without native dialog. Used only by local `--benchmark` runner. */
+export async function exportDocumentToPath(request: unknown, filePath: string): Promise<WriteResult> {
+  if (!isExportRequest(request)) return { ok: false, error: 'Invalid export request.' }
+  const { format, pageSize, pageOrientation, html, assetBaseUrl } = request
+  const finishMeasure = beginMainMeasure('document:export', { htmlChars: html.length })
+  try {
+    if (format === 'html') await writeFile(filePath, html, 'utf-8')
+    else if (format === 'pdf') await writeFile(filePath, await htmlToPdf(html, pageSize, pageOrientation, assetBaseUrl))
+    else await writeFile(filePath, await htmlToPng(html, pageSize, pageOrientation, assetBaseUrl))
+    void captureMainMemory('main:memory:document-export')
     return { ok: true, path: filePath }
   } catch (err) {
     return { ok: false, error: (err as Error).message }
+  } finally {
+    finishMeasure()
   }
 }
 
@@ -163,6 +173,7 @@ async function createExportWindow(
   pageOrientation: ExportPageOrientation,
   assetBaseUrl?: string
 ): Promise<BrowserWindow> {
+  const finishMeasure = beginMainMeasure('export-window:mount', { htmlChars: html.length })
   const size = pagePixels(pageSize, pageOrientation)
   const win = new BrowserWindow({
     show: false,
@@ -176,11 +187,16 @@ async function createExportWindow(
       webSecurity: true
     }
   })
-  await win.loadURL('data:text/html;charset=utf-8,' + encodeURIComponent(html), {
-    baseURLForDataURL: exportAssetBaseUrl(assetBaseUrl)
-  })
-  await waitForFonts(win)
-  return win
+  try {
+    await win.loadURL('data:text/html;charset=utf-8,' + encodeURIComponent(html), {
+      baseURLForDataURL: exportAssetBaseUrl(assetBaseUrl)
+    })
+    await waitForFonts(win)
+    void captureWebContentsMemory('export-window:memory', win.webContents)
+    return win
+  } finally {
+    finishMeasure()
+  }
 }
 
 async function htmlToPdf(
@@ -190,6 +206,7 @@ async function htmlToPdf(
   assetBaseUrl?: string
 ): Promise<Buffer> {
   const win = await createExportWindow(html, pageSize, pageOrientation, assetBaseUrl)
+  const finishMeasure = beginMainMeasure('export:pdf-render', { htmlChars: html.length })
   try {
     return await win.webContents.printToPDF({
       printBackground: true,
@@ -198,6 +215,7 @@ async function htmlToPdf(
       landscape: pageOrientation === 'landscape'
     })
   } finally {
+    finishMeasure()
     win.destroy()
   }
 }
@@ -216,6 +234,7 @@ async function htmlToPng(
 ): Promise<Buffer> {
   const size = pagePixels(pageSize, pageOrientation)
   const win = await createExportWindow(html, pageSize, pageOrientation, assetBaseUrl)
+  const finishMeasure = beginMainMeasure('export:png-render', { htmlChars: html.length })
   try {
     await win.webContents.executeJavaScript("document.documentElement.classList.add('export-png')")
     const documentHeight = (await win.webContents.executeJavaScript(
@@ -260,6 +279,7 @@ async function htmlToPng(
 
     return encoder.finish(width, height)
   } finally {
+    finishMeasure()
     win.destroy()
   }
 }

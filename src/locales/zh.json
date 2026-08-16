@@ -238,6 +238,12 @@
     "later": "稍后",
     "dismiss": "关闭更新通知"
   },
+  "openProgress": {
+    "title": "正在打开文件…",
+    "count": "已打开 {{completed}}/{{total}}",
+    "cancel": "取消",
+    "canceling": "正在取消…"
+  },
   "notice": {
     "unsupported": "不支持的文件类型。只能打开 .md 和 .markdown 文件。",
     "exportSuccess": "已导出到 {{path}}",

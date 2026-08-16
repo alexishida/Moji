@@ -1156,6 +1156,63 @@ body {
   background: var(--danger);
 }
 
+/* --- Multi-file open progress -------------------------------------------- */
+.open-progress {
+  position: fixed;
+  left: var(--space-3);
+  bottom: calc(var(--statusbar-h) + var(--space-3));
+  z-index: 56;
+  width: min(340px, calc(100vw - 24px));
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3);
+  color: var(--text);
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+}
+
+.open-progress__content {
+  min-width: 0;
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.open-progress__title {
+  font-size: 13px;
+  line-height: 1.35;
+}
+
+.open-progress__body {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.open-progress__bar {
+  height: 4px;
+  margin-top: var(--space-1);
+  background: var(--nav-hover-bg);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.open-progress__bar-fill {
+  height: 100%;
+  background: var(--accent);
+  transition: width 120ms ease-out;
+}
+
+.open-progress__cancel {
+  flex: 0 0 auto;
+  min-height: 30px;
+  padding: var(--space-1) var(--space-3);
+  font-size: 12px;
+}
+
 /* --- Automatic updates -------------------------------------------------- */
 .update-notice {
   position: fixed;

@@ -1,0 +1,1651 @@
+{
+  "schemaVersion": 1,
+  "generatedAt": "2026-08-16T21:08:58.022Z",
+  "environment": {
+    "platform": "win32",
+    "release": "10.0.26200",
+    "cpu": "AMD Ryzen 7 5800X 8-Core Processor             ",
+    "cpuCores": 16,
+    "memoryBytes": 34269659136,
+    "electron": "43.1.0",
+    "appVersion": "1.0.5"
+  },
+  "scenarios": {
+    "plain-1mb/open-preview": {
+      "renderer": {
+        "metrics": [
+          {
+            "name": "mermaid:patch",
+            "durationMs": 0.7999999998137355,
+            "timestamp": 1786914464390,
+            "details": {
+              "candidateCount": 0,
+              "patchedCount": 0
+            }
+          },
+          {
+            "name": "preview:mount",
+            "durationMs": 1.099999999627471,
+            "timestamp": 1786914464390,
+            "details": {
+              "htmlChars": 0,
+              "nodeCount": 0,
+              "blockCount": 0,
+              "virtualBlockCount": 0,
+              "mountedVirtualBlockCount": 0,
+              "tableCount": 0,
+              "imageCount": 0,
+              "loadedImageCount": 0,
+              "codeBlockCount": 0,
+              "formulaCount": 0,
+              "displayFormulaCount": 0
+            }
+          },
+          {
+            "name": "preview:dom",
+            "durationMs": 0,
+            "timestamp": 1786914464390,
+            "details": {
+              "htmlChars": 0,
+              "nodeCount": 0,
+              "blockCount": 0,
+              "virtualBlockCount": 0,
+              "mountedVirtualBlockCount": 0,
+              "tableCount": 0,
+              "imageCount": 0,
+              "loadedImageCount": 0,
+              "codeBlockCount": 0,
+              "formulaCount": 0,
+              "displayFormulaCount": 0
+            }
+          },
+          {
+            "name": "renderer:memory",
+            "durationMs": 0,
+            "timestamp": 1786914464390,
+            "details": {
+              "usedJsHeapBytes": 10000000,
+              "totalJsHeapBytes": 17100000,
+              "jsHeapLimitBytes": 3760000000
+            }
+          },
+          {
+            "name": "markdown:parse",
+            "durationMs": 42.5,
+            "timestamp": 1786914464596,
+            "details": {
+              "markdownChars": 1048576
+            }
+          },
+          {
+            "name": "markdown:outline",
+            "durationMs": 0,
+            "timestamp": 1786914464596,
+            "details": {
+              "headingCount": 1
+            }
+          },
+          {
+            "name": "markdown:render-html",
+            "durationMs": 2.300000000745058,
+            "timestamp": 1786914464596,
+            "details": {
+              "rawHtmlChars": 1048638
+            }
+          },
+          {
+            "name": "markdown:sanitize",
+            "durationMs": 9.099999999627471,
+            "timestamp": 1786914464606,
+            "details": {
+              "rawHtmlChars": 1048638,
+              "htmlChars": 1048638,
+              "blockCount": 0
+            }
+          },
+          {
+            "name": "markdown:worker-roundtrip",
+            "durationMs": 55.5,
+            "timestamp": 1786914464606,
+            "details": {
+              "markdownChars": 1048576
+            }
+          },
+          {
+            "name": "mermaid:patch",
+            "durationMs": 152.5,
+            "timestamp": 1786914464762,
+            "details": {
+              "candidateCount": 0,
+              "patchedCount": 0
+            }
+          },
+          {
+            "name": "preview:mount",
+            "durationMs": 168.8999999994412,
+            "timestamp": 1786914464779,
+            "details": {
+              "htmlChars": 1048638,
+              "nodeCount": 2,
+              "blockCount": 2,
+              "virtualBlockCount": 0,
+              "mountedVirtualBlockCount": 0,
+              "tableCount": 0,
+              "imageCount": 0,
+              "loadedImageCount": 0,
+              "codeBlockCount": 0,
+              "formulaCount": 0,
+              "displayFormulaCount": 0
+            }
+          },
+          {
+            "name": "preview:dom",
+            "durationMs": 0,
+            "timestamp": 1786914464779,
+            "details": {
+              "htmlChars": 1048638,
+              "nodeCount": 2,
+              "blockCount": 2,
+              "virtualBlockCount": 0,
+              "mountedVirtualBlockCount": 0,
+              "tableCount": 0,
+              "imageCount": 0,
+              "loadedImageCount": 0,
+              "codeBlockCount": 0,
+              "formulaCount": 0,
+              "displayFormulaCount": 0
+            }
+          },
+          {
+            "name": "renderer:memory",
+            "durationMs": 0,
+            "timestamp": 1786914464779,
+            "details": {
+              "usedJsHeapBytes": 10000000,
+              "totalJsHeapBytes": 17100000,
+              "jsHeapLimitBytes": 3760000000
+            }
+          }
+        ]
+      },
+      "main": {
+        "metrics": [
+          {
+            "name": "document:open",
+            "durationMs": 8.061599999999999,
+            "timestamp": 1786914464356,
+            "details": {
+              "sizeBytes": 1048576
+            }
+          },
+          {
+            "name": "main:memory:document-open",
+            "durationMs": 0,
+            "timestamp": 1786914464358,
+            "details": {
+              "privateBytes": 85938176,
+              "sharedBytes": 561152,
+              "residentSetBytes": 110796800
+            }
+          }
+        ]
+      }
+    },
+    "rich-5mb/open-preview": {
+      "renderer": {
+        "metrics": [
+          {
+            "name": "mermaid:patch",
+            "durationMs": 0.39999999944120646,
+            "timestamp": 1786914465404,
+            "details": {
+              "candidateCount": 0,
+              "patchedCount": 0
+            }
+          },
+          {
+            "name": "preview:mount",
+            "durationMs": 0.599999999627471,
+            "timestamp": 1786914465404,
+            "details": {
+              "htmlChars": 0,
+              "nodeCount": 0,
+              "blockCount": 0,
+              "virtualBlockCount": 0,
+              "mountedVirtualBlockCount": 0,
+              "tableCount": 0,
+              "imageCount": 0,
+              "loadedImageCount": 0,
+              "codeBlockCount": 0,
+              "formulaCount": 0,
+              "displayFormulaCount": 0
+            }
+          },
+          {
+            "name": "preview:dom",
+            "durationMs": 0,
+            "timestamp": 1786914465404,
+            "details": {
+              "htmlChars": 0,
+              "nodeCount": 0,
+              "blockCount": 0,
+              "virtualBlockCount": 0,
+              "mountedVirtualBlockCount": 0,
+              "tableCount": 0,
+              "imageCount": 0,
+              "loadedImageCount": 0,
+              "codeBlockCount": 0,
+              "formulaCount": 0,
+              "displayFormulaCount": 0
+            }
+          },
+          {
+            "name": "renderer:memory",
+            "durationMs": 0,
+            "timestamp": 1786914465404,
+            "details": {
+              "usedJsHeapBytes": 10000000,
+              "totalJsHeapBytes": 17100000,
+              "jsHeapLimitBytes": 3760000000
+            }
+          },
+          {
+            "name": "markdown:parse",
+            "durationMs": 83.70000000018626,
+            "timestamp": 1786914465684,
+            "details": {
+              "markdownChars": 5242880
+            }
+          },
+          {
+            "name": "markdown:outline",
+            "durationMs": 0.09999999962747097,
+            "timestamp": 1786914465684,
+            "details": {
+              "headingCount": 5
+            }
+          },
+          {
+            "name": "markdown:render-html",
+            "durationMs": 19.700000000186265,
+            "timestamp": 1786914465684,
+            "details": {
+              "rawHtmlChars": 5246981
+            }
+          },
+          {
+            "name": "markdown:sanitize",
+            "durationMs": 53.5,
+            "timestamp": 1786914465738,
+            "details": {
+              "rawHtmlChars": 5246981,
+              "htmlChars": 5246904,
+              "blockCount": 0
+            }
+          },
+          {
+            "name": "markdown:worker-roundtrip",
+            "durationMs": 181.5,
+            "timestamp": 1786914465738,
+            "details": {
+              "markdownChars": 5242880
+            }
+          },
+          {
+            "name": "preview:mount",
+            "durationMs": 233.29999999981374,
+            "timestamp": 1786914467153,
+            "details": {
+              "htmlChars": 5246904,
+              "nodeCount": 127,
+              "blockCount": 12,
+              "virtualBlockCount": 0,
+              "mountedVirtualBlockCount": 0,
+              "tableCount": 1,
+              "imageCount": 1,
+              "loadedImageCount": 0,
+              "codeBlockCount": 1,
+              "formulaCount": 1,
+              "displayFormulaCount": 1
+            }
+          },
+          {
+            "name": "preview:dom",
+            "durationMs": 0,
+            "timestamp": 1786914467153,
+            "details": {
+              "htmlChars": 5246904,
+              "nodeCount": 127,
+              "blockCount": 12,
+              "virtualBlockCount": 0,
+              "mountedVirtualBlockCount": 0,
+              "tableCount": 1,
+              "imageCount": 1,
+              "loadedImageCount": 0,
+              "codeBlockCount": 1,
+              "formulaCount": 1,
+              "displayFormulaCount": 1
+            }
+          },
+          {
+            "name": "renderer:memory",
+            "durationMs": 0,
+            "timestamp": 1786914467153,
+            "details": {
+              "usedJsHeapBytes": 10000000,
+              "totalJsHeapBytes": 17100000,
+              "jsHeapLimitBytes": 3760000000
+            }
+          },
+          {
+            "name": "preview:image-load",
+            "durationMs": 504.79999999981374,
+            "timestamp": 1786914467900,
+            "details": {
+              "loaded": 1,
+              "naturalWidth": 640,
+              "naturalHeight": 360
+            }
+          },
+          {
+            "name": "mermaid:patch",
+            "durationMs": 1188.2999999998137,
+            "timestamp": 1786914468108,
+            "details": {
+              "candidateCount": 1,
+              "patchedCount": 1
+            }
+          }
+        ]
+      },
+      "main": {
+        "metrics": [
+          {
+            "name": "document:open",
+            "durationMs": 10.257000000000062,
+            "timestamp": 1786914465300,
+            "details": {
+              "sizeBytes": 5242880
+            }
+          },
+          {
+            "name": "main:memory:document-open",
+            "durationMs": 0,
+            "timestamp": 1786914465305,
+            "details": {
+              "privateBytes": 103886848,
+              "sharedBytes": 552960,
+              "residentSetBytes": 124051456
+            }
+          }
+        ]
+      }
+    },
+    "layout-tables/open-preview": {
+      "renderer": {
+        "metrics": [
+          {
+            "name": "preview:image-load",
+            "durationMs": 0.2999999998137355,
+            "timestamp": 1786914469040,
+            "details": {
+              "loaded": 1,
+              "naturalWidth": 640,
+              "naturalHeight": 360
+            }
+          },
+          {
+            "name": "mermaid:patch",
+            "durationMs": 0.5,
+            "timestamp": 1786914469058,
+            "details": {
+              "candidateCount": 0,
+              "patchedCount": 0
+            }
+          },
+          {
+            "name": "preview:mount",
+            "durationMs": 7.7000000001862645,
+            "timestamp": 1786914469065,
+            "details": {
+              "htmlChars": 0,
+              "nodeCount": 0,
+              "blockCount": 0,
+              "virtualBlockCount": 0,
+              "mountedVirtualBlockCount": 0,
+              "tableCount": 0,
+              "imageCount": 0,
+              "loadedImageCount": 0,
+              "codeBlockCount": 0,
+              "formulaCount": 0,
+              "displayFormulaCount": 0
+            }
+          },
+          {
+            "name": "preview:dom",
+            "durationMs": 0,
+            "timestamp": 1786914469065,
+            "details": {
+              "htmlChars": 0,
+              "nodeCount": 0,
+              "blockCount": 0,
+              "virtualBlockCount": 0,
+              "mountedVirtualBlockCount": 0,
+              "tableCount": 0,
+              "imageCount": 0,
+              "loadedImageCount": 0,
+              "codeBlockCount": 0,
+              "formulaCount": 0,
+              "displayFormulaCount": 0
+            }
+          },
+          {
+            "name": "renderer:memory",
+            "durationMs": 0,
+            "timestamp": 1786914469066,
+            "details": {
+              "usedJsHeapBytes": 10000000,
+              "totalJsHeapBytes": 17100000,
+              "jsHeapLimitBytes": 3760000000
+            }
+          },
+          {
+            "name": "markdown:parse",
+            "durationMs": 13.800000000745058,
+            "timestamp": 1786914469227,
+            "details": {
+              "markdownChars": 65536
+            }
+          },
+          {
+            "name": "markdown:outline",
+            "durationMs": 0.5,
+            "timestamp": 1786914469227,
+            "details": {
+              "headingCount": 460
+            }
+          },
+          {
+            "name": "markdown:render-html",
+            "durationMs": 1.599999999627471,
+            "timestamp": 1786914469227,
+            "details": {
+              "rawHtmlChars": 179584
+            }
+          },
+          {
+            "name": "markdown:sanitize",
+            "durationMs": 35.299999999813735,
+            "timestamp": 1786914469262,
+            "details": {
+              "rawHtmlChars": 179584,
+              "htmlChars": 179584,
+              "blockCount": 0
+            }
+          },
+          {
+            "name": "markdown:worker-roundtrip",
+            "durationMs": 52.09999999962747,
+            "timestamp": 1786914469262,
+            "details": {
+              "markdownChars": 65536
+            }
+          },
+          {
+            "name": "mermaid:patch",
+            "durationMs": 2.7999999998137355,
+            "timestamp": 1786914469318,
+            "details": {
+              "candidateCount": 0,
+              "patchedCount": 0
+            }
+          },
+          {
+            "name": "preview:mount",
+            "durationMs": 5.599999999627471,
+            "timestamp": 1786914469321,
+            "details": {
+              "htmlChars": 179584,
+              "nodeCount": 7330,
+              "blockCount": 918,
+              "virtualBlockCount": 0,
+              "mountedVirtualBlockCount": 0,
+              "tableCount": 458,
+              "imageCount": 0,
+              "loadedImageCount": 0,
+              "codeBlockCount": 0,
+              "formulaCount": 0,
+              "displayFormulaCount": 0
+            }
+          },
+          {
+            "name": "preview:dom",
+            "durationMs": 0,
+            "timestamp": 1786914469321,
+            "details": {
+              "htmlChars": 179584,
+              "nodeCount": 7330,
+              "blockCount": 918,
+              "virtualBlockCount": 0,
+              "mountedVirtualBlockCount": 0,
+              "tableCount": 458,
+              "imageCount": 0,
+              "loadedImageCount": 0,
+              "codeBlockCount": 0,
+              "formulaCount": 0,
+              "displayFormulaCount": 0
+            }
+          },
+          {
+            "name": "renderer:memory",
+            "durationMs": 0,
+            "timestamp": 1786914469321,
+            "details": {
+              "usedJsHeapBytes": 10000000,
+              "totalJsHeapBytes": 17100000,
+              "jsHeapLimitBytes": 3760000000
+            }
+          }
+        ]
+      },
+      "main": {
+        "metrics": [
+          {
+            "name": "document:open",
+            "durationMs": 7.762700000000223,
+            "timestamp": 1786914469048,
+            "details": {
+              "sizeBytes": 65536
+            }
+          },
+          {
+            "name": "main:memory:document-open",
+            "durationMs": 0,
+            "timestamp": 1786914469049,
+            "details": {
+              "privateBytes": 85172224,
+              "sharedBytes": 552960,
+              "residentSetBytes": 112496640
+            }
+          }
+        ]
+      }
+    },
+    "layout-images/open-preview": {
+      "renderer": {
+        "metrics": [
+          {
+            "name": "mermaid:patch",
+            "durationMs": 0.5,
+            "timestamp": 1786914469870,
+            "details": {
+              "candidateCount": 0,
+              "patchedCount": 0
+            }
+          },
+          {
+            "name": "preview:mount",
+            "durationMs": 2.2000000001862645,
+            "timestamp": 1786914469871,
+            "details": {
+              "htmlChars": 0,
+              "nodeCount": 0,
+              "blockCount": 0,
+              "virtualBlockCount": 0,
+              "mountedVirtualBlockCount": 0,
+              "tableCount": 0,
+              "imageCount": 0,
+              "loadedImageCount": 0,
+              "codeBlockCount": 0,
+              "formulaCount": 0,
+              "displayFormulaCount": 0
+            }
+          },
+          {
+            "name": "preview:dom",
+            "durationMs": 0,
+            "timestamp": 1786914469871,
+            "details": {
+              "htmlChars": 0,
+              "nodeCount": 0,
+              "blockCount": 0,
+              "virtualBlockCount": 0,
+              "mountedVirtualBlockCount": 0,
+              "tableCount": 0,
+              "imageCount": 0,
+              "loadedImageCount": 0,
+              "codeBlockCount": 0,
+              "formulaCount": 0,
+              "displayFormulaCount": 0
+            }
+          },
+          {
+            "name": "renderer:memory",
+            "durationMs": 0,
+            "timestamp": 1786914469871,
+            "details": {
+              "usedJsHeapBytes": 10000000,
+              "totalJsHeapBytes": 17100000,
+              "jsHeapLimitBytes": 3760000000
+            }
+          },
+          {
+            "name": "markdown:parse",
+            "durationMs": 12.200000000186265,
+            "timestamp": 1786914470052,
+            "details": {
+              "markdownChars": 65536
+            }
+          },
+          {
+            "name": "markdown:outline",
+            "durationMs": 0,
+            "timestamp": 1786914470052,
+            "details": {
+              "headingCount": 566
+            }
+          },
+          {
+            "name": "markdown:render-html",
+            "durationMs": 3.7999999998137355,
+            "timestamp": 1786914470052,
+            "details": {
+              "rawHtmlChars": 220861
+            }
+          },
+          {
+            "name": "markdown:sanitize",
+            "durationMs": 16.799999999813735,
+            "timestamp": 1786914470069,
+            "details": {
+              "rawHtmlChars": 220861,
+              "htmlChars": 220861,
+              "blockCount": 0
+            }
+          },
+          {
+            "name": "markdown:worker-roundtrip",
+            "durationMs": 33.90000000037253,
+            "timestamp": 1786914470069,
+            "details": {
+              "markdownChars": 65536
+            }
+          },
+          {
+            "name": "mermaid:patch",
+            "durationMs": 2.7999999998137355,
+            "timestamp": 1786914470131,
+            "details": {
+              "candidateCount": 0,
+              "patchedCount": 0
+            }
+          },
+          {
+            "name": "preview:mount",
+            "durationMs": 4.1000000005587935,
+            "timestamp": 1786914470132,
+            "details": {
+              "htmlChars": 220861,
+              "nodeCount": 2261,
+              "blockCount": 2261,
+              "virtualBlockCount": 0,
+              "mountedVirtualBlockCount": 0,
+              "tableCount": 0,
+              "imageCount": 565,
+              "loadedImageCount": 0,
+              "codeBlockCount": 0,
+              "formulaCount": 0,
+              "displayFormulaCount": 0
+            }
+          },
+          {
+            "name": "preview:dom",
+            "durationMs": 0,
+            "timestamp": 1786914470132,
+            "details": {
+              "htmlChars": 220861,
+              "nodeCount": 2261,
+              "blockCount": 2261,
+              "virtualBlockCount": 0,
+              "mountedVirtualBlockCount": 0,
+              "tableCount": 0,
+              "imageCount": 565,
+              "loadedImageCount": 0,
+              "codeBlockCount": 0,
+              "formulaCount": 0,
+              "displayFormulaCount": 0
+            }
+          },
+          {
+            "name": "renderer:memory",
+            "durationMs": 0,
+            "timestamp": 1786914470132,
+            "details": {
+              "usedJsHeapBytes": 10000000,
+              "totalJsHeapBytes": 17100000,
+              "jsHeapLimitBytes": 3760000000
+            }
+          },
+          {
+            "name": "preview:image-load",
+            "durationMs": 4,
+            "timestamp": 1786914470139,
+            "details": {
+              "loaded": 1,
+              "naturalWidth": 640,
+              "naturalHeight": 360
+            }
+          },
+          {
+            "name": "preview:image-load",
+            "durationMs": 4.2000000001862645,
+            "timestamp": 1786914470139,
+            "details": {
+              "loaded": 1,
+              "naturalWidth": 640,
+              "naturalHeight": 360
+            }
+          },
+          {
+            "name": "preview:image-load",
+            "durationMs": 4.099999999627471,
+            "timestamp": 1786914470139,
+            "details": {
+              "loaded": 1,
+              "naturalWidth": 640,
+              "naturalHeight": 360
+            }
+          },
+          {
+            "name": "preview:image-load",
+            "durationMs": 0.10000000055879354,
+            "timestamp": 1786914470139,
+            "details": {
+              "loaded": 1,
+              "naturalWidth": 640,
+              "naturalHeight": 360
+            }
+          },
+          {
+            "name": "preview:image-load",
+            "durationMs": 0.10000000055879354,
+            "timestamp": 1786914470139,
+            "details": {
+              "loaded": 1,
+              "naturalWidth": 640,
+              "naturalHeight": 360
+            }
+          },
+          {
+            "name": "preview:image-load",
+            "durationMs": 0.20000000018626451,
+            "timestamp": 1786914470139,
+            "details": {
+              "loaded": 1,
+              "naturalWidth": 640,
+              "naturalHeight": 360
+            }
+          },
+          {
+            "name": "preview:image-load",
+            "durationMs": 0.09999999962747097,
+            "timestamp": 1786914470139,
+            "details": {
+              "loaded": 1,
+              "naturalWidth": 640,
+              "naturalHeight": 360
+            }
+          },
+          {
+            "name": "preview:image-load",
+            "durationMs": 0.09999999962747097,
+            "timestamp": 1786914470139,
+            "details": {
+              "loaded": 1,
+              "naturalWidth": 640,
+              "naturalHeight": 360
+            }
+          }
+        ]
+      },
+      "main": {
+        "metrics": [
+          {
+            "name": "document:open",
+            "durationMs": 8.415100000000166,
+            "timestamp": 1786914469859,
+            "details": {
+              "sizeBytes": 65536
+            }
+          },
+          {
+            "name": "main:memory:document-open",
+            "durationMs": 0,
+            "timestamp": 1786914469861,
+            "details": {
+              "privateBytes": 85405696,
+              "sharedBytes": 622592,
+              "residentSetBytes": 112717824
+            }
+          }
+        ]
+      }
+    },
+    "layout-code/open-preview": {
+      "renderer": {
+        "metrics": [
+          {
+            "name": "mermaid:patch",
+            "durationMs": 0.40000000037252903,
+            "timestamp": 1786914470666,
+            "details": {
+              "candidateCount": 0,
+              "patchedCount": 0
+            }
+          },
+          {
+            "name": "preview:mount",
+            "durationMs": 0.6999999992549419,
+            "timestamp": 1786914470666,
+            "details": {
+              "htmlChars": 0,
+              "nodeCount": 0,
+              "blockCount": 0,
+              "virtualBlockCount": 0,
+              "mountedVirtualBlockCount": 0,
+              "tableCount": 0,
+              "imageCount": 0,
+              "loadedImageCount": 0,
+              "codeBlockCount": 0,
+              "formulaCount": 0,
+              "displayFormulaCount": 0
+            }
+          },
+          {
+            "name": "preview:dom",
+            "durationMs": 0,
+            "timestamp": 1786914470666,
+            "details": {
+              "htmlChars": 0,
+              "nodeCount": 0,
+              "blockCount": 0,
+              "virtualBlockCount": 0,
+              "mountedVirtualBlockCount": 0,
+              "tableCount": 0,
+              "imageCount": 0,
+              "loadedImageCount": 0,
+              "codeBlockCount": 0,
+              "formulaCount": 0,
+              "displayFormulaCount": 0
+            }
+          },
+          {
+            "name": "renderer:memory",
+            "durationMs": 0,
+            "timestamp": 1786914470666,
+            "details": {
+              "usedJsHeapBytes": 10000000,
+              "totalJsHeapBytes": 17100000,
+              "jsHeapLimitBytes": 3760000000
+            }
+          },
+          {
+            "name": "markdown:parse",
+            "durationMs": 10.700000000186265,
+            "timestamp": 1786914470851,
+            "details": {
+              "markdownChars": 65536
+            }
+          },
+          {
+            "name": "markdown:outline",
+            "durationMs": 0.09999999962747097,
+            "timestamp": 1786914470851,
+            "details": {
+              "headingCount": 586
+            }
+          },
+          {
+            "name": "markdown:render-html",
+            "durationMs": 21.5,
+            "timestamp": 1786914470851,
+            "details": {
+              "rawHtmlChars": 290096
+            }
+          },
+          {
+            "name": "markdown:sanitize",
+            "durationMs": 38.10000000055879,
+            "timestamp": 1786914470889,
+            "details": {
+              "rawHtmlChars": 290096,
+              "htmlChars": 290096,
+              "blockCount": 0
+            }
+          },
+          {
+            "name": "markdown:worker-roundtrip",
+            "durationMs": 71.40000000037253,
+            "timestamp": 1786914470889,
+            "details": {
+              "markdownChars": 65536
+            }
+          },
+          {
+            "name": "mermaid:patch",
+            "durationMs": 40,
+            "timestamp": 1786914471007,
+            "details": {
+              "candidateCount": 0,
+              "patchedCount": 0
+            }
+          },
+          {
+            "name": "preview:mount",
+            "durationMs": 44.59999999962747,
+            "timestamp": 1786914471012,
+            "details": {
+              "htmlChars": 290096,
+              "nodeCount": 8190,
+              "blockCount": 1171,
+              "virtualBlockCount": 0,
+              "mountedVirtualBlockCount": 0,
+              "tableCount": 0,
+              "imageCount": 0,
+              "loadedImageCount": 0,
+              "codeBlockCount": 585,
+              "formulaCount": 0,
+              "displayFormulaCount": 0
+            }
+          },
+          {
+            "name": "preview:dom",
+            "durationMs": 0,
+            "timestamp": 1786914471012,
+            "details": {
+              "htmlChars": 290096,
+              "nodeCount": 8190,
+              "blockCount": 1171,
+              "virtualBlockCount": 0,
+              "mountedVirtualBlockCount": 0,
+              "tableCount": 0,
+              "imageCount": 0,
+              "loadedImageCount": 0,
+              "codeBlockCount": 585,
+              "formulaCount": 0,
+              "displayFormulaCount": 0
+            }
+          },
+          {
+            "name": "renderer:memory",
+            "durationMs": 0,
+            "timestamp": 1786914471012,
+            "details": {
+              "usedJsHeapBytes": 10000000,
+              "totalJsHeapBytes": 17100000,
+              "jsHeapLimitBytes": 3760000000
+            }
+          }
+        ]
+      },
+      "main": {
+        "metrics": [
+          {
+            "name": "document:open",
+            "durationMs": 11.897299999999632,
+            "timestamp": 1786914470655,
+            "details": {
+              "sizeBytes": 65536
+            }
+          },
+          {
+            "name": "main:memory:document-open",
+            "durationMs": 0,
+            "timestamp": 1786914470656,
+            "details": {
+              "privateBytes": 85778432,
+              "sharedBytes": 552960,
+              "residentSetBytes": 112893952
+            }
+          }
+        ]
+      }
+    },
+    "layout-formulas/open-preview": {
+      "renderer": {
+        "metrics": [
+          {
+            "name": "mermaid:patch",
+            "durationMs": 0.39999999944120646,
+            "timestamp": 1786914471579,
+            "details": {
+              "candidateCount": 0,
+              "patchedCount": 0
+            }
+          },
+          {
+            "name": "preview:mount",
+            "durationMs": 0.6999999992549419,
+            "timestamp": 1786914471580,
+            "details": {
+              "htmlChars": 0,
+              "nodeCount": 0,
+              "blockCount": 0,
+              "virtualBlockCount": 0,
+              "mountedVirtualBlockCount": 0,
+              "tableCount": 0,
+              "imageCount": 0,
+              "loadedImageCount": 0,
+              "codeBlockCount": 0,
+              "formulaCount": 0,
+              "displayFormulaCount": 0
+            }
+          },
+          {
+            "name": "preview:dom",
+            "durationMs": 0,
+            "timestamp": 1786914471580,
+            "details": {
+              "htmlChars": 0,
+              "nodeCount": 0,
+              "blockCount": 0,
+              "virtualBlockCount": 0,
+              "mountedVirtualBlockCount": 0,
+              "tableCount": 0,
+              "imageCount": 0,
+              "loadedImageCount": 0,
+              "codeBlockCount": 0,
+              "formulaCount": 0,
+              "displayFormulaCount": 0
+            }
+          },
+          {
+            "name": "renderer:memory",
+            "durationMs": 0,
+            "timestamp": 1786914471580,
+            "details": {
+              "usedJsHeapBytes": 10000000,
+              "totalJsHeapBytes": 17100000,
+              "jsHeapLimitBytes": 3760000000
+            }
+          },
+          {
+            "name": "markdown:parse",
+            "durationMs": 3,
+            "timestamp": 1786914471770,
+            "details": {
+              "markdownChars": 16384
+            }
+          },
+          {
+            "name": "markdown:outline",
+            "durationMs": 0,
+            "timestamp": 1786914471770,
+            "details": {
+              "headingCount": 261
+            }
+          },
+          {
+            "name": "markdown:render-html",
+            "durationMs": 29.5,
+            "timestamp": 1786914471770,
+            "details": {
+              "rawHtmlChars": 820854
+            }
+          },
+          {
+            "name": "markdown:sanitize",
+            "durationMs": 100.59999999962747,
+            "timestamp": 1786914471870,
+            "details": {
+              "rawHtmlChars": 820854,
+              "htmlChars": 800911,
+              "blockCount": 0
+            }
+          },
+          {
+            "name": "markdown:worker-roundtrip",
+            "durationMs": 134.6000000005588,
+            "timestamp": 1786914471870,
+            "details": {
+              "markdownChars": 16384
+            }
+          },
+          {
+            "name": "mermaid:patch",
+            "durationMs": 3.400000000372529,
+            "timestamp": 1786914472065,
+            "details": {
+              "candidateCount": 0,
+              "patchedCount": 0
+            }
+          },
+          {
+            "name": "preview:mount",
+            "durationMs": 10.599999999627471,
+            "timestamp": 1786914472072,
+            "details": {
+              "htmlChars": 800911,
+              "nodeCount": 23054,
+              "blockCount": 262,
+              "virtualBlockCount": 0,
+              "mountedVirtualBlockCount": 0,
+              "tableCount": 0,
+              "imageCount": 0,
+              "loadedImageCount": 0,
+              "codeBlockCount": 0,
+              "formulaCount": 259,
+              "displayFormulaCount": 259
+            }
+          },
+          {
+            "name": "preview:dom",
+            "durationMs": 0,
+            "timestamp": 1786914472072,
+            "details": {
+              "htmlChars": 800911,
+              "nodeCount": 23054,
+              "blockCount": 262,
+              "virtualBlockCount": 0,
+              "mountedVirtualBlockCount": 0,
+              "tableCount": 0,
+              "imageCount": 0,
+              "loadedImageCount": 0,
+              "codeBlockCount": 0,
+              "formulaCount": 259,
+              "displayFormulaCount": 259
+            }
+          },
+          {
+            "name": "renderer:memory",
+            "durationMs": 0,
+            "timestamp": 1786914472072,
+            "details": {
+              "usedJsHeapBytes": 10000000,
+              "totalJsHeapBytes": 17100000,
+              "jsHeapLimitBytes": 3760000000
+            }
+          }
+        ]
+      },
+      "main": {
+        "metrics": [
+          {
+            "name": "document:open",
+            "durationMs": 7.102600000000166,
+            "timestamp": 1786914471569,
+            "details": {
+              "sizeBytes": 16384
+            }
+          },
+          {
+            "name": "main:memory:document-open",
+            "durationMs": 0,
+            "timestamp": 1786914471570,
+            "details": {
+              "privateBytes": 85889024,
+              "sharedBytes": 552960,
+              "residentSetBytes": 113004544
+            }
+          }
+        ]
+      }
+    },
+    "short-lines-20mb/open-preview": {
+      "renderer": {
+        "metrics": [
+          {
+            "name": "mermaid:patch",
+            "durationMs": 0.40000000037252903,
+            "timestamp": 1786914473132,
+            "details": {
+              "candidateCount": 0,
+              "patchedCount": 0
+            }
+          },
+          {
+            "name": "preview:mount",
+            "durationMs": 0.599999999627471,
+            "timestamp": 1786914473132,
+            "details": {
+              "htmlChars": 0,
+              "nodeCount": 0,
+              "blockCount": 0,
+              "virtualBlockCount": 0,
+              "mountedVirtualBlockCount": 0,
+              "tableCount": 0,
+              "imageCount": 0,
+              "loadedImageCount": 0,
+              "codeBlockCount": 0,
+              "formulaCount": 0,
+              "displayFormulaCount": 0
+            }
+          },
+          {
+            "name": "preview:dom",
+            "durationMs": 0,
+            "timestamp": 1786914473132,
+            "details": {
+              "htmlChars": 0,
+              "nodeCount": 0,
+              "blockCount": 0,
+              "virtualBlockCount": 0,
+              "mountedVirtualBlockCount": 0,
+              "tableCount": 0,
+              "imageCount": 0,
+              "loadedImageCount": 0,
+              "codeBlockCount": 0,
+              "formulaCount": 0,
+              "displayFormulaCount": 0
+            }
+          },
+          {
+            "name": "renderer:memory",
+            "durationMs": 0,
+            "timestamp": 1786914473132,
+            "details": {
+              "usedJsHeapBytes": 10000000,
+              "totalJsHeapBytes": 17100000,
+              "jsHeapLimitBytes": 3760000000
+            }
+          },
+          {
+            "name": "markdown:parse",
+            "durationMs": 395,
+            "timestamp": 1786914474080,
+            "details": {
+              "markdownChars": 20971520
+            }
+          },
+          {
+            "name": "markdown:outline",
+            "durationMs": 0,
+            "timestamp": 1786914474080,
+            "details": {
+              "headingCount": 1
+            }
+          },
+          {
+            "name": "markdown:render-html",
+            "durationMs": 23.299999999813735,
+            "timestamp": 1786914474080,
+            "details": {
+              "rawHtmlChars": 20971583
+            }
+          },
+          {
+            "name": "markdown:sanitize",
+            "durationMs": 156.79999999981374,
+            "timestamp": 1786914474236,
+            "details": {
+              "rawHtmlChars": 20971583,
+              "htmlChars": 20971583,
+              "blockCount": 0
+            }
+          },
+          {
+            "name": "markdown:worker-roundtrip",
+            "durationMs": 597.2999999998137,
+            "timestamp": 1786914474237,
+            "details": {
+              "markdownChars": 20971520
+            }
+          },
+          {
+            "name": "mermaid:patch",
+            "durationMs": 0.599999999627471,
+            "timestamp": 1786914478060,
+            "details": {
+              "candidateCount": 0,
+              "patchedCount": 0
+            }
+          },
+          {
+            "name": "preview:mount",
+            "durationMs": 9.5,
+            "timestamp": 1786914478069,
+            "details": {
+              "htmlChars": 20971583,
+              "nodeCount": 2,
+              "blockCount": 2,
+              "virtualBlockCount": 0,
+              "mountedVirtualBlockCount": 0,
+              "tableCount": 0,
+              "imageCount": 0,
+              "loadedImageCount": 0,
+              "codeBlockCount": 0,
+              "formulaCount": 0,
+              "displayFormulaCount": 0
+            }
+          },
+          {
+            "name": "preview:dom",
+            "durationMs": 0,
+            "timestamp": 1786914478069,
+            "details": {
+              "htmlChars": 20971583,
+              "nodeCount": 2,
+              "blockCount": 2,
+              "virtualBlockCount": 0,
+              "mountedVirtualBlockCount": 0,
+              "tableCount": 0,
+              "imageCount": 0,
+              "loadedImageCount": 0,
+              "codeBlockCount": 0,
+              "formulaCount": 0,
+              "displayFormulaCount": 0
+            }
+          },
+          {
+            "name": "renderer:memory",
+            "durationMs": 0,
+            "timestamp": 1786914478069,
+            "details": {
+              "usedJsHeapBytes": 10000000,
+              "totalJsHeapBytes": 17100000,
+              "jsHeapLimitBytes": 3760000000
+            }
+          }
+        ]
+      },
+      "main": {
+        "metrics": [
+          {
+            "name": "document:open",
+            "durationMs": 20.87790000000132,
+            "timestamp": 1786914472616,
+            "details": {
+              "sizeBytes": 20971520
+            }
+          },
+          {
+            "name": "main:memory:document-open",
+            "durationMs": 0,
+            "timestamp": 1786914472628,
+            "details": {
+              "privateBytes": 154411008,
+              "sharedBytes": 552960,
+              "residentSetBytes": 154812416
+            }
+          }
+        ]
+      }
+    },
+    "long-lines-50mb/open-preview": {
+      "renderer": {
+        "metrics": [
+          {
+            "name": "mermaid:patch",
+            "durationMs": 1.099999999627471,
+            "timestamp": 1786914479887,
+            "details": {
+              "candidateCount": 0,
+              "patchedCount": 0
+            }
+          },
+          {
+            "name": "preview:mount",
+            "durationMs": 8.599999999627471,
+            "timestamp": 1786914479894,
+            "details": {
+              "htmlChars": 0,
+              "nodeCount": 2,
+              "blockCount": 0,
+              "virtualBlockCount": 0,
+              "mountedVirtualBlockCount": 0,
+              "tableCount": 0,
+              "imageCount": 0,
+              "loadedImageCount": 0,
+              "codeBlockCount": 0,
+              "formulaCount": 0,
+              "displayFormulaCount": 0
+            }
+          },
+          {
+            "name": "preview:dom",
+            "durationMs": 0,
+            "timestamp": 1786914479894,
+            "details": {
+              "htmlChars": 0,
+              "nodeCount": 2,
+              "blockCount": 0,
+              "virtualBlockCount": 0,
+              "mountedVirtualBlockCount": 0,
+              "tableCount": 0,
+              "imageCount": 0,
+              "loadedImageCount": 0,
+              "codeBlockCount": 0,
+              "formulaCount": 0,
+              "displayFormulaCount": 0
+            }
+          },
+          {
+            "name": "renderer:memory",
+            "durationMs": 0,
+            "timestamp": 1786914479894,
+            "details": {
+              "usedJsHeapBytes": 10000000,
+              "totalJsHeapBytes": 17100000,
+              "jsHeapLimitBytes": 3760000000
+            }
+          },
+          {
+            "name": "markdown:parse",
+            "durationMs": 1708.9000000003725,
+            "timestamp": 1786914482924,
+            "details": {
+              "markdownChars": 52428800
+            }
+          },
+          {
+            "name": "markdown:outline",
+            "durationMs": 0,
+            "timestamp": 1786914482924,
+            "details": {
+              "headingCount": 1
+            }
+          },
+          {
+            "name": "markdown:render-html",
+            "durationMs": 5.5,
+            "timestamp": 1786914482924,
+            "details": {
+              "rawHtmlChars": 52429160
+            }
+          },
+          {
+            "name": "markdown:sanitize",
+            "durationMs": 426.59999999962747,
+            "timestamp": 1786914483351,
+            "details": {
+              "rawHtmlChars": 52429160,
+              "htmlChars": 52429160,
+              "blockCount": 51
+            }
+          },
+          {
+            "name": "markdown:worker-roundtrip",
+            "durationMs": 2266.0999999996275,
+            "timestamp": 1786914483351,
+            "details": {
+              "markdownChars": 52428800
+            }
+          },
+          {
+            "name": "mermaid:patch",
+            "durationMs": 125.5,
+            "timestamp": 1786914483480,
+            "details": {
+              "candidateCount": 0,
+              "patchedCount": 0
+            }
+          },
+          {
+            "name": "preview:mount",
+            "durationMs": 142.6000000005588,
+            "timestamp": 1786914483497,
+            "details": {
+              "htmlChars": 52429160,
+              "nodeCount": 6,
+              "blockCount": 2,
+              "virtualBlockCount": 51,
+              "mountedVirtualBlockCount": 2,
+              "tableCount": 0,
+              "imageCount": 0,
+              "loadedImageCount": 0,
+              "codeBlockCount": 0,
+              "formulaCount": 0,
+              "displayFormulaCount": 0
+            }
+          },
+          {
+            "name": "preview:dom",
+            "durationMs": 0,
+            "timestamp": 1786914483497,
+            "details": {
+              "htmlChars": 52429160,
+              "nodeCount": 6,
+              "blockCount": 2,
+              "virtualBlockCount": 51,
+              "mountedVirtualBlockCount": 2,
+              "tableCount": 0,
+              "imageCount": 0,
+              "loadedImageCount": 0,
+              "codeBlockCount": 0,
+              "formulaCount": 0,
+              "displayFormulaCount": 0
+            }
+          },
+          {
+            "name": "renderer:memory",
+            "durationMs": 0,
+            "timestamp": 1786914483497,
+            "details": {
+              "usedJsHeapBytes": 10000000,
+              "totalJsHeapBytes": 17100000,
+              "jsHeapLimitBytes": 3760000000
+            }
+          }
+        ]
+      },
+      "main": {
+        "metrics": [
+          {
+            "name": "document:open",
+            "durationMs": 43.6929999999993,
+            "timestamp": 1786914478642,
+            "details": {
+              "sizeBytes": 52428800
+            }
+          },
+          {
+            "name": "main:memory:document-open",
+            "durationMs": 0,
+            "timestamp": 1786914478676,
+            "details": {
+              "privateBytes": 262524928,
+              "sharedBytes": 552960,
+              "residentSetBytes": 215277568
+            }
+          }
+        ]
+      }
+    },
+    "long-lines-50mb/typing": {
+      "renderer": {
+        "metrics": [
+          {
+            "name": "markdown:outline",
+            "durationMs": 1756,
+            "timestamp": 1786914485859,
+            "details": {
+              "markdownChars": 52428800,
+              "headingCount": 1
+            }
+          }
+        ]
+      },
+      "main": {
+        "metrics": []
+      }
+    },
+    "rich-5mb/export-html": {
+      "renderer": {
+        "metrics": []
+      },
+      "main": {
+        "metrics": [
+          {
+            "name": "document:export",
+            "durationMs": 16.46150000000489,
+            "timestamp": 1786914537936,
+            "details": {
+              "htmlChars": 5253978
+            }
+          }
+        ]
+      }
+    },
+    "rich-5mb/export-pdf": {
+      "renderer": {
+        "metrics": []
+      },
+      "main": {
+        "metrics": [
+          {
+            "name": "export-window:mount",
+            "durationMs": 41.65660000000207,
+            "timestamp": 1786914537979,
+            "details": {
+              "htmlChars": 5253978
+            }
+          },
+          {
+            "name": "document:export",
+            "durationMs": 41.81819999999425,
+            "timestamp": 1786914537979,
+            "details": {
+              "htmlChars": 5253978
+            }
+          },
+          {
+            "name": "main:memory:document-export",
+            "durationMs": 0,
+            "timestamp": 1786914537979,
+            "details": {
+              "privateBytes": 91185152,
+              "sharedBytes": 552960,
+              "residentSetBytes": 118935552
+            }
+          }
+        ]
+      }
+    },
+    "rich-5mb/export-png": {
+      "renderer": {
+        "metrics": []
+      },
+      "main": {
+        "metrics": [
+          {
+            "name": "export-window:mount",
+            "durationMs": 38.71070000001055,
+            "timestamp": 1786914538020,
+            "details": {
+              "htmlChars": 5253978
+            }
+          },
+          {
+            "name": "document:export",
+            "durationMs": 38.87709999999788,
+            "timestamp": 1786914538020,
+            "details": {
+              "htmlChars": 5253978
+            }
+          }
+        ]
+      }
+    }
+  },
+  "referenceScenario": "rich-5mb/open-preview"
+}
