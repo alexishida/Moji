@@ -630,11 +630,19 @@ Aberto: busca, imagens lazy e outline seguem sem teste de componente. Os três d
 
 #### PERF-703 — Criar benchmark de regressão
 
-- [ ] Executar corpus definido em `PERF-001`.
-- [ ] Comparar com baseline versionado.
-- [ ] Falhar somente em regressão acima da tolerância definida.
-- [ ] Separar benchmark sensível de suíte unitária rápida quando necessário.
+- [x] Executar corpus definido em `PERF-001`.
+- [x] Comparar com baseline versionado.
+- [x] Falhar somente em regressão acima da tolerância definida.
+- [x] Separar benchmark sensível de suíte unitária rápida quando necessário.
 - [ ] Publicar resultado como artefato de CI.
+
+`scripts/compare-benchmark.cjs` traduz a "Política de regressão no CI" de `docs/performance-budget.md` em código, exposto como `npm run benchmark:compare`. O baseline é um despejo bruto de métricas, não o formato reduzido que o orçamento descreve, então os dois lados passam pela mesma função de agregação — mediana por métrica, maior valor de memória entre os processos — e a comparação nunca depende de como o runner por acaso gravou.
+
+Duas regras precisavam ser explícitas para o gate valer alguma coisa. Falha exige ultrapassar o limite absoluto **e** a tolerância relativa, porque cada um sozinho é ruído ou custo já aceito: ficar 5× mais lento e ainda muito abaixo do orçamento não é regressão, e um baseline que já estava acima do orçamento não deve reprovar todo commit seguinte. Medições curtas ganham margem fixa de 10 ms antes de o percentual valer, senão oscilação de relógio reprova sozinha. Métrica ausente é reportada como não comparada, nunca convertida em aprovação — que é o que a política chama de erro de infraestrutura.
+
+Onze testes cobrem o agregador e cada braço da decisão. Rodar o comparador contra o próprio baseline aprova e revela uma lacuna real: `editor:transaction-to-frame` não existe em `baseline-v1.json`, embora o orçamento defina limite para ele, e a memória do cenário de exportação PNG também não foi registrada. Os dois limites só passam a valer depois que uma nova captura incluir essas métricas.
+
+Aberto: publicação como artefato depende de haver CI, o que está em `PERF-704`.
 
 #### PERF-704 — Tornar build verificável
 
