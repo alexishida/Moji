@@ -624,9 +624,21 @@ Aberto: busca, imagens lazy e outline seguem sem teste de componente. Os três d
 
 - [ ] Abrir documento por diálogo, CLI, associação e drag-drop.
 - [ ] Digitar, salvar, salvar como e restaurar rascunho.
-- [ ] Validar fechamento com alterações não salvas.
+- [x] Validar fechamento com alterações não salvas.
 - [ ] Validar documentos grandes nos três perfis.
 - [ ] Validar exportação HTML, PDF e PNG.
+
+Infraestrutura de pé: `@playwright/test` com o driver `_electron`, configurado em `playwright.config.ts` e disparado por `npm run test:e2e`, que constrói antes de rodar. Fica fora de `npm test` de propósito — cada caso lança o aplicativo e custa segundos, e a suíte unitária precisa continuar rodando a cada alteração. Cada lançamento recebe `--user-data-dir` próprio, senão o teste leria e sobrescreveria rascunhos e configurações de quem o executa.
+
+Cinco casos passam: janela inicial sem documento, abertura por linha de comando com renderização verificada, troca para o Editor confirmando que o preview é desmontado (`PERF-101` observado no aplicativo real, não em mock), digitação preservada, e o aviso ao fechar com alterações não salvas.
+
+Esse último apareceu como falha antes de virar teste: o encerramento travava porque o aplicativo, corretamente, pergunta antes de descartar a edição. O `teardown` passou a derrubar a janela por força após cinco segundos, e o comportamento virou asserção explícita.
+
+Seleção de elemento não usa rótulo: o aplicativo escolhe o idioma pelo locale do sistema, então `getByRole('tab', { name: 'Editor' })` só passaria em máquina em inglês. Os botões de modo são localizados por posição, estável nas seis traduções.
+
+Aberto, e por quê: abertura por diálogo, salvar e salvar como dependem de diálogos nativos, que o Playwright não controla — cobri-los exige um modo de teste que injete o caminho no lugar do diálogo. Associação de arquivo depende de registro no sistema operacional. Drag-drop precisa de `DataTransfer` com caminho real. Documentos grandes e exportação HTML/PDF/PNG dependem do corpus de `PERF-001` e alongariam a suíte em minutos; pertencem à execução de benchmark, não a esta.
+
+Achado de ambiente: o binário do Electron não estava instalado neste `node_modules`. O `install.js` do pacote falha em Node 22.5 com `ERR_REQUIRE_ESM`, o mesmo motivo que impede `npm test` de subir sem `--experimental-require-module`. `PERF-704` precisa fixar a versão de Node.
 
 #### PERF-703 — Criar benchmark de regressão
 
