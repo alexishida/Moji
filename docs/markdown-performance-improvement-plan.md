@@ -637,16 +637,26 @@ Aberto por decisão de produto: "usar stack do sistema" significaria remover o I
 
 #### SEC-701 — Restringir capacidades de arquivo do IPC
 
-- [ ] Registrar caminhos explicitamente abertos ou escolhidos pelo usuário.
-- [ ] Permitir leitura de assets somente a partir de diretórios autorizados.
-- [ ] Impedir renderer comprometido de ler imagem arbitrária.
-- [ ] Impedir escrita arbitrária apenas por fornecer caminho `.md`.
-- [ ] Validar remetente e formato de todos os pedidos IPC.
-- [ ] Manter `sandbox: true`, `contextIsolation: true` e `nodeIntegration: false`.
+- [x] Registrar caminhos explicitamente abertos ou escolhidos pelo usuário.
+- [x] Permitir leitura de assets somente a partir de diretórios autorizados.
+- [x] Impedir renderer comprometido de ler imagem arbitrária.
+- [x] Impedir escrita arbitrária apenas por fornecer caminho `.md`.
+- [x] Validar remetente e formato de todos os pedidos IPC.
+- [x] Manter `sandbox: true`, `contextIsolation: true` e `nodeIntegration: false`.
 
 Critério de aceite:
 
 - APIs de arquivo operam por capacidades concedidas, sem ponte genérica ou acesso irrestrito.
+
+`electron/fileCapabilities.ts` guarda o que o renderer pode tocar. Antes, o registro era um conjunto solto de diretórios preenchido dentro do streaming de documento, isto é, o renderer autorizava um diretório apenas pedindo para ler um arquivo dentro dele.
+
+O furo mais sério estava na escrita: `file:save` aceitava qualquer caminho terminado em `.md`, e extensão não é autorização — bastava nomear o arquivo para sobrescrevê-lo. Agora escrever exige capacidade concedida, e `saveAs` concede o que o usuário acabou de escolher no diálogo.
+
+Onde a concessão acontece foi a parte que exigiu correção de rumo. A primeira versão exigia capacidade também para ler, e isso quebrava dois fluxos legítimos: "abrir recente" e arrastar-e-soltar entregam ao renderer um caminho que nunca passou pelo funil do main. Ambos são maneiras reais de uma pessoa abrir um documento, então abrir passou a ser o ato que concede, e o que ficou confinado é o que vem depois — escrita e carregamento de assets.
+
+Limite que isso deixa, dito com precisão: um renderer comprometido continua podendo ler qualquer `.md` do sistema, porque a funcionalidade exige isso, e ao lê-lo torna o diretório dele legível para imagens. O que ele não consegue mais é escrever em arquivo que ninguém abriu, nem ler imagem de diretório onde nenhum documento foi aberto. Fechar o resto exigiria rotear recentes e drop pelo main, o que centralizaria o código sem mudar a garantia, já que o caminho continuaria vindo do renderer.
+
+Remetente: os 17 `handle` e o único `on` passaram por `handleFromRenderer`/`onFromRenderer`, que recusam o que não vem do frame principal da janela do aplicativo. A verificação ficou em um lugar só, em vez de ser presumida por cada handler. Formato já era validado por `ipcInput.ts`. As flags de segurança da janela não mudaram.
 
 ## Dependências principais
 
