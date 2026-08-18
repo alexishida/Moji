@@ -454,14 +454,24 @@ O temporário é removido em qualquer saída — sucesso, falha de renderizaçã
 
 #### PERF-502 — Mover encoder PNG para worker
 
-- [ ] Mover conversão BGRA→RGBA para worker ou utility process.
-- [ ] Manter main process responsivo durante exportação.
-- [ ] Preservar alpha, ordem das fatias e CRC válido.
-- [ ] Tratar cancelamento e falha do worker.
+- [x] Mover conversão BGRA→RGBA para worker ou utility process.
+- [x] Manter main process responsivo durante exportação.
+- [x] Preservar alpha, ordem das fatias e CRC válido.
+- [x] Tratar cancelamento e falha do worker.
 
 Critério de aceite:
 
 - Exportar PNG longo não congela janela principal.
+
+Escolha de mecanismo: `worker_threads`, não `utilityProcess`. O deflate já roda no thread pool do libuv e nunca bloqueou; o que bloqueava era só o laço de pixels, e uma thread no mesmo processo permite entregar os bytes por `postMessage` sem atravessar um pipe. `electron/pngScanlines.ts` isola o laço, `electron/pngWorker.ts` é a entrada da thread e `electron/pngScanlineConverter.ts` é o cliente.
+
+O laço não é opcional, então toda falha degrada em vez de propagar: worker que não inicia, worker que responde com erro e worker que morre no meio levam a conversão de volta para a thread chamadora. Uma exportação que não produz arquivo seria pior que uma que trava por um instante.
+
+Isso decidiu a questão de copiar ou transferir. Transferir o bitmap capturado evitaria a cópia, mas o desanexa: se o worker morresse em seguida, o fallback leria um buffer vazio e gravaria uma faixa preta sem erro algum. A fatia é copiada, o `memcpy` custa muito menos que o laço que ele protege, e o teste confirma que o chamador continua com seus bytes depois da conversão. Outro teste compara a saída do worker com a da conversão local byte a byte.
+
+Empacotamento: o build do main deixou o modo `lib` e passou a declarar dois entries, de modo que `out/main/pngWorker.js` fica ao lado de `main.js` e `new Worker` o encontra por `__dirname`. `out/**/*` já entra no pacote, então `electron-builder.yml` não mudou. O bundle do main cresceu 2 KB.
+
+Não medido: a responsividade da janela durante uma exportação longa foi obtida por construção, não por captura. Falta uma medição com aplicativo empacotado, junto de `PERF-504`.
 
 #### PERF-503 — Escrever PNG em streaming
 
