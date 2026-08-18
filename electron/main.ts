@@ -26,7 +26,7 @@ import { isDraftPersistError } from './draftCapacity'
 import { areDraftEditBatches } from './draftJournal'
 import { assetContentType, assetPathFromUrl, authorizedAsset } from './assetPaths'
 import { isMarkdown, sanitizeDraft, sanitizeSettingsPatch, suggestedMarkdownName } from './ipcInput'
-import { exportDiagramPng, exportDocument } from './export'
+import { cancelExport, exportDiagramPng, exportDocument } from './export'
 import { benchmarkRequested, recordBenchmark } from './benchmark'
 import { createUpdateController, type UpdateController } from './updater'
 import { mapWithConcurrency } from './openPool'
@@ -607,7 +607,12 @@ function registerIpc(): void {
     }
   })
 
-  ipcMain.handle(IPC.export, (_e, request: unknown): Promise<WriteResult> => exportDocument(request))
+  ipcMain.handle(IPC.export, (event, request: unknown): Promise<WriteResult> =>
+    exportDocument(request, (progress) => {
+      if (!event.sender.isDestroyed()) event.sender.send(IPC.exportProgress, progress)
+    })
+  )
+  ipcMain.handle(IPC.cancelExport, (): void => cancelExport())
   ipcMain.handle(IPC.exportDiagramPng, (_e, request: unknown): Promise<WriteResult> => exportDiagramPng(request))
 
   ipcMain.handle(IPC.getUpdateState, (): UpdateState => updateController?.getState() ?? unavailableUpdateState())

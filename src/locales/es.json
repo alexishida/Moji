@@ -148,16 +148,16 @@
     "title": "Exportar documento",
     "format": "Formato",
     "settings": "Ajustes",
-    "pageSize": "Tama\u00f1o de p\u00e1gina",
-    "orientation": "Orientaci\u00f3n",
+    "pageSize": "Tamaño de página",
+    "orientation": "Orientación",
     "portrait": "Vertical",
     "landscape": "Horizontal",
     "pdfTitle": "Exportar como PDF",
-    "pdfDescription": "Ideal para imprimir y compartir dise\u00f1os exactos.",
+    "pdfDescription": "Ideal para imprimir y compartir diseños exactos.",
     "htmlTitle": "Exportar como HTML",
-    "htmlDescription": "Mejor para publicaci\u00f3n web e incrustaci\u00f3n.",
+    "htmlDescription": "Mejor para publicación web e incrustación.",
     "pngTitle": "Exportar como PNG",
-    "pngDescription": "Imagen de alta resoluci\u00f3n del contenido del documento.",
+    "pngDescription": "Imagen de alta resolución del contenido del documento.",
     "export": "Exportar"
   },
   "settingsDialog": {
@@ -243,6 +243,19 @@
     "count": "{{completed}} de {{total}} abiertos",
     "cancel": "Cancelar",
     "canceling": "Cancelando…"
+  },
+  "exportProgress": {
+    "title": "Exportando…",
+    "slice": "{{phase}} — {{slice}} de {{slices}}",
+    "cancel": "Cancelar",
+    "canceling": "Cancelando…",
+    "phase": {
+      "render": "Renderizando la página…",
+      "fonts": "Cargando fuentes…",
+      "capture": "Capturando la página…",
+      "compress": "Comprimiendo la imagen…",
+      "write": "Escribiendo el archivo…"
+    }
   },
   "notice": {
     "unsupported": "Tipo de archivo no compatible. Solo se pueden abrir archivos .md y .markdown.",

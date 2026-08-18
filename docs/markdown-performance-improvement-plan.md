@@ -495,11 +495,19 @@ Dependência: pode ser feita junto de `PERF-502`.
 
 #### PERF-504 — Adicionar progresso e cancelamento
 
-- [ ] Reportar fase: render, fontes, captura, compressão e escrita.
-- [ ] Reportar fatia atual/total no PNG.
-- [ ] Permitir cancelamento seguro.
-- [ ] Remover arquivo parcial após cancelamento.
-- [ ] Não permitir duas exportações pesadas simultâneas sem controle.
+- [x] Reportar fase: render, fontes, captura, compressão e escrita.
+- [x] Reportar fatia atual/total no PNG.
+- [x] Permitir cancelamento seguro.
+- [x] Remover arquivo parcial após cancelamento.
+- [x] Não permitir duas exportações pesadas simultâneas sem controle.
+
+A exportação passou a ser uma sessão. `doc:export-progress` empurra `{ phase, slice, slices }` ao renderer e `doc:export-cancel` pede parada, seguindo o mesmo par de canais que `PERF-402` já usava para abertura múltipla. `ExportProgress.tsx` mostra a fase e, quando há mais de uma fatia, a contagem e a barra.
+
+"Cancelamento seguro" definiu onde ele pode acontecer. A sessão não interrompe trabalho em andamento: ela marca a intenção, e `checkpoint()` lança em pontos onde nada está pela metade — antes de carregar a página, depois das fontes, entre fatias e antes de fechar o arquivo. No meio de uma fatia o arquivo teria linhas incompletas, então o cancelamento espera a fatia terminar. O parcial some por dois caminhos: o PNG por `writer.abort()`, que já removia seu `.tmp`; HTML e PDF por `unlink` do destino, já que ambos são escritos em uma chamada só.
+
+Exportação simultânea é recusada, não enfileirada: cada uma segura uma janela oculta, um pipeline de captura e uma thread, e duas ao mesmo tempo tornariam o progresso exibido ambíguo. A sessão abre antes do diálogo de salvar, de modo que um segundo pedido enquanto o usuário ainda escolhe o destino também é recusado.
+
+Não validado em execução: a UI de progresso tem cobertura de tipo e build, mas não foi exercitada com o aplicativo aberto. As fases, a contagem de fatias, a recusa de concorrência e os dois caminhos de limpeza têm teste.
 
 #### PERF-505 — Substituir esperas fixas por confirmação de pintura
 

@@ -244,6 +244,19 @@
     "cancel": "取消",
     "canceling": "正在取消…"
   },
+  "exportProgress": {
+    "title": "正在导出…",
+    "slice": "{{phase}} — 第 {{slice}} / {{slices}} 部分",
+    "cancel": "取消",
+    "canceling": "正在取消…",
+    "phase": {
+      "render": "正在渲染页面…",
+      "fonts": "正在加载字体…",
+      "capture": "正在捕获页面…",
+      "compress": "正在压缩图像…",
+      "write": "正在写入文件…"
+    }
+  },
   "notice": {
     "unsupported": "不支持的文件类型。只能打开 .md 和 .markdown 文件。",
     "exportSuccess": "已导出到 {{path}}",

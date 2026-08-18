@@ -244,6 +244,19 @@
     "cancel": "Отмена",
     "canceling": "Отмена…"
   },
+  "exportProgress": {
+    "title": "Экспорт…",
+    "slice": "{{phase}} — {{slice}} из {{slices}}",
+    "cancel": "Отмена",
+    "canceling": "Отмена…",
+    "phase": {
+      "render": "Отрисовка страницы…",
+      "fonts": "Загрузка шрифтов…",
+      "capture": "Захват страницы…",
+      "compress": "Сжатие изображения…",
+      "write": "Запись файла…"
+    }
+  },
   "notice": {
     "unsupported": "Неподдерживаемый тип файла. Можно открывать только файлы .md и .markdown.",
     "exportSuccess": "Экспортировано в {{path}}",

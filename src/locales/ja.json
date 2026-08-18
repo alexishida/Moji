@@ -244,6 +244,19 @@
     "cancel": "キャンセル",
     "canceling": "キャンセル中…"
   },
+  "exportProgress": {
+    "title": "エクスポート中…",
+    "slice": "{{phase}} — {{slices}} 中 {{slice}}",
+    "cancel": "キャンセル",
+    "canceling": "キャンセル中…",
+    "phase": {
+      "render": "ページを描画中…",
+      "fonts": "フォントを読み込み中…",
+      "capture": "ページをキャプチャ中…",
+      "compress": "画像を圧縮中…",
+      "write": "ファイルを書き込み中…"
+    }
+  },
   "notice": {
     "unsupported": "未対応のファイル形式です。.md と .markdown ファイルのみ開けます。",
     "exportSuccess": "{{path}} にエクスポートしました",

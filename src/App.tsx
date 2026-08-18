@@ -12,6 +12,7 @@ import type { EditorDocumentStats, EditorHandle, EditorIdleStats } from './compo
 import { SettingsDialog } from './components/SettingsDialog'
 import { AboutDialog } from './components/AboutDialog'
 import { UpdateNotice } from './components/UpdateNotice'
+import { ExportProgress } from './components/ExportProgress'
 import { OpenProgress } from './components/OpenProgress'
 import {
   documentAssetBaseUrl,
@@ -36,6 +37,7 @@ import {
   type DocumentSizeProfile,
   type DraftEditPayload,
   type ExportFormat,
+  type ExportProgress as ExportProgressState,
   type Settings,
 } from '../electron/shared'
 import packageJson from '../package.json'
@@ -162,6 +164,7 @@ export function App(): JSX.Element {
   const dragDepth = useRef(0)
   const [notice, setNotice] = useState<{ text: string; error?: boolean } | null>(null)
   const [openProgress, setOpenProgress] = useState<{ completed: number; total: number; canceling: boolean } | null>(null)
+  const [exportProgress, setExportProgress] = useState<{ progress: ExportProgressState; canceling: boolean } | null>(null)
   const openSessionRef = useRef<{ sessionId: string; showProgress: boolean; paths: string[] } | null>(null)
   const { updateState, setUpdateState, dismissedUpdate, setDismissedUpdate } = useUpdateState()
   const [activeHeadingId, setActiveHeadingId] = useState<string | null>(null)
@@ -745,6 +748,11 @@ export function App(): JSX.Element {
     setOpenProgress(showProgress ? { completed: 0, total: res.total, canceling: false } : null)
   }, [flash, materializeEditorContent, t])
 
+  const cancelExport = useCallback(() => {
+    setExportProgress((prev) => (prev ? { ...prev, canceling: true } : prev))
+    void window.api.cancelExport()
+  }, [])
+
   const cancelOpenMany = useCallback(() => {
     const session = openSessionRef.current
     if (!session) return
@@ -814,16 +822,21 @@ export function App(): JSX.Element {
         lineHeight: settings.previewLineHeight
       })
       const base = name.replace(/\.[^.]+$/, '')
-      const res = await window.api.exportAs({
-        format,
-        pageSize,
-        pageOrientation,
-        html: doc,
-        assetBaseUrl: documentAssetBaseUrl(s.activeDoc.path) ?? undefined,
-        baseName: base
-      })
-      if (res.ok) flash(t('notice.exportSuccess', { path: res.path }))
-      else if (!res.canceled) flash(t('notice.exportFailed', { error: res.error }), true)
+      setExportProgress({ progress: { phase: 'render' }, canceling: false })
+      try {
+        const res = await window.api.exportAs({
+          format,
+          pageSize,
+          pageOrientation,
+          html: doc,
+          assetBaseUrl: documentAssetBaseUrl(s.activeDoc.path) ?? undefined,
+          baseName: base
+        })
+        if (res.ok) flash(t('notice.exportSuccess', { path: res.path }))
+        else if (!res.canceled) flash(t('notice.exportFailed', { error: res.error }), true)
+      } finally {
+        setExportProgress(null)
+      }
     },
     [flash, materializeEditorContent, settings.previewFontFamily, settings.previewFontSize, settings.previewLineHeight, t]
   )
@@ -1375,6 +1388,10 @@ export function App(): JSX.Element {
         setOpenProgress((prev) => (prev ? { ...prev, completed: progress.completed, total: progress.total } : prev))
       }
     })
+    const offExport = window.api.onExportProgress((progress) => {
+      // Only decorate a run this window started; the export owns its own lifetime.
+      setExportProgress((prev) => (prev ? { ...prev, progress } : prev))
+    })
     const offDone = window.api.onOpenManyDone((done) => {
       const session = openSessionRef.current
       if (!session || session.sessionId !== done.sessionId) return
@@ -1384,6 +1401,7 @@ export function App(): JSX.Element {
       if (done.errors.length > 0) flash(t('notice.openFailed', { error: done.errors[0] }), true)
     })
     return () => {
+      offExport()
       offClose()
       offDoc()
       offProgress()
@@ -1572,6 +1590,13 @@ export function App(): JSX.Element {
           state={updateState}
           onDismiss={() => setDismissedUpdate(updateKey)}
           onRetry={checkForUpdate}
+        />
+      )}
+      {exportProgress && (
+        <ExportProgress
+          progress={exportProgress.progress}
+          canceling={exportProgress.canceling}
+          onCancel={cancelExport}
         />
       )}
       {openProgress && (
