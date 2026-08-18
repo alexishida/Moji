@@ -28,8 +28,11 @@ export interface LaunchedApp {
  */
 export async function launchApp(extraArgs: string[] = []): Promise<LaunchedApp> {
   const userDataDirectory = await mkdtemp(join(tmpdir(), 'moji-e2e-'))
+  // The switch has to precede the app path: Electron reads what comes before it as
+  // Chromium switches and hands the rest to the application. Placed after, it was passed
+  // through as an argument and the tests silently ran against the real user profile.
   const app = await electron.launch({
-    args: ['out/main/main.js', `--user-data-dir=${userDataDirectory}`, ...extraArgs]
+    args: [`--user-data-dir=${userDataDirectory}`, 'out/main/main.js', ...extraArgs]
   })
   const window = await app.firstWindow()
   await window.waitForLoadState('domcontentloaded')
