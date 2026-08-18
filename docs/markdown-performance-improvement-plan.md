@@ -634,6 +634,8 @@ Cinco casos passam: janela inicial sem documento, abertura por linha de comando 
 
 Esse último apareceu como falha antes de virar teste: o encerramento travava porque o aplicativo, corretamente, pergunta antes de descartar a edição. O `teardown` passou a derrubar a janela por força após cinco segundos, e o comportamento virou asserção explícita.
 
+Isolamento de perfil exigiu duas correções. O switch `--user-data-dir` vinha depois do caminho do aplicativo, onde o Electron o repassa como argumento em vez de tratá-lo como switch do Chromium, e os testes rodavam contra o perfil real de quem os executasse. Movido para antes, ainda não bastava: `main.ts` chamava `app.setPath('userData', …)` incondicionalmente e sobrescrevia o switch. Passou a respeitá-lo quando presente, o que não muda nada no uso normal, onde ele não existe.
+
 Seleção de elemento não usa rótulo: o aplicativo escolhe o idioma pelo locale do sistema, então `getByRole('tab', { name: 'Editor' })` só passaria em máquina em inglês. Os botões de modo são localizados por posição, estável nas seis traduções.
 
 Aberto, e por quê: abertura por diálogo, salvar e salvar como dependem de diálogos nativos, que o Playwright não controla — cobri-los exige um modo de teste que injete o caminho no lugar do diálogo. Associação de arquivo depende de registro no sistema operacional. Drag-drop precisa de `DataTransfer` com caminho real. Documentos grandes e exportação HTML/PDF/PNG dependem do corpus de `PERF-001` e alongariam a suíte em minutos; pertencem à execução de benchmark, não a esta.

@@ -66,7 +66,13 @@ if (process.platform === 'linux') {
  */
 const SETTINGS_DIRECTORY = 'moji'
 app.setName('Moji')
-app.setPath('userData', join(app.getPath('appData'), SETTINGS_DIRECTORY))
+// `--user-data-dir` is Chromium's own switch for pointing an instance at a different
+// profile, and pinning the path unconditionally silently overrode it. Honouring it costs
+// nothing in normal use, where the switch is absent, and it is what lets a test run
+// against a throwaway profile instead of the one belonging to whoever runs it.
+if (!process.argv.some((arg) => arg.startsWith('--user-data-dir='))) {
+  app.setPath('userData', join(app.getPath('appData'), SETTINGS_DIRECTORY))
+}
 
 const NORMAL_DOCUMENT_SIZE_LIMIT = 5 * 1024 * 1024
 const LARGE_DOCUMENT_SIZE_LIMIT = 20 * 1024 * 1024
