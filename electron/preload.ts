@@ -8,6 +8,7 @@ import {
   type DocumentStreamMessage,
   type DraftAppendResult,
   type DraftEditPayload,
+  type ExportProgress,
   type ExportRequest,
   type OpenDialogResult,
   type OpenManyDone,
@@ -89,6 +90,7 @@ const api = {
   saveAs: (content: string, suggestedName?: string): Promise<WriteResult> =>
     ipcRenderer.invoke(IPC.saveAs, content, suggestedName),
   exportAs: (request: ExportRequest): Promise<WriteResult> => ipcRenderer.invoke(IPC.export, request),
+  cancelExport: (): Promise<void> => ipcRenderer.invoke(IPC.cancelExport),
   exportDiagramPng: (request: DiagramPngRequest): Promise<WriteResult> =>
     ipcRenderer.invoke(IPC.exportDiagramPng, request),
   confirmClose: (shouldClose: boolean): Promise<void> => ipcRenderer.invoke(IPC.confirmClose, shouldClose),
@@ -103,6 +105,11 @@ const api = {
     const listener = (_e: unknown, doc: DocumentMetadata): void => cb(doc)
     ipcRenderer.on(IPC.openDocument, listener)
     return () => ipcRenderer.removeListener(IPC.openDocument, listener)
+  },
+  onExportProgress: (cb: (progress: ExportProgress) => void): (() => void) => {
+    const listener = (_e: unknown, progress: ExportProgress): void => cb(progress)
+    ipcRenderer.on(IPC.exportProgress, listener)
+    return () => ipcRenderer.removeListener(IPC.exportProgress, listener)
   },
   onOpenManyProgress: (cb: (progress: OpenManyProgress) => void): (() => void) => {
     const listener = (_e: unknown, progress: OpenManyProgress): void => cb(progress)

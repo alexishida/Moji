@@ -143,6 +143,16 @@ export interface OpenManyDone {
 }
 
 /** Result of a write-style operation (save / export). */
+/** Stages an export passes through, in the order the user sees them. */
+export type ExportPhase = 'render' | 'fonts' | 'capture' | 'compress' | 'write'
+
+export interface ExportProgress {
+  phase: ExportPhase
+  /** PNG only: the slice being captured, 1-based, and how many there are in total. */
+  slice?: number
+  slices?: number
+}
+
 export type WriteResult =
   | { ok: true; path: string }
   | { ok: false; canceled?: boolean; error?: string }
@@ -216,6 +226,7 @@ export const IPC = {
   save: 'file:save',
   saveAs: 'file:save-as',
   export: 'doc:export',
+  cancelExport: 'doc:export-cancel',
   exportDiagramPng: 'diagram:export-png',
   getSettings: 'settings:get',
   setSettings: 'settings:set',
@@ -230,6 +241,7 @@ export const IPC = {
   // main -> renderer push channels
   requestClose: 'app:request-close',
   openDocument: 'doc:open',
+  exportProgress: 'doc:export-progress',
   openManyProgress: 'file:open-many-progress',
   openManyDone: 'file:open-many-done',
   updateState: 'update:state'

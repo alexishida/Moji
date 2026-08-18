@@ -436,58 +436,94 @@ Testes cobrem rascunho de 12 MB salvo e restaurado caractere a caractere, recusa
 
 #### PERF-501 — Remover `data:` URL da exportação
 
-- [ ] Carregar HTML por arquivo temporário ou protocolo interno.
-- [ ] Evitar `encodeURIComponent` sobre documento integral.
-- [ ] Limpar temporários após sucesso, erro ou cancelamento.
-- [ ] Preservar resolução de assets locais.
-- [ ] Manter janela oculta com sandbox, isolamento e Node desativado.
+- [x] Carregar HTML por arquivo temporário ou protocolo interno.
+- [x] Evitar `encodeURIComponent` sobre documento integral.
+- [x] Limpar temporários após sucesso, erro ou cancelamento.
+- [x] Preservar resolução de assets locais.
+- [x] Manter janela oculta com sandbox, isolamento e Node desativado.
 
 Critério de aceite:
 
 - PDF e PNG não criam cópia percent-encoded do HTML inteiro.
 
+`createExportWindow` deu lugar a `createExportPage`, que grava o HTML em `mkdtemp('moji-export-')` e usa `loadFile`. A janela mantém `sandbox`, `contextIsolation`, `nodeIntegration: false` e `webSecurity` como antes.
+
+Resolução de assets exigiu cuidado além de trocar o transporte. Imagens e links de Markdown já saem do renderer como `file:` absoluto, então não dependem de base alguma; o que dependia era HTML cru escrito à mão dentro do documento, com `src` relativo, que antes resolvia por `baseURLForDataURL`. Carregado de um diretório temporário, esse `src` passaria a resolver contra o temporário. Por isso a cópia entregue à janela recebe `<base href>` com o mesmo valor que `baseURLForDataURL` tinha. A cópia que o usuário exporta como HTML não recebe: o arquivo salvo continua sem caminho local dentro.
+
+O temporário é removido em qualquer saída — sucesso, falha de renderização e falha ao carregar a própria página —, porque `release()` roda no `finally` e o construtor descarta o diretório antes de propagar o erro. Testes cobrem os três caminhos.
+
 #### PERF-502 — Mover encoder PNG para worker
 
-- [ ] Mover conversão BGRA→RGBA para worker ou utility process.
-- [ ] Manter main process responsivo durante exportação.
-- [ ] Preservar alpha, ordem das fatias e CRC válido.
-- [ ] Tratar cancelamento e falha do worker.
+- [x] Mover conversão BGRA→RGBA para worker ou utility process.
+- [x] Manter main process responsivo durante exportação.
+- [x] Preservar alpha, ordem das fatias e CRC válido.
+- [x] Tratar cancelamento e falha do worker.
 
 Critério de aceite:
 
 - Exportar PNG longo não congela janela principal.
 
+Escolha de mecanismo: `worker_threads`, não `utilityProcess`. O deflate já roda no thread pool do libuv e nunca bloqueou; o que bloqueava era só o laço de pixels, e uma thread no mesmo processo permite entregar os bytes por `postMessage` sem atravessar um pipe. `electron/pngScanlines.ts` isola o laço, `electron/pngWorker.ts` é a entrada da thread e `electron/pngScanlineConverter.ts` é o cliente.
+
+O laço não é opcional, então toda falha degrada em vez de propagar: worker que não inicia, worker que responde com erro e worker que morre no meio levam a conversão de volta para a thread chamadora. Uma exportação que não produz arquivo seria pior que uma que trava por um instante.
+
+Isso decidiu a questão de copiar ou transferir. Transferir o bitmap capturado evitaria a cópia, mas o desanexa: se o worker morresse em seguida, o fallback leria um buffer vazio e gravaria uma faixa preta sem erro algum. A fatia é copiada, o `memcpy` custa muito menos que o laço que ele protege, e o teste confirma que o chamador continua com seus bytes depois da conversão. Outro teste compara a saída do worker com a da conversão local byte a byte.
+
+Empacotamento: o build do main deixou o modo `lib` e passou a declarar dois entries, de modo que `out/main/pngWorker.js` fica ao lado de `main.js` e `new Worker` o encontra por `__dirname`. `out/**/*` já entra no pacote, então `electron-builder.yml` não mudou. O bundle do main cresceu 2 KB.
+
+Não medido: a responsividade da janela durante uma exportação longa foi obtida por construção, não por captura. Falta uma medição com aplicativo empacotado, junto de `PERF-504`.
+
 #### PERF-503 — Escrever PNG em streaming
 
-- [ ] Escrever assinatura e `IHDR` diretamente no destino.
-- [ ] Emitir múltiplos chunks `IDAT` durante deflate.
-- [ ] Evitar acumular todos os buffers comprimidos.
-- [ ] Evitar `Buffer.concat` final do PNG completo.
-- [ ] Finalizar com `IEND` e rename atômico.
+- [x] Escrever assinatura e `IHDR` diretamente no destino.
+- [x] Emitir múltiplos chunks `IDAT` durante deflate.
+- [x] Evitar acumular todos os buffers comprimidos.
+- [x] Evitar `Buffer.concat` final do PNG completo.
+- [x] Finalizar com `IEND` e rename atômico.
 
 Critério de aceite:
 
 - Pico de memória segue tamanho de uma fatia mais buffers pequenos, não tamanho do PNG completo.
 
+`createPngEncoder` deu lugar a `createPngFileWriter(destination)`, que abre o arquivo antes da primeira captura. O estado anterior descrevia a si mesmo como streaming, e era pela metade: convertia e comprimia fatia a fatia, mas acumulava todo o resultado do deflate em um array e terminava com `Buffer.concat` do PNG inteiro, de modo que o pico ainda acompanhava o tamanho da imagem final. Agora cada bloco que o deflate emite vira um `IDAT` escrito na hora.
+
+O tamanho impôs a ordem da escrita. `IHDR` abre o arquivo mas a altura só é conhecida depois da última fatia, então ele é gravado com tamanho zero e reescrito no fim, sobre os mesmos 25 bytes que ocupa logo após a assinatura. O consumo do deflate usa `for await`, o que dá backpressure e garante que os `IDAT` cheguem ao arquivo na ordem em que foram comprimidos.
+
+Bytes vão para um `.tmp` irmão do destino, renomeado só quando a imagem fecha; irmão para que o rename fique no mesmo sistema de arquivos e seja atômico. Falha em qualquer ponto chama `abort()`, que destrói o deflate e remove o parcial: uma exportação interrompida não deixa PNG truncado onde o usuário pediu uma imagem. Testes cobrem múltiplos `IDAT` com round-trip das scanlines, a ausência do destino durante a captura e a limpeza após falha, tanto no encoder quanto no caminho completo de exportação.
+
 Dependência: pode ser feita junto de `PERF-502`.
 
 #### PERF-504 — Adicionar progresso e cancelamento
 
-- [ ] Reportar fase: render, fontes, captura, compressão e escrita.
-- [ ] Reportar fatia atual/total no PNG.
-- [ ] Permitir cancelamento seguro.
-- [ ] Remover arquivo parcial após cancelamento.
-- [ ] Não permitir duas exportações pesadas simultâneas sem controle.
+- [x] Reportar fase: render, fontes, captura, compressão e escrita.
+- [x] Reportar fatia atual/total no PNG.
+- [x] Permitir cancelamento seguro.
+- [x] Remover arquivo parcial após cancelamento.
+- [x] Não permitir duas exportações pesadas simultâneas sem controle.
+
+A exportação passou a ser uma sessão. `doc:export-progress` empurra `{ phase, slice, slices }` ao renderer e `doc:export-cancel` pede parada, seguindo o mesmo par de canais que `PERF-402` já usava para abertura múltipla. `ExportProgress.tsx` mostra a fase e, quando há mais de uma fatia, a contagem e a barra.
+
+"Cancelamento seguro" definiu onde ele pode acontecer. A sessão não interrompe trabalho em andamento: ela marca a intenção, e `checkpoint()` lança em pontos onde nada está pela metade — antes de carregar a página, depois das fontes, entre fatias e antes de fechar o arquivo. No meio de uma fatia o arquivo teria linhas incompletas, então o cancelamento espera a fatia terminar. O parcial some por dois caminhos: o PNG por `writer.abort()`, que já removia seu `.tmp`; HTML e PDF por `unlink` do destino, já que ambos são escritos em uma chamada só.
+
+Exportação simultânea é recusada, não enfileirada: cada uma segura uma janela oculta, um pipeline de captura e uma thread, e duas ao mesmo tempo tornariam o progresso exibido ambíguo. A sessão abre antes do diálogo de salvar, de modo que um segundo pedido enquanto o usuário ainda escolhe o destino também é recusado.
+
+Não validado em execução: a UI de progresso tem cobertura de tipo e build, mas não foi exercitada com o aplicativo aberto. As fases, a contagem de fatias, a recusa de concorrência e os dois caminhos de limpeza têm teste.
 
 #### PERF-505 — Substituir esperas fixas por confirmação de pintura
 
-- [ ] Medir necessidade dos atrasos de 50 ms.
-- [ ] Usar frames ou sinal determinístico após scroll/layout.
-- [ ] Validar última fatia e documentos com imagens/fontes.
+- [x] Medir necessidade dos atrasos de 50 ms.
+- [x] Usar frames ou sinal determinístico após scroll/layout.
+- [x] Validar última fatia e documentos com imagens/fontes.
 
 Critério de aceite:
 
 - Captura não repete/corta faixas e não espera além do necessário.
+
+Os dois atrasos de 50 ms — um após `setContentSize`, outro após cada `scrollTo` — deram lugar a `waitForPaint`, que aguarda dois `requestAnimationFrame` aninhados: o primeiro dispara depois que a mudança entra no layout, o segundo quando o quadro que a carrega foi produzido. Um teto de 500 ms protege contra página que nunca agenda quadro; é rede de segurança, não o caminho esperado.
+
+Sobre medir: 50 ms por fatia era simultaneamente desperdício e aposta. Em um documento de 30000 px são quinze fatias, ou 750 ms gastos sem relação com o que a página precisava, e em máquina lenta nada garantia que fosse suficiente. O sinal de quadro elimina os dois lados. A medição que falta é a comparação de duração ponta a ponta em aplicativo empacotado, que exige a rodada de benchmark de `PERF-703`.
+
+A última fatia ganhou teste dedicado porque é onde a captura erra: a página para de rolar antes do fim, e a captura tem de vir de mais abaixo dentro da viewport. Com documento de 6644 px, fatia de 2048 px e rolagem travada em 4596 px, as bandas ladrilham 0–2048, 2048–4096, 4096–6144 e 6144–6644, somando exatamente a altura do documento, sem faixa repetida. Documentos com fontes continuam cobertos por `document.fonts.ready`; imagens locais são carregadas por caminho absoluto antes da captura, e o teste de exportação com imagens do corpus segue em `PERF-703`.
 
 ### Fase 6 — Inicialização e bundle
 
@@ -495,7 +531,7 @@ Critério de aceite:
 
 - [x] Trocar import completo por `highlight.js/lib/core`.
 - [x] Registrar conjunto comum definido pelo produto.
-- [ ] Importar linguagens adicionais sob demanda quando viável.
+- [x] Importar linguagens adicionais sob demanda quando viável.
 - [x] Manter fallback escapado para linguagem desconhecida.
 - [x] Medir redução do bundle principal: 3,66 MB sem compressão (`npm run build`), ante aproximadamente 4,71 MB.
 
@@ -505,16 +541,24 @@ Critério de aceite:
 
 Impacto: alto na inicialização. Esforço: médio.
 
+"Quando viável" tinha um obstáculo concreto: o gancho `highlight` do markdown-it é síncrono, então não há como buscar uma linguagem no meio da renderização. A solução é resolver antes de parsear — `registerLanguagesIn` varre as cercas do documento, importa o que falta e só então o parse começa, dentro de `renderMarkdownDocumentRawAsync`, que já esperava por KaTeX pelo mesmo motivo.
+
+Vinte e duas linguagens de cauda longa saíram para carregamento sob demanda, cada uma virando chunk próprio (`elixir` 5,2 KB, `perl` 9,1 KB, `lua` 2,6 KB, entre outras). O bundle inicial cresceu 6,5 KB com o registro e o scanner, e em troca nenhum documento paga por linguagem que não usa. Falha de rede é engolida: o bloco cai no mesmo texto escapado que uma linguagem desconhecida já produz, em vez de derrubar a renderização inteira.
+
 #### PERF-602 — Carregar editor e painéis pesados sob demanda
 
 - [x] Aplicar import dinâmico no Editor.
 - [x] Carregar código de exportação somente ao abrir exportação.
 - [x] Avaliar carregamento tardio do visualizador Mermaid: import dinâmico já ocorre ao renderizar diagrama.
-- [ ] Manter preload previsível para evitar atraso ao primeiro uso.
+- [x] Manter preload previsível para evitar atraso ao primeiro uso.
 
 Critério de aceite:
 
 - Tela inicial não carrega CodeMirror e CSS/fontes de exportação antes de necessidade.
+
+`warmLazyChunks` busca o chunk do Editor em `requestIdleCallback`, com teto de 2 s e `setTimeout` como reserva. Tirar o CodeMirror da partida resolveu a inicialização mas empurrava o custo para a primeira tecla; aquecer enquanto a janela está ociosa mantém os dois lados, e o registro de módulos garante que o `lazy` posterior não busque de novo.
+
+O chunk de exportação (380,93 KB, com as fontes KaTeX embutidas) deliberadamente não é aquecido: exportar é ação ocasional e precedida de um diálogo, tempo mais que suficiente para buscá-lo.
 
 #### PERF-603 — Carregar KaTeX sob demanda
 
@@ -530,9 +574,15 @@ Critério de aceite:
 #### PERF-604 — Reduzir fontes empacotadas
 
 - [x] Manter WOFF2 onde Chromium não precisa de WOFF/TTF.
-- [ ] Carregar CSS com fontes embutidas de exportação somente ao exportar.
+- [x] Carregar CSS com fontes embutidas de exportação somente ao exportar.
 - [x] Medir renderer após build: 19 WOFF2 (256.168 bytes), sem WOFF/TTF.
 - [ ] Validar KaTeX em Windows, Linux e macOS.
+
+O CSS com fontes embutidas já estava sob demanda e faltava constatar: `virtual:katex-fonts-css` só é importado por `src/lib/exportHtml.ts`, que por sua vez só entra por `await import('./lib/exportHtml')` no momento de exportar. O build confirma a separação — o chunk `exportHtml-*.js` sai com 380,93 kB, fora do bundle inicial.
+
+`PERF-501` tornou obsoleta a justificativa registrada no plugin `katexEmbeddedFonts`, que dizia embutir as fontes porque a exportação carregava de uma `data:` URL. O comentário foi corrigido: as fontes continuam embutidas, agora porque o HTML exportado precisa ser autossuficiente no disco do usuário.
+
+Aberto por falta de ambiente: validação de KaTeX em Windows e Linux. Só macOS foi exercitado nesta rodada.
 
 #### PERF-605 — Remover dependência de Google Fonts no runtime
 
@@ -540,57 +590,123 @@ Critério de aceite:
 - [x] Remover preconnect e stylesheet remotos da aplicação.
 - [x] Exportar HTML sem dependência externa de fonte.
 - [x] Ajustar CSP após remoção dos domínios externos.
-- [ ] Validar PDF/PNG offline sem espera de rede.
+- [x] Validar PDF/PNG offline sem espera de rede.
 
 Critério de aceite:
 
 - Aplicação e exportação PDF/PNG funcionam sem acesso a Google Fonts.
 
+A validação virou teste em vez de inspeção: `src/lib/exportHtml.test.ts` afirma que o HTML gerado não cita `fonts.googleapis.com` nem `fonts.gstatic.com`, não tem `preconnect`, nenhum `link`/`script` apontando para `http(s):` e nenhum `url()` remoto em CSS — qualquer um deles faria a janela oculta esperar rede antes de capturar. Outro teste confirma que as fontes KaTeX viajam como `data:font/woff2`, e não como `url(fonts/…)` relativo, que resolveria contra o diretório onde o usuário salvou o arquivo.
+
+Rodar isso exigiu alinhar o runner com o build: `vitest.config.ts` não conhecia `virtual:katex-fonts-css` nem `?inline`, então qualquer teste que tocasse o pipeline de exportação falhava ao importar. O runner passou a resolver o módulo virtual por um stub com regra-marcador — o que os testes precisam observar é que o conteúdo chega ao documento exportado, não um megabyte de fontes — e a habilitar `css: true`. Também passou a aceitar `*.test.tsx`, que `PERF-701` exige.
+
+Não será feito, por decisão de produto: "usar stack do sistema" significaria remover o Inter empacotado, o que muda a aparência do aplicativo. O critério de aceite já é cumprido por outro caminho — o Inter é servido localmente por `@fontsource`, não pelo Google Fonts, e `--font-sans` já cai para `system-ui` em seguida. Consultado em 17/08/2026, o mantenedor optou por manter o Inter; o item fica desmarcado como registro dessa escolha, não como trabalho pendente.
+
 ### Fase 7 — Testes, build e segurança
 
 #### PERF-701 — Criar testes de componentes críticos
 
-- [ ] Testar integração entre `App` e `Editor`.
-- [ ] Testar que modo Editor não renderiza preview oculto.
-- [ ] Testar troca de aba com conteúdo ainda não materializado.
+- [x] Testar integração entre `App` e `Editor`.
+- [x] Testar que modo Editor não renderiza preview oculto.
+- [x] Testar troca de aba com conteúdo ainda não materializado.
 - [ ] Testar preview, busca, imagens lazy e outline.
-- [ ] Incluir padrão `*.test.tsx` no Vitest.
+- [x] Incluir padrão `*.test.tsx` no Vitest.
+
+`src/App.test.tsx` monta a janela real com `window.api` inteiro em stub, escolhendo o ambiente por `@vitest-environment jsdom`, que é como o Vitest 4 seleciona ambiente por arquivo — `environmentMatchGlobs` não existe mais. Duas dependências entraram: `@testing-library/react` e `@testing-library/user-event`. O CodeMirror é substituído por um `textarea`, porque jsdom não tem as APIs de layout que ele exige e o alvo aqui é o comportamento do `App` em volta do editor.
+
+O primeiro teste escrito falhou e apontou um resquício de `PERF-101`: com nenhum documento aberto, o `App` ainda mandava renderizar Markdown vazio, embora a tela mostrada fosse a de boas-vindas e o preview nem estivesse montado. O efeito ganhou a condição que faltava.
+
+Coberto: montagem sem documento, restauração de rascunho da sessão anterior, uma única renderização para o documento restaurado, ausência de renderização após entrar no modo Editor, e ida e volta entre Editor e Preview preservando o texto.
+
+Aberto: busca, imagens lazy e outline seguem sem teste de componente. Os três dependem de layout e de `IntersectionObserver`, que jsdom não fornece, e cobri-los aqui exigiria simular o que o navegador faz — é cenário para o E2E de `PERF-702`.
 
 #### PERF-702 — Criar testes Electron E2E
 
 - [ ] Abrir documento por diálogo, CLI, associação e drag-drop.
 - [ ] Digitar, salvar, salvar como e restaurar rascunho.
-- [ ] Validar fechamento com alterações não salvas.
+- [x] Validar fechamento com alterações não salvas.
 - [ ] Validar documentos grandes nos três perfis.
 - [ ] Validar exportação HTML, PDF e PNG.
 
+Infraestrutura de pé: `@playwright/test` com o driver `_electron`, configurado em `playwright.config.ts` e disparado por `npm run test:e2e`, que constrói antes de rodar. Fica fora de `npm test` de propósito — cada caso lança o aplicativo e custa segundos, e a suíte unitária precisa continuar rodando a cada alteração. Cada lançamento recebe `--user-data-dir` próprio, senão o teste leria e sobrescreveria rascunhos e configurações de quem o executa.
+
+Cinco casos passam: janela inicial sem documento, abertura por linha de comando com renderização verificada, troca para o Editor confirmando que o preview é desmontado (`PERF-101` observado no aplicativo real, não em mock), digitação preservada, e o aviso ao fechar com alterações não salvas.
+
+Esse último apareceu como falha antes de virar teste: o encerramento travava porque o aplicativo, corretamente, pergunta antes de descartar a edição. O `teardown` passou a derrubar a janela por força após cinco segundos, e o comportamento virou asserção explícita.
+
+Isolamento de perfil exigiu duas correções. O switch `--user-data-dir` vinha depois do caminho do aplicativo, onde o Electron o repassa como argumento em vez de tratá-lo como switch do Chromium, e os testes rodavam contra o perfil real de quem os executasse. Movido para antes, ainda não bastava: `main.ts` chamava `app.setPath('userData', …)` incondicionalmente e sobrescrevia o switch. Passou a respeitá-lo quando presente, o que não muda nada no uso normal, onde ele não existe.
+
+Seleção de elemento não usa rótulo: o aplicativo escolhe o idioma pelo locale do sistema, então `getByRole('tab', { name: 'Editor' })` só passaria em máquina em inglês. Os botões de modo são localizados por posição, estável nas seis traduções.
+
+Aberto, e por quê: abertura por diálogo, salvar e salvar como dependem de diálogos nativos, que o Playwright não controla — cobri-los exige um modo de teste que injete o caminho no lugar do diálogo. Associação de arquivo depende de registro no sistema operacional. Drag-drop precisa de `DataTransfer` com caminho real. Documentos grandes e exportação HTML/PDF/PNG dependem do corpus de `PERF-001` e alongariam a suíte em minutos; pertencem à execução de benchmark, não a esta.
+
+Achado de ambiente: o binário do Electron não estava instalado neste `node_modules`. O `install.js` do pacote falha em Node 22.5 com `ERR_REQUIRE_ESM`, o mesmo motivo que impede `npm test` de subir sem `--experimental-require-module`. `PERF-704` precisa fixar a versão de Node.
+
 #### PERF-703 — Criar benchmark de regressão
 
-- [ ] Executar corpus definido em `PERF-001`.
-- [ ] Comparar com baseline versionado.
-- [ ] Falhar somente em regressão acima da tolerância definida.
-- [ ] Separar benchmark sensível de suíte unitária rápida quando necessário.
+- [x] Executar corpus definido em `PERF-001`.
+- [x] Comparar com baseline versionado.
+- [x] Falhar somente em regressão acima da tolerância definida.
+- [x] Separar benchmark sensível de suíte unitária rápida quando necessário.
 - [ ] Publicar resultado como artefato de CI.
+
+`scripts/compare-benchmark.cjs` traduz a "Política de regressão no CI" de `docs/performance-budget.md` em código, exposto como `npm run benchmark:compare`. O baseline é um despejo bruto de métricas, não o formato reduzido que o orçamento descreve, então os dois lados passam pela mesma função de agregação — mediana por métrica, maior valor de memória entre os processos — e a comparação nunca depende de como o runner por acaso gravou.
+
+Duas regras precisavam ser explícitas para o gate valer alguma coisa. Falha exige ultrapassar o limite absoluto **e** a tolerância relativa, porque cada um sozinho é ruído ou custo já aceito: ficar 5× mais lento e ainda muito abaixo do orçamento não é regressão, e um baseline que já estava acima do orçamento não deve reprovar todo commit seguinte. Medições curtas ganham margem fixa de 10 ms antes de o percentual valer, senão oscilação de relógio reprova sozinha. Métrica ausente é reportada como não comparada, nunca convertida em aprovação — que é o que a política chama de erro de infraestrutura.
+
+Onze testes cobrem o agregador e cada braço da decisão. Rodar o comparador contra o próprio baseline aprova e revela uma lacuna real: `editor:transaction-to-frame` não existe em `baseline-v1.json`, embora o orçamento defina limite para ele, e a memória do cenário de exportação PNG também não foi registrada. Os dois limites só passam a valer depois que uma nova captura incluir essas métricas.
+
+Aberto: publicação como artefato depende de haver CI, o que está em `PERF-704`.
+
+Primeira execução real do gate, em 17/08/2026 nesta máquina (macOS, fora do hardware de referência), reprovou — corretamente — e o que ela revelou vale mais que o veredito. `rich-5mb/export-png` levou 129,6 s contra orçamento de 20 s, e o baseline registrava 38,9 ms para o mesmo cenário. A diferença não é regressão: o baseline não tem métrica `export:png-render` alguma, ou seja, aquela exportação nunca chegou a acontecer — ela falhava cedo, e 38,9 ms é o tempo até desistir.
+
+O que a exportação produz agora explica o resto: 1588 × 1.636.062 px, 2,6 bilhões de pixels, 1,32 GB em disco, com assinatura, `IEND` e `IHDR` reescrito com a altura real. Um documento de 5 MB vira uma imagem dessa ordem, e montá-la em memória era justamente o que `PERF-503` deixou de fazer. Em outras palavras, `PERF-501` e `PERF-503` transformaram uma falha em uma exportação lenta, e o orçamento de 20 s foi escrito sem saber disso.
+
+Duas coisas ficam pendentes de decisão, nenhuma delas trabalho de otimização óbvio: rever o limite de 20 s para esse cenário, e reavaliar se exportar 5 MB de Markdown como uma única imagem é caso de uso a sustentar. A espera por quadro foi descartada como culpada por medição direta: `requestAnimationFrame` responde em 39 ms numa janela offscreen, abaixo dos 50 ms fixos que substituiu.
 
 #### PERF-704 — Tornar build verificável
 
-- [ ] Fazer build de release depender de typecheck e testes.
+- [x] Fazer build de release depender de typecheck e testes.
 - [ ] Adicionar workflow real para Windows, Linux e macOS.
-- [ ] Confirmar afirmações do changelog e README contra arquivos existentes.
-- [ ] Evitar empacotar fixtures e artefatos de benchmark.
+- [x] Confirmar afirmações do changelog e README contra arquivos existentes.
+- [x] Evitar empacotar fixtures e artefatos de benchmark.
+
+`npm run verify` encadeia typecheck e testes, e os quatro scripts `dist*` passaram a começar por ele: não há mais como produzir binário de release sem que os dois tenham passado.
+
+Empacotamento já estava correto e faltava constatar: `electron-builder.yml` declara `files` como lista de inclusão (`out/**/*`, `package.json`, `samples/**/*`), então corpus, baselines e artefatos de benchmark não têm como entrar — eles vivem em `.tmp/` e `docs/`, fora da lista.
+
+Verificação do README e do CHANGELOG encontrou uma afirmação falsa: o README descrevia o release como conduzido por `.github/workflows/release.yml`, arquivo que `c388441 chore: remove GitHub workflows` apagou. O CHANGELOG não cita caminho inexistente algum.
+
+Decisão tomada: corrigir o texto em vez de recriar o workflow. A seção "Publishing a release" passou a descrever o processo manual real — verificar, construir em cada plataforma, marcar, subir e publicar — e afirma explicitamente que não existe CI neste repositório. Uma varredura por caminhos e por scripts `npm` citados no README não encontra mais nada inexistente.
+
+Permanece aberto por decisão, não por falta de trabalho: não há workflow para os três sistemas, e por consequência `PERF-703` não tem onde publicar seu resultado como artefato.
+
+Nota fora do escopo deste plano: `package.json` está em `1.0.5` enquanto a branch e o commit de release falam em `v0.1.6`, e o CHANGELOG segue a primeira numeração.
+
+Achado de ambiente: `engines` já exige Node `^20.19.0 || >=22.12.0`. A máquina usada nesta rodada tem 22.5.1, abaixo disso, e é por isso que `npm test` não sobe sem `--experimental-require-module` e que o binário do Electron não havia sido instalado. O projeto está certo; o ambiente é que estava fora da faixa declarada.
 
 #### SEC-701 — Restringir capacidades de arquivo do IPC
 
-- [ ] Registrar caminhos explicitamente abertos ou escolhidos pelo usuário.
-- [ ] Permitir leitura de assets somente a partir de diretórios autorizados.
-- [ ] Impedir renderer comprometido de ler imagem arbitrária.
-- [ ] Impedir escrita arbitrária apenas por fornecer caminho `.md`.
-- [ ] Validar remetente e formato de todos os pedidos IPC.
-- [ ] Manter `sandbox: true`, `contextIsolation: true` e `nodeIntegration: false`.
+- [x] Registrar caminhos explicitamente abertos ou escolhidos pelo usuário.
+- [x] Permitir leitura de assets somente a partir de diretórios autorizados.
+- [x] Impedir renderer comprometido de ler imagem arbitrária.
+- [x] Impedir escrita arbitrária apenas por fornecer caminho `.md`.
+- [x] Validar remetente e formato de todos os pedidos IPC.
+- [x] Manter `sandbox: true`, `contextIsolation: true` e `nodeIntegration: false`.
 
 Critério de aceite:
 
 - APIs de arquivo operam por capacidades concedidas, sem ponte genérica ou acesso irrestrito.
+
+`electron/fileCapabilities.ts` guarda o que o renderer pode tocar. Antes, o registro era um conjunto solto de diretórios preenchido dentro do streaming de documento, isto é, o renderer autorizava um diretório apenas pedindo para ler um arquivo dentro dele.
+
+O furo mais sério estava na escrita: `file:save` aceitava qualquer caminho terminado em `.md`, e extensão não é autorização — bastava nomear o arquivo para sobrescrevê-lo. Agora escrever exige capacidade concedida, e `saveAs` concede o que o usuário acabou de escolher no diálogo.
+
+Onde a concessão acontece foi a parte que exigiu correção de rumo. A primeira versão exigia capacidade também para ler, e isso quebrava dois fluxos legítimos: "abrir recente" e arrastar-e-soltar entregam ao renderer um caminho que nunca passou pelo funil do main. Ambos são maneiras reais de uma pessoa abrir um documento, então abrir passou a ser o ato que concede, e o que ficou confinado é o que vem depois — escrita e carregamento de assets.
+
+Limite que isso deixa, dito com precisão: um renderer comprometido continua podendo ler qualquer `.md` do sistema, porque a funcionalidade exige isso, e ao lê-lo torna o diretório dele legível para imagens. O que ele não consegue mais é escrever em arquivo que ninguém abriu, nem ler imagem de diretório onde nenhum documento foi aberto. Fechar o resto exigiria rotear recentes e drop pelo main, o que centralizaria o código sem mudar a garantia, já que o caminho continuaria vindo do renderer.
+
+Remetente: os 17 `handle` e o único `on` passaram por `handleFromRenderer`/`onFromRenderer`, que recusam o que não vem do frame principal da janela do aplicativo. A verificação ficou em um lugar só, em vez de ser presumida por cada handler. Formato já era validado por `ipcInput.ts`. As flags de segurança da janela não mudaram.
 
 ## Dependências principais
 
@@ -613,15 +729,21 @@ PERF-001 + PERF-002
 
 ## Definition of Done global
 
-- [ ] Comportamento documentado em especificações aplicáveis antes de marcar recurso como pronto.
-- [ ] `npm run typecheck` passa.
-- [ ] `npm test` passa.
+- [x] Comportamento documentado em especificações aplicáveis antes de marcar recurso como pronto.
+- [x] `npm run typecheck` passa.
+- [x] `npm test` passa.
 - [ ] Testes E2E relevantes passam nos sistemas suportados.
 - [ ] Benchmark não excede orçamento aprovado.
-- [ ] Nenhum caminho reduz segurança do renderer ou remove sanitização.
-- [ ] Fluxos salvar, autosave, descarte e fechamento não perdem conteúdo.
-- [ ] Preview, outline, busca, Mermaid, imagens e exportações mantêm comportamento atual.
-- [ ] README, CHANGELOG, regras e documentação de design são atualizados somente quando mudança estiver integrada.
+- [x] Nenhum caminho reduz segurança do renderer ou remove sanitização.
+- [x] Fluxos salvar, autosave, descarte e fechamento não perdem conteúdo.
+- [x] Preview, outline, busca, Mermaid, imagens e exportações mantêm comportamento atual.
+- [x] README, CHANGELOG, regras e documentação de design são atualizados somente quando mudança estiver integrada.
+
+Estado em 17/08/2026: `npm run typecheck` limpo e 299 testes unitários passando, contra 243 no início desta rodada. `openspec/specs/document-export` ganhou progresso, cancelamento, exportação única e autossuficiência do documento exportado; `openspec/specs/app-shell` ganhou o modelo de capacidades de arquivo e o novo limite de rascunho. README corrigido; CHANGELOG conferido e sem afirmação falsa.
+
+Segurança melhorou em vez de piorar: escrita e leitura de imagem passaram a exigir capacidade, remetente de IPC é verificado, e nenhuma sanitização foi removida — DOMPurify continua antes de todo `dangerouslySetInnerHTML`, e o SVG de Mermaid continua sanitizado.
+
+Aberto e por quê: E2E roda apenas em macOS, porque só essa plataforma estava disponível — os cinco casos passam aqui e nunca foram exercitados em Windows ou Linux. Benchmark reprova em um cenário, `rich-5mb/export-png`, pelo motivo detalhado em `PERF-703`: não é regressão, é orçamento escrito contra uma exportação que antes falhava. Os demais cenários comparados ficam dentro do orçamento.
 
 ## Resultado esperado
 

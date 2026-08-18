@@ -7,3 +7,7 @@ dist/
 .vite/
 .tmp/
 .tmp/benchmark-corpus/
+
+# Playwright
+playwright-report/
+test-results/

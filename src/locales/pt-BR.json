@@ -146,17 +146,17 @@
   "exportDialog": {
     "title": "Exportar documento",
     "format": "Formato",
-    "settings": "Configura\u00e7\u00f5es",
-    "pageSize": "Tamanho da p\u00e1gina",
-    "orientation": "Orienta\u00e7\u00e3o",
+    "settings": "Configurações",
+    "pageSize": "Tamanho da página",
+    "orientation": "Orientação",
     "portrait": "Retrato",
     "landscape": "Paisagem",
     "pdfTitle": "Exportar como PDF",
-    "pdfDescription": "Ideal para impress\u00e3o e compartilhamento com layout exato.",
+    "pdfDescription": "Ideal para impressão e compartilhamento com layout exato.",
     "htmlTitle": "Exportar como HTML",
-    "htmlDescription": "Melhor para publica\u00e7\u00e3o na web e incorpora\u00e7\u00e3o.",
+    "htmlDescription": "Melhor para publicação na web e incorporação.",
     "pngTitle": "Exportar como PNG",
-    "pngDescription": "Imagem em alta resolu\u00e7\u00e3o do conte\u00fado do documento.",
+    "pngDescription": "Imagem em alta resolução do conteúdo do documento.",
     "export": "Exportar"
   },
   "settingsDialog": {
@@ -243,6 +243,19 @@
     "count": "{{completed}} de {{total}} abertos",
     "cancel": "Cancelar",
     "canceling": "Cancelando…"
+  },
+  "exportProgress": {
+    "title": "Exportando…",
+    "slice": "{{phase}} — {{slice}} de {{slices}}",
+    "cancel": "Cancelar",
+    "canceling": "Cancelando…",
+    "phase": {
+      "render": "Renderizando a página…",
+      "fonts": "Carregando fontes…",
+      "capture": "Capturando a página…",
+      "compress": "Comprimindo a imagem…",
+      "write": "Gravando o arquivo…"
+    }
   },
   "notice": {
     "unsupported": "Tipo de arquivo não suportado. Apenas arquivos .md e .markdown podem ser abertos.",

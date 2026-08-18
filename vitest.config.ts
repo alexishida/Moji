@@ -1,4 +1,5 @@
 import { defineConfig, type Plugin } from 'vitest/config'
+import react from '@vitejs/plugin-react'
 
 /**
  * `virtual:katex-fonts-css` is assembled from KaTeX's dist by `electron.vite.config.ts`, where it
@@ -17,11 +18,14 @@ function katexFontsCssStub(): Plugin {
 }
 
 export default defineConfig({
-  plugins: [katexFontsCssStub()],
+  // React is needed to compile the `.tsx` component tests.
+  plugins: [react(), katexFontsCssStub()],
   test: {
+    // Node by default; component tests opt into a DOM with `@vitest-environment jsdom`
+    // at the top of the file, which is how Vitest 4 selects an environment per file.
     environment: 'node',
     // `exportHtml` inlines real stylesheets with `?inline`; without this they arrive empty.
     css: true,
-    include: ['src/**/*.test.{ts,tsx}', 'electron/**/*.test.ts']
+    include: ['src/**/*.test.{ts,tsx}', 'electron/**/*.test.ts', 'scripts/**/*.test.ts']
   }
 })

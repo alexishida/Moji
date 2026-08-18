@@ -1,6 +1,15 @@
 import { afterAll, beforeEach, describe, expect, it, vi } from 'vitest'
 
 const originalMockUpdate = process.env['MOJI_MOCK_UPDATE']
+const originalPlatform = process.platform
+
+/**
+ * Automatic updates only exist on Windows and on Linux AppImage, so every assertion below
+ * needs a supported platform. Without this the suite reports `unsupported` on macOS.
+ */
+function setPlatform(platform: NodeJS.Platform): void {
+  Object.defineProperty(process, 'platform', { value: platform, configurable: true })
+}
 
 const state = vi.hoisted(() => ({
   isPackaged: true,
@@ -28,6 +37,7 @@ vi.mock('electron-updater', () => ({
 }))
 
 beforeEach(() => {
+  setPlatform('win32')
   state.isPackaged = true
   state.listeners.clear()
   state.checkForUpdates.mockReset()
@@ -36,6 +46,7 @@ beforeEach(() => {
 })
 
 afterAll(() => {
+  setPlatform(originalPlatform)
   if (originalMockUpdate === undefined) delete process.env['MOJI_MOCK_UPDATE']
   else process.env['MOJI_MOCK_UPDATE'] = originalMockUpdate
 })

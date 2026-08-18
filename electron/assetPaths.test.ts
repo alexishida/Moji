@@ -1,4 +1,4 @@
-import { mkdir, mkdtemp, rm, symlink, writeFile } from 'node:fs/promises'
+import { mkdir, mkdtemp, realpath, rm, symlink, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join, resolve, sep } from 'node:path'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
@@ -87,7 +87,10 @@ describe('authorizedAsset', () => {
   let outside = ''
 
   beforeAll(async () => {
-    root = await mkdtemp(join(tmpdir(), 'moji-assets-'))
+    // `authorizedAsset` resolves through `realpath`, and on macOS the temp directory is
+    // itself a symlink (/var -> /private/var). Resolve it here so the expectations
+    // compare against the same path the implementation returns.
+    root = await realpath(await mkdtemp(join(tmpdir(), 'moji-assets-')))
     allowed = join(root, 'allowed')
     outside = join(root, 'outside')
     await mkdir(join(allowed, 'images'), { recursive: true })

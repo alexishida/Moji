@@ -2,7 +2,7 @@ import { app, BrowserWindow, dialog, ipcMain, Menu, protocol, shell } from 'elec
 import { readFile, stat, writeFile } from 'node:fs/promises'
 import { existsSync } from 'node:fs'
 import { randomUUID } from 'node:crypto'
-import { dirname, isAbsolute, join, resolve } from 'node:path'
+import { dirname, isAbsolute, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import {
   IPC,
@@ -25,8 +25,9 @@ import { isDraftId } from './draftStore'
 import { isDraftPersistError } from './draftCapacity'
 import { areDraftEditBatches } from './draftJournal'
 import { assetContentType, assetPathFromUrl, authorizedAsset } from './assetPaths'
+import { FileCapabilities } from './fileCapabilities'
 import { isMarkdown, sanitizeDraft, sanitizeSettingsPatch, suggestedMarkdownName } from './ipcInput'
-import { exportDiagramPng, exportDocument } from './export'
+import { cancelExport, exportDiagramPng, exportDocument } from './export'
 import { benchmarkRequested, recordBenchmark } from './benchmark'
 import { createUpdateController, type UpdateController } from './updater'
 import { mapWithConcurrency } from './openPool'
@@ -41,7 +42,7 @@ let forceQuit = false
 let pendingQuit = false
 let updateController: UpdateController | null = null
 let persistWindowBoundsTimer: NodeJS.Timeout | null = null
-const allowedAssetDirectories = new Set<string>()
+const capabilities = new FileCapabilities()
 const assetCache = new AssetCache(readFile)
 const openManySessions = new Map<string, AbortController>()
 
@@ -65,7 +66,13 @@ if (process.platform === 'linux') {
  */
 const SETTINGS_DIRECTORY = 'moji'
 app.setName('Moji')
-app.setPath('userData', join(app.getPath('appData'), SETTINGS_DIRECTORY))
+// `--user-data-dir` is Chromium's own switch for pointing an instance at a different
+// profile, and pinning the path unconditionally silently overrode it. Honouring it costs
+// nothing in normal use, where the switch is absent, and it is what lets a test run
+// against a throwaway profile instead of the one belonging to whoever runs it.
+if (!process.argv.some((arg) => arg.startsWith('--user-data-dir='))) {
+  app.setPath('userData', join(app.getPath('appData'), SETTINGS_DIRECTORY))
+}
 
 const NORMAL_DOCUMENT_SIZE_LIMIT = 5 * 1024 * 1024
 const LARGE_DOCUMENT_SIZE_LIMIT = 20 * 1024 * 1024
@@ -103,14 +110,20 @@ function documentSizeProfile(sizeBytes: number): DocumentSizeProfile {
   return 'very-large'
 }
 
-function allowDocumentAssets(documentPath: string): void {
-  allowedAssetDirectories.add(resolve(dirname(documentPath)))
+/**
+ * Grant access to a path the user chose.
+ *
+ * Every caller sits on a path that came from a dialog, the command line, a file
+ * association or a drop — never from the renderer naming a file of its own accord.
+ */
+function grantDocument(documentPath: string): void {
+  capabilities.grant(documentPath)
 }
 
 function registerAssetProtocol(): void {
   protocol.handle('moji-asset', async (request) => {
     const filePath = assetPathFromUrl(request.url)
-    const asset = filePath ? await authorizedAsset(filePath, allowedAssetDirectories) : null
+    const asset = filePath ? await authorizedAsset(filePath, capabilities.directories) : null
     if (!asset) {
       return new Response('Forbidden', { status: 403 })
     }
@@ -148,7 +161,7 @@ async function readDocument(filePath: unknown, signal?: AbortSignal): Promise<Op
     if (signal?.aborted) return { ok: false, canceled: true }
     const content = stripLeadingBom(await readFile(filePath, { encoding: 'utf-8', signal }))
     sizeBytes = fileStat.size
-    allowDocumentAssets(filePath)
+    grantDocument(filePath)
     void captureMainMemory('main:memory:document-open')
     return {
       ok: true,
@@ -185,6 +198,7 @@ async function statDocument(filePath: unknown): Promise<DocumentMetadata | null>
  * `ipcRenderer.invoke` would have had to serialize.
  */
 async function streamDocumentToPort(filePath: unknown, port: Electron.MessagePortMain): Promise<void> {
+
   const finishMeasure = beginMainMeasure('document:open-stream')
   let sizeBytes = 0
   let chunks = 0
@@ -206,7 +220,11 @@ async function streamDocumentToPort(filePath: unknown, port: Electron.MessagePor
     }
 
     sizeBytes = metadata.sizeBytes
-    allowDocumentAssets(metadata.path)
+    // Opening is how a file earns its capability. Recent files and drag-and-drop reach
+    // this point with a path the renderer supplied, and both are legitimate ways for a
+    // person to open a document, so the read itself is the grant — it is writing and
+    // asset loading that are then confined to what has actually been opened.
+    grantDocument(metadata.path)
     port.postMessage({ type: 'meta', ...metadata } satisfies DocumentStreamMessage)
     for await (const chunk of readFileChunks(metadata.path)) {
       chunks += 1
@@ -287,6 +305,9 @@ async function openLocalPath(fileUrl: unknown): Promise<WriteResult> {
  */
 async function openDocument(filePath: string): Promise<void> {
   const metadata = await statDocument(filePath)
+  // This funnel is only reached from the OS or a dialog, so it is where the path earns
+  // the right to be streamed back when the renderer asks for its bytes.
+  if (metadata) grantDocument(metadata.path)
   if (!mainWindow || mainWindow.isDestroyed()) {
     if (metadata) pendingOpenPath = filePath
     return
@@ -400,6 +421,42 @@ function schedulePersistWindowBounds(win: BrowserWindow): void {
   }, 400)
 }
 
+/**
+ * Accept IPC only from this application's own top-level frame.
+ *
+ * Without this every handler answers whoever calls it. A subframe or a page that ended up
+ * somewhere unexpected would reach the same file APIs as the app itself, so the sender is
+ * checked once, centrally, rather than being assumed by twenty handlers.
+ */
+function isTrustedSender(event: Electron.IpcMainInvokeEvent | Electron.IpcMainEvent): boolean {
+  if (!mainWindow || mainWindow.isDestroyed()) return false
+  if (event.sender !== mainWindow.webContents) return false
+  // Top frame only: a nested frame never legitimately drives the app.
+  return event.senderFrame === null || event.senderFrame === event.sender.mainFrame
+}
+
+/** `ipcMain.handle`, refusing anything that did not come from the app window. */
+function handleFromRenderer(
+  channel: string,
+  listener: (event: Electron.IpcMainInvokeEvent, ...args: never[]) => unknown
+): void {
+  ipcMain.handle(channel, (event, ...args) => {
+    if (!isTrustedSender(event)) throw new Error('forbidden')
+    return (listener as (event: Electron.IpcMainInvokeEvent, ...args: unknown[]) => unknown)(event, ...args)
+  })
+}
+
+/** `ipcMain.on`, refusing anything that did not come from the app window. */
+function onFromRenderer(
+  channel: string,
+  listener: (event: Electron.IpcMainEvent, ...args: never[]) => void
+): void {
+  ipcMain.on(channel, (event, ...args) => {
+    if (!isTrustedSender(event)) return
+    ;(listener as (event: Electron.IpcMainEvent, ...args: unknown[]) => void)(event, ...args)
+  })
+}
+
 function createWindow(): void {
   // `forceQuit` is what lets an approved close through the guard. On Windows and Linux the
   // process ends with the window, so it never outlives its purpose. On macOS the app stays
@@ -497,13 +554,13 @@ function draftFailure(err: unknown): { error: string; problem?: DraftPersistProb
 }
 
 function registerIpc(): void {
-  ipcMain.handle(IPC.getSettings, (): Settings => getSettings())
+  handleFromRenderer(IPC.getSettings, (): Settings => getSettings())
 
-  ipcMain.handle(IPC.setSettings, (_e, patch: unknown): Settings => updateSettings(sanitizeSettingsPatch(patch)))
+  handleFromRenderer(IPC.setSettings, (_e, patch: unknown): Settings => updateSettings(sanitizeSettingsPatch(patch)))
 
-  ipcMain.handle(IPC.getDrafts, (): Promise<AutoSaveDraft[]> => getDrafts())
+  handleFromRenderer(IPC.getDrafts, (): Promise<AutoSaveDraft[]> => getDrafts())
 
-  ipcMain.handle(IPC.saveDraft, async (_e, value: unknown): Promise<DraftResult> => {
+  handleFromRenderer(IPC.saveDraft, async (_e, value: unknown): Promise<DraftResult> => {
     const draft = sanitizeDraft(value)
     if (!draft) return { ok: false, error: 'invalid-draft' }
     try {
@@ -531,7 +588,7 @@ function registerIpc(): void {
     }
   )
 
-  ipcMain.handle(IPC.removeDraft, async (_e, value: unknown): Promise<DraftResult> => {
+  handleFromRenderer(IPC.removeDraft, async (_e, value: unknown): Promise<DraftResult> => {
     if (!isDraftId(value)) return { ok: false, error: 'invalid-draft' }
     try {
       await removeDraft(value)
@@ -541,7 +598,7 @@ function registerIpc(): void {
     }
   })
 
-  ipcMain.handle(IPC.openDialog, async (event): Promise<OpenDialogResult> => {
+  handleFromRenderer(IPC.openDialog, async (event): Promise<OpenDialogResult> => {
     const options: Electron.OpenDialogOptions = {
       properties: ['openFile', 'multiSelections'],
       filters: [{ name: 'Markdown', extensions: ['md', 'markdown'] }],
@@ -557,27 +614,30 @@ function registerIpc(): void {
     return { ok: true, sessionId, total: filePaths.length }
   })
 
-  ipcMain.handle(IPC.cancelOpenMany, (_e, sessionId: unknown): void => {
+  handleFromRenderer(IPC.cancelOpenMany, (_e, sessionId: unknown): void => {
     if (typeof sessionId !== 'string') return
     openManySessions.get(sessionId)?.abort()
   })
 
-  ipcMain.on(IPC.readPathStream, (event, filePath: unknown): void => {
+  onFromRenderer(IPC.readPathStream, (event, filePath: unknown): void => {
     const [port] = event.ports
     if (!port) return
     void streamDocumentToPort(filePath, port)
   })
 
-  ipcMain.handle(IPC.openLocalPath, (_e, fileUrl: unknown): Promise<WriteResult> => openLocalPath(fileUrl))
+  handleFromRenderer(IPC.openLocalPath, (_e, fileUrl: unknown): Promise<WriteResult> => openLocalPath(fileUrl))
 
-  ipcMain.handle(IPC.readSample, (_e, name: unknown): Promise<OpenResult> => {
+  handleFromRenderer(IPC.readSample, (_e, name: unknown): Promise<OpenResult> => {
     const path = samplePath(name)
     return path ? readDocument(path) : Promise.resolve({ ok: false, error: 'unsupported' })
   })
 
-  ipcMain.handle(IPC.save, async (_e, filePath: unknown, content: unknown): Promise<WriteResult> => {
+  handleFromRenderer(IPC.save, async (_e, filePath: unknown, content: unknown): Promise<WriteResult> => {
     const path = asString(filePath)
     if (!path || !isMarkdown(path) || typeof content !== 'string') return { ok: false, error: 'unsupported' }
+    // A Markdown extension is not authorisation. Only a file the user opened or chose in
+    // the save dialog can be written to.
+    if (!capabilities.allows(path)) return { ok: false, error: 'forbidden' }
     try {
       await writeFile(path, content, 'utf-8')
       rememberDialogDirectory(path)
@@ -587,7 +647,7 @@ function registerIpc(): void {
     }
   })
 
-  ipcMain.handle(IPC.saveAs, async (_e, content: unknown, suggestedName?: unknown): Promise<WriteResult> => {
+  handleFromRenderer(IPC.saveAs, async (_e, content: unknown, suggestedName?: unknown): Promise<WriteResult> => {
     if (typeof content !== 'string') return { ok: false, error: 'unsupported' }
     const fileName = suggestedMarkdownName(suggestedName)
     const options: Electron.SaveDialogOptions = {
@@ -599,6 +659,7 @@ function registerIpc(): void {
       : await dialog.showSaveDialog(options)
     if (canceled || !filePath) return { ok: false, canceled: true }
     rememberDialogDirectory(filePath)
+    grantDocument(filePath)
     try {
       await writeFile(filePath, content, 'utf-8')
       return { ok: true, path: filePath }
@@ -607,19 +668,24 @@ function registerIpc(): void {
     }
   })
 
-  ipcMain.handle(IPC.export, (_e, request: unknown): Promise<WriteResult> => exportDocument(request))
-  ipcMain.handle(IPC.exportDiagramPng, (_e, request: unknown): Promise<WriteResult> => exportDiagramPng(request))
+  handleFromRenderer(IPC.export, (event, request: unknown): Promise<WriteResult> =>
+    exportDocument(request, (progress) => {
+      if (!event.sender.isDestroyed()) event.sender.send(IPC.exportProgress, progress)
+    })
+  )
+  handleFromRenderer(IPC.cancelExport, (): void => cancelExport())
+  handleFromRenderer(IPC.exportDiagramPng, (_e, request: unknown): Promise<WriteResult> => exportDiagramPng(request))
 
-  ipcMain.handle(IPC.getUpdateState, (): UpdateState => updateController?.getState() ?? unavailableUpdateState())
+  handleFromRenderer(IPC.getUpdateState, (): UpdateState => updateController?.getState() ?? unavailableUpdateState())
 
-  ipcMain.handle(IPC.getPerformanceReport, () => getMainPerformanceReport())
+  handleFromRenderer(IPC.getPerformanceReport, () => getMainPerformanceReport())
 
   ipcMain.handle(
     IPC.checkForUpdate,
     (): Promise<UpdateState> => updateController?.check() ?? Promise.resolve(unavailableUpdateState())
   )
 
-  ipcMain.handle(IPC.confirmClose, (_e, shouldClose: unknown): void => {
+  handleFromRenderer(IPC.confirmClose, (_e, shouldClose: unknown): void => {
     if (shouldClose === true && mainWindow) {
       forceQuit = true
       if (pendingQuit) {
