@@ -436,15 +436,21 @@ Testes cobrem rascunho de 12 MB salvo e restaurado caractere a caractere, recusa
 
 #### PERF-501 — Remover `data:` URL da exportação
 
-- [ ] Carregar HTML por arquivo temporário ou protocolo interno.
-- [ ] Evitar `encodeURIComponent` sobre documento integral.
-- [ ] Limpar temporários após sucesso, erro ou cancelamento.
-- [ ] Preservar resolução de assets locais.
-- [ ] Manter janela oculta com sandbox, isolamento e Node desativado.
+- [x] Carregar HTML por arquivo temporário ou protocolo interno.
+- [x] Evitar `encodeURIComponent` sobre documento integral.
+- [x] Limpar temporários após sucesso, erro ou cancelamento.
+- [x] Preservar resolução de assets locais.
+- [x] Manter janela oculta com sandbox, isolamento e Node desativado.
 
 Critério de aceite:
 
 - PDF e PNG não criam cópia percent-encoded do HTML inteiro.
+
+`createExportWindow` deu lugar a `createExportPage`, que grava o HTML em `mkdtemp('moji-export-')` e usa `loadFile`. A janela mantém `sandbox`, `contextIsolation`, `nodeIntegration: false` e `webSecurity` como antes.
+
+Resolução de assets exigiu cuidado além de trocar o transporte. Imagens e links de Markdown já saem do renderer como `file:` absoluto, então não dependem de base alguma; o que dependia era HTML cru escrito à mão dentro do documento, com `src` relativo, que antes resolvia por `baseURLForDataURL`. Carregado de um diretório temporário, esse `src` passaria a resolver contra o temporário. Por isso a cópia entregue à janela recebe `<base href>` com o mesmo valor que `baseURLForDataURL` tinha. A cópia que o usuário exporta como HTML não recebe: o arquivo salvo continua sem caminho local dentro.
+
+O temporário é removido em qualquer saída — sucesso, falha de renderização e falha ao carregar a própria página —, porque `release()` roda no `finally` e o construtor descarta o diretório antes de propagar o erro. Testes cobrem os três caminhos.
 
 #### PERF-502 — Mover encoder PNG para worker
 

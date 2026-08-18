@@ -3,6 +3,10 @@ import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 
 const exportTempDirectory = join(tmpdir(), 'moji-export-tests')
+/** Stands in for the OS temp directory the export page is written into. */
+const exportPageDirectory = join(tmpdir(), 'moji-export-tests-temp')
+/** The page path `writeExportSource` builds from that directory and a fixed UUID. */
+const exportPagePath = join(exportPageDirectory, 'moji-export-fixed-uuid.html')
 const selectedHtmlPath = join(exportTempDirectory, 'chosen', 'report.html')
 const selectedPdfPath = join(exportTempDirectory, 'chosen', 'report.pdf')
 const selectedPngPath = join(exportTempDirectory, 'chosen', 'report.png')
@@ -25,6 +29,11 @@ const state = vi.hoisted(() => ({
   updateSettings: vi.fn(),
   getSettings: vi.fn(),
   loadURL: vi.fn(),
+  loadFile: vi.fn(),
+  open: vi.fn(),
+  unlink: vi.fn(),
+  /** Everything written to the temp export page, in order. */
+  sourceWrites: [] as string[],
   executeJavaScript: vi.fn(),
   printToPDF: vi.fn(),
   capturePage: vi.fn(),
@@ -47,15 +56,24 @@ vi.mock('electron', () => ({
     }
 
     loadURL = state.loadURL
+    loadFile = state.loadFile
     setContentSize = state.setContentSize
     destroy = state.destroy
   },
+  app: { getPath: vi.fn(() => exportPageDirectory) },
   dialog: { showSaveDialog: state.showSaveDialog },
   nativeImage: { createFromBitmap: vi.fn(() => ({ toPNG: state.toPNG })) },
   screen: { getPrimaryDisplay: vi.fn(() => ({ scaleFactor: 1 })) }
 }))
 
-vi.mock('node:fs/promises', () => ({ writeFile: state.writeFile }))
+vi.mock('node:fs/promises', () => ({
+  writeFile: state.writeFile,
+  open: state.open,
+  unlink: state.unlink
+}))
+
+// A fixed name keeps the temp page path predictable across a run.
+vi.mock('node:crypto', () => ({ randomUUID: () => 'fixed-uuid' }))
 
 vi.mock('./settings', () => ({
   getSettings: state.getSettings,
@@ -76,6 +94,16 @@ beforeEach(() => {
   state.windows.length = 0
   state.getSettings.mockReturnValue({ lastDialogDirectory: exportTempDirectory })
   state.executeJavaScript.mockResolvedValue(undefined)
+  state.sourceWrites.length = 0
+  state.open.mockResolvedValue({
+    write: (chunk: string) => {
+      state.sourceWrites.push(chunk)
+      return Promise.resolve()
+    },
+    close: () => Promise.resolve()
+  })
+  state.unlink.mockResolvedValue(undefined)
+  state.loadFile.mockResolvedValue(undefined)
 })
 
 describe('exportDocument', () => {
@@ -155,7 +183,8 @@ describe('exportDocument', () => {
       webPreferences: expect.objectContaining({ sandbox: true, contextIsolation: true, nodeIntegration: false })
     })])
     expect(state.printToPDF).toHaveBeenCalledWith(expect.objectContaining({ pageSize: 'A4', landscape: true }))
-    expect(state.loadURL).toHaveBeenCalledWith(expect.stringContaining(encodeURIComponent(request.html)), expect.anything())
+    expect(state.loadFile).toHaveBeenCalledWith(exportPagePath)
+    expect(state.loadURL).not.toHaveBeenCalled()
     expect(state.writeFile).toHaveBeenCalledWith(selectedPdfPath, Buffer.from('pdf'))
     expect(state.destroy).toHaveBeenCalledOnce()
   })
@@ -176,15 +205,107 @@ describe('exportDocument', () => {
 
     await expect(exportDocument({ ...request, format: 'png' })).resolves.toEqual({ ok: true, path: selectedPngPath })
 
-    expect(state.loadURL).toHaveBeenCalledWith(expect.stringContaining(encodeURIComponent(request.html)), expect.anything())
+    expect(state.loadFile).toHaveBeenCalledWith(exportPagePath)
 
     // The capture is encoded straight to PNG rather than assembled into a bitmap first,
     // so assert on the written file: a PNG signature, then an IHDR of the captured size.
-    const [writtenPath, written] = state.writeFile.mock.calls[0] as [string, Buffer]
-    expect(writtenPath).toBe(selectedPngPath)
+    const pngWrite = state.writeFile.mock.calls.find(([path]) => path === selectedPngPath)
+    const written = pngWrite?.[1] as Buffer
+    expect(written).toBeDefined()
     expect(written.subarray(0, PNG_SIGNATURE.length)).toEqual(PNG_SIGNATURE)
     expect(written.readUInt32BE(IHDR_WIDTH_OFFSET)).toBe(capturedSize)
     expect(written.readUInt32BE(IHDR_HEIGHT_OFFSET)).toBe(capturedSize)
+  })
+
+  it('hands the page to Chromium as a temp file rather than a percent-encoded data URL', async () => {
+    state.showSaveDialog.mockResolvedValue({ canceled: false, filePath: selectedPdfPath })
+    state.printToPDF.mockResolvedValue(Buffer.from('pdf'))
+    state.writeFile.mockResolvedValue(undefined)
+    const { exportDocument } = await import('./export')
+
+    await exportDocument({ ...request, format: 'pdf' })
+
+    // The document reaches Chromium as a file: no percent-encoded copy of the whole export.
+    expect(state.loadFile).toHaveBeenCalledWith(exportPagePath)
+    expect(state.loadURL).not.toHaveBeenCalled()
+    expect(state.sourceWrites.join('')).toBe(request.html)
+  })
+
+  it('resolves relative assets by giving the page a base href', async () => {
+    state.showSaveDialog.mockResolvedValue({ canceled: false, filePath: selectedPdfPath })
+    state.printToPDF.mockResolvedValue(Buffer.from('pdf'))
+    state.writeFile.mockResolvedValue(undefined)
+    const { exportDocument } = await import('./export')
+
+    await exportDocument({
+      ...request,
+      format: 'pdf',
+      html: '<html><head></head><body>x</body></html>',
+      assetBaseUrl: 'file:///docs/notes/'
+    })
+
+    expect(state.sourceWrites.join('')).toContain('<base href="file:///docs/notes/">')
+  })
+
+  it('writes no base href when the document has no head to put it in', async () => {
+    state.showSaveDialog.mockResolvedValue({ canceled: false, filePath: selectedPdfPath })
+    state.printToPDF.mockResolvedValue(Buffer.from('pdf'))
+    state.writeFile.mockResolvedValue(undefined)
+    const { exportDocument } = await import('./export')
+
+    // A tag before the doctype would switch the document to quirks mode.
+    await exportDocument({ ...request, format: 'pdf', html: '<p>no head</p>', assetBaseUrl: 'file:///docs/' })
+
+    expect(state.sourceWrites.join('')).toBe('<p>no head</p>')
+  })
+
+  it('leaves the exported HTML file free of the base href used by the hidden window', async () => {
+    state.showSaveDialog.mockResolvedValue({ canceled: false, filePath: selectedHtmlPath })
+    state.writeFile.mockResolvedValue(undefined)
+    const { exportDocument } = await import('./export')
+
+    await exportDocument({ ...request, assetBaseUrl: 'file:///docs/notes/' })
+
+    // The saved file carries no local path from the machine that produced it.
+    expect(state.writeFile).toHaveBeenCalledWith(selectedHtmlPath, request.html, 'utf-8')
+  })
+
+  it('removes the temp page after a successful export', async () => {
+    state.showSaveDialog.mockResolvedValue({ canceled: false, filePath: selectedPdfPath })
+    state.printToPDF.mockResolvedValue(Buffer.from('pdf'))
+    state.writeFile.mockResolvedValue(undefined)
+    const { exportDocument } = await import('./export')
+
+    await exportDocument({ ...request, format: 'pdf' })
+
+    expect(state.unlink).toHaveBeenCalledWith(exportPagePath)
+  })
+
+  it('removes the temp page when rendering fails', async () => {
+    state.showSaveDialog.mockResolvedValue({ canceled: false, filePath: selectedPdfPath })
+    state.printToPDF.mockRejectedValue(new Error('Render crashed'))
+    state.writeFile.mockResolvedValue(undefined)
+    const { exportDocument } = await import('./export')
+
+    await expect(exportDocument({ ...request, format: 'pdf' })).resolves.toEqual({
+      ok: false,
+      error: 'Render crashed'
+    })
+    expect(state.unlink).toHaveBeenCalledWith(exportPagePath)
+    expect(state.destroy).toHaveBeenCalledOnce()
+  })
+
+  it('removes the temp page when the page itself cannot be loaded', async () => {
+    state.showSaveDialog.mockResolvedValue({ canceled: false, filePath: selectedPdfPath })
+    state.loadFile.mockRejectedValue(new Error('ERR_FILE_NOT_FOUND'))
+    state.writeFile.mockResolvedValue(undefined)
+    const { exportDocument } = await import('./export')
+
+    await expect(exportDocument({ ...request, format: 'pdf' })).resolves.toEqual({
+      ok: false,
+      error: 'ERR_FILE_NOT_FOUND'
+    })
+    expect(state.unlink).toHaveBeenCalledWith(exportPagePath)
   })
 
 })
