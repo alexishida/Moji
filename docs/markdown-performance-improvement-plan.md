@@ -658,10 +658,20 @@ Aberto: publicação como artefato depende de haver CI, o que está em `PERF-704
 
 #### PERF-704 — Tornar build verificável
 
-- [ ] Fazer build de release depender de typecheck e testes.
+- [x] Fazer build de release depender de typecheck e testes.
 - [ ] Adicionar workflow real para Windows, Linux e macOS.
 - [ ] Confirmar afirmações do changelog e README contra arquivos existentes.
-- [ ] Evitar empacotar fixtures e artefatos de benchmark.
+- [x] Evitar empacotar fixtures e artefatos de benchmark.
+
+`npm run verify` encadeia typecheck e testes, e os quatro scripts `dist*` passaram a começar por ele: não há mais como produzir binário de release sem que os dois tenham passado.
+
+Empacotamento já estava correto e faltava constatar: `electron-builder.yml` declara `files` como lista de inclusão (`out/**/*`, `package.json`, `samples/**/*`), então corpus, baselines e artefatos de benchmark não têm como entrar — eles vivem em `.tmp/` e `docs/`, fora da lista.
+
+Verificação do README e do CHANGELOG foi feita e encontrou uma afirmação falsa, ainda não corrigida porque a correção depende de decisão: o README descreve o processo de release como conduzido por `.github/workflows/release.yml`, arquivo que `c388441 chore: remove GitHub workflows` apagou. O CHANGELOG não cita caminho inexistente algum. Enquanto não se decidir entre recriar o workflow e reescrever o README, o texto continua descrevendo um processo que não existe.
+
+Nota fora do escopo deste plano: `package.json` está em `1.0.5` enquanto a branch e o commit de release falam em `v0.1.6`, e o CHANGELOG segue a primeira numeração.
+
+Achado de ambiente: `engines` já exige Node `^20.19.0 || >=22.12.0`. A máquina usada nesta rodada tem 22.5.1, abaixo disso, e é por isso que `npm test` não sobe sem `--experimental-require-module` e que o binário do Electron não havia sido instalado. O projeto está certo; o ambiente é que estava fora da faixa declarada.
 
 #### SEC-701 — Restringir capacidades de arquivo do IPC
 
