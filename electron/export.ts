@@ -323,53 +323,56 @@ async function htmlToPng(
   assetBaseUrl?: string
 ): Promise<Buffer> {
   const size = pagePixels(pageSize, pageOrientation)
-  const win = await createExportWindow(html, pageSize, pageOrientation, assetBaseUrl)
-  const finishMeasure = beginMainMeasure('export:png-render', { htmlChars: html.length })
-  try {
-    await win.webContents.executeJavaScript("document.documentElement.classList.add('export-png')")
-    const documentHeight = (await win.webContents.executeJavaScript(
-      'Math.ceil(Math.max(document.body.scrollHeight, document.documentElement.scrollHeight))'
-    )) as number
-
-    const totalHeight = Math.max(size.height, documentHeight)
-    const sliceHeight = captureSliceHeight()
-
-    win.setContentSize(size.width, Math.min(totalHeight, sliceHeight))
-    await new Promise((r) => setTimeout(r, 50))
-
-    // Each slice is compressed and released as it is captured, so peak memory follows the
-    // slice height rather than the height of the document.
-    const encoder = createPngEncoder()
-    let width = 0
-    let height = 0
-
-    for (let top = 0; top < totalHeight; top += sliceHeight) {
-      const remaining = Math.min(sliceHeight, totalHeight - top)
-
-      // The page cannot scroll past `totalHeight - viewport`, so the final scrollTo is
-      // clamped. Capture from where the page actually landed, or the last slice repeats a
-      // band already captured.
-      const scrollY = (await win.webContents.executeJavaScript(
-        `window.scrollTo(0, ${top}); Math.round(window.scrollY)`
+  // The PDF path moved to `withExportWindow` and this one was left calling the window
+  // helper with the old argument list, so it handed the whole document where a file path
+  // belongs. It goes through the same wrapper now, which also removes the temp page.
+  return withExportWindow(html, pageSize, pageOrientation, assetBaseUrl, async (win) => {
+    const finishMeasure = beginMainMeasure('export:png-render', { htmlChars: html.length })
+    try {
+      await win.webContents.executeJavaScript("document.documentElement.classList.add('export-png')")
+      const documentHeight = (await win.webContents.executeJavaScript(
+        'Math.ceil(Math.max(document.body.scrollHeight, document.documentElement.scrollHeight))'
       )) as number
+
+      const totalHeight = Math.max(size.height, documentHeight)
+      const sliceHeight = captureSliceHeight()
+
+      win.setContentSize(size.width, Math.min(totalHeight, sliceHeight))
       await new Promise((r) => setTimeout(r, 50))
 
-      const image = await win.webContents.capturePage({
-        x: 0,
-        y: top - scrollY,
-        width: size.width,
-        height: remaining
-      })
+      // Each slice is compressed and released as it is captured, so peak memory follows the
+      // slice height rather than the height of the document.
+      const encoder = createPngEncoder()
+      let width = 0
+      let height = 0
 
-      const captured = image.getSize()
-      width = captured.width
-      height += captured.height
-      await encoder.addSlice(image.toBitmap(), captured.width, captured.height)
+      for (let top = 0; top < totalHeight; top += sliceHeight) {
+        const remaining = Math.min(sliceHeight, totalHeight - top)
+
+        // The page cannot scroll past `totalHeight - viewport`, so the final scrollTo is
+        // clamped. Capture from where the page actually landed, or the last slice repeats a
+        // band already captured.
+        const scrollY = (await win.webContents.executeJavaScript(
+          `window.scrollTo(0, ${top}); Math.round(window.scrollY)`
+        )) as number
+        await new Promise((r) => setTimeout(r, 50))
+
+        const image = await win.webContents.capturePage({
+          x: 0,
+          y: top - scrollY,
+          width: size.width,
+          height: remaining
+        })
+
+        const captured = image.getSize()
+        width = captured.width
+        height += captured.height
+        await encoder.addSlice(image.toBitmap(), captured.width, captured.height)
+      }
+
+      return encoder.finish(width, height)
+    } finally {
+      finishMeasure()
     }
-
-    return encoder.finish(width, height)
-  } finally {
-    finishMeasure()
-    win.destroy()
-  }
+  })
 }
