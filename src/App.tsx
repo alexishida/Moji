@@ -219,7 +219,9 @@ export function App(): JSX.Element {
 
   useEffect(() => warmLazyChunks(), [])
   useEffect(() => {
-    if (mode !== 'view' || debouncedContent !== content) {
+    // With no document open the preview is not mounted at all — the welcome screen is —
+    // so rendering here would be work nothing displays.
+    if (!activeDoc || mode !== 'view' || debouncedContent !== content) {
       return
     }
 

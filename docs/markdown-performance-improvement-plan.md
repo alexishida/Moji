@@ -606,11 +606,19 @@ Aberto por decisão de produto: "usar stack do sistema" significaria remover o I
 
 #### PERF-701 — Criar testes de componentes críticos
 
-- [ ] Testar integração entre `App` e `Editor`.
-- [ ] Testar que modo Editor não renderiza preview oculto.
-- [ ] Testar troca de aba com conteúdo ainda não materializado.
+- [x] Testar integração entre `App` e `Editor`.
+- [x] Testar que modo Editor não renderiza preview oculto.
+- [x] Testar troca de aba com conteúdo ainda não materializado.
 - [ ] Testar preview, busca, imagens lazy e outline.
-- [ ] Incluir padrão `*.test.tsx` no Vitest.
+- [x] Incluir padrão `*.test.tsx` no Vitest.
+
+`src/App.test.tsx` monta a janela real com `window.api` inteiro em stub, escolhendo o ambiente por `@vitest-environment jsdom`, que é como o Vitest 4 seleciona ambiente por arquivo — `environmentMatchGlobs` não existe mais. Duas dependências entraram: `@testing-library/react` e `@testing-library/user-event`. O CodeMirror é substituído por um `textarea`, porque jsdom não tem as APIs de layout que ele exige e o alvo aqui é o comportamento do `App` em volta do editor.
+
+O primeiro teste escrito falhou e apontou um resquício de `PERF-101`: com nenhum documento aberto, o `App` ainda mandava renderizar Markdown vazio, embora a tela mostrada fosse a de boas-vindas e o preview nem estivesse montado. O efeito ganhou a condição que faltava.
+
+Coberto: montagem sem documento, restauração de rascunho da sessão anterior, uma única renderização para o documento restaurado, ausência de renderização após entrar no modo Editor, e ida e volta entre Editor e Preview preservando o texto.
+
+Aberto: busca, imagens lazy e outline seguem sem teste de componente. Os três dependem de layout e de `IntersectionObserver`, que jsdom não fornece, e cobri-los aqui exigiria simular o que o navegador faz — é cenário para o E2E de `PERF-702`.
 
 #### PERF-702 — Criar testes Electron E2E
 
