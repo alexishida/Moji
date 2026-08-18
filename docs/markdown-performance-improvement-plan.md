@@ -566,9 +566,15 @@ Critério de aceite:
 #### PERF-604 — Reduzir fontes empacotadas
 
 - [x] Manter WOFF2 onde Chromium não precisa de WOFF/TTF.
-- [ ] Carregar CSS com fontes embutidas de exportação somente ao exportar.
+- [x] Carregar CSS com fontes embutidas de exportação somente ao exportar.
 - [x] Medir renderer após build: 19 WOFF2 (256.168 bytes), sem WOFF/TTF.
 - [ ] Validar KaTeX em Windows, Linux e macOS.
+
+O CSS com fontes embutidas já estava sob demanda e faltava constatar: `virtual:katex-fonts-css` só é importado por `src/lib/exportHtml.ts`, que por sua vez só entra por `await import('./lib/exportHtml')` no momento de exportar. O build confirma a separação — o chunk `exportHtml-*.js` sai com 380,93 kB, fora do bundle inicial.
+
+`PERF-501` tornou obsoleta a justificativa registrada no plugin `katexEmbeddedFonts`, que dizia embutir as fontes porque a exportação carregava de uma `data:` URL. O comentário foi corrigido: as fontes continuam embutidas, agora porque o HTML exportado precisa ser autossuficiente no disco do usuário.
+
+Aberto por falta de ambiente: validação de KaTeX em Windows e Linux. Só macOS foi exercitado nesta rodada.
 
 #### PERF-605 — Remover dependência de Google Fonts no runtime
 
@@ -576,11 +582,17 @@ Critério de aceite:
 - [x] Remover preconnect e stylesheet remotos da aplicação.
 - [x] Exportar HTML sem dependência externa de fonte.
 - [x] Ajustar CSP após remoção dos domínios externos.
-- [ ] Validar PDF/PNG offline sem espera de rede.
+- [x] Validar PDF/PNG offline sem espera de rede.
 
 Critério de aceite:
 
 - Aplicação e exportação PDF/PNG funcionam sem acesso a Google Fonts.
+
+A validação virou teste em vez de inspeção: `src/lib/exportHtml.test.ts` afirma que o HTML gerado não cita `fonts.googleapis.com` nem `fonts.gstatic.com`, não tem `preconnect`, nenhum `link`/`script` apontando para `http(s):` e nenhum `url()` remoto em CSS — qualquer um deles faria a janela oculta esperar rede antes de capturar. Outro teste confirma que as fontes KaTeX viajam como `data:font/woff2`, e não como `url(fonts/…)` relativo, que resolveria contra o diretório onde o usuário salvou o arquivo.
+
+Rodar isso exigiu alinhar o runner com o build: `vitest.config.ts` não conhecia `virtual:katex-fonts-css` nem `?inline`, então qualquer teste que tocasse o pipeline de exportação falhava ao importar. O runner passou a resolver o módulo virtual por um stub com regra-marcador — o que os testes precisam observar é que o conteúdo chega ao documento exportado, não um megabyte de fontes — e a habilitar `css: true`. Também passou a aceitar `*.test.tsx`, que `PERF-701` exige.
+
+Aberto por decisão de produto: "usar stack do sistema" significaria remover o Inter empacotado, o que muda a aparência do aplicativo. O critério de aceite já é cumprido por outro caminho — o Inter é servido localmente por `@fontsource`, não pelo Google Fonts, e `--font-sans` já cai para `system-ui` em seguida. Trocar a tipografia é decisão de quem cuida do produto, não consequência de desempenho.
 
 ### Fase 7 — Testes, build e segurança
 
