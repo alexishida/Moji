@@ -108,11 +108,14 @@ export default defineConfig({
   main: {
     build: {
       outDir: 'out/main',
-      lib: {
-        entry: resolve(__dirname, 'electron/main.ts')
-      },
       rollupOptions: {
-        output: { entryFileNames: 'main.js' }
+        // The PNG export runs its pixel loop on a worker thread, which needs its own
+        // entry so `new Worker(...)` has a file to load next to `main.js`.
+        input: {
+          main: resolve(__dirname, 'electron/main.ts'),
+          pngWorker: resolve(__dirname, 'electron/pngWorker.ts')
+        },
+        output: { entryFileNames: '[name].js' }
       }
     }
   },

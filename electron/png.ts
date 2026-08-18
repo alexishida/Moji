@@ -1,5 +1,6 @@
 import { open, rename, unlink, type FileHandle } from 'node:fs/promises'
 import { createDeflate } from 'node:zlib'
+import { createScanlineConverter, type ScanlineConverter } from './pngScanlineConverter'
 
 /**
  * Minimal streaming PNG encoder, written against the PNG specification (RFC 2083).
@@ -17,8 +18,6 @@ const SIGNATURE = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])
 
 const BIT_DEPTH = 8
 const COLOUR_TYPE_RGBA = 6
-const FILTER_NONE = 0
-const BYTES_PER_PIXEL = 4
 
 /** Bytes of a complete IHDR chunk: length, type, 13-byte payload, CRC. */
 const IHDR_CHUNK_BYTES = 25
@@ -68,31 +67,6 @@ function imageHeader(width: number, height: number): Buffer {
   return chunk('IHDR', payload)
 }
 
-/** Turn one BGRA slice into PNG scanlines: a filter byte, then RGBA pixels, per row. */
-function scanlines(bgra: Buffer, width: number, height: number): Buffer {
-  const stride = width * BYTES_PER_PIXEL
-
-  // Laying the whole slice out in one buffer keeps this to a single write to the
-  // deflate stream, rather than two per row.
-  const rows = Buffer.allocUnsafe(height * (1 + stride))
-
-  for (let y = 0; y < height; y += 1) {
-    const source = y * stride
-    const target = y * (1 + stride)
-    rows[target] = FILTER_NONE
-
-    for (let i = 0; i < stride; i += BYTES_PER_PIXEL) {
-      // capturePage returns BGRA; PNG expects RGBA.
-      rows[target + 1 + i] = bgra[source + i + 2]
-      rows[target + 2 + i] = bgra[source + i + 1]
-      rows[target + 3 + i] = bgra[source + i]
-      rows[target + 4 + i] = bgra[source + i + 3]
-    }
-  }
-
-  return rows
-}
-
 export interface PngFileWriter {
   /** Append the next horizontal slice, as the BGRA bitmap `capturePage` hands back. */
   addSlice: (bgra: Buffer, width: number, height: number) => Promise<void>
@@ -114,7 +88,10 @@ export interface PngFileWriter {
  * written first. It is written with a placeholder size and rewritten in place at the end,
  * which is safe because IHDR always occupies the same 25 bytes right after the signature.
  */
-export async function createPngFileWriter(destination: string): Promise<PngFileWriter> {
+export async function createPngFileWriter(
+  destination: string,
+  converter: ScanlineConverter = createScanlineConverter()
+): Promise<PngFileWriter> {
   const temporary = `${destination}.tmp`
   const handle: FileHandle = await open(temporary, 'w')
 
@@ -151,7 +128,10 @@ export async function createPngFileWriter(destination: string): Promise<PngFileW
 
     return {
       async addSlice(bgra, width, height) {
-        await write(scanlines(bgra, width, height))
+        // Rearranging a few million pixels is the one step that would otherwise hold the
+        // main process, so it happens on a worker thread.
+        const rows = await converter.convert(bgra, width, height)
+        await write(Buffer.from(rows.buffer, rows.byteOffset, rows.byteLength))
       },
 
       async finish(width, height) {
@@ -168,6 +148,8 @@ export async function createPngFileWriter(destination: string): Promise<PngFileW
         } catch (err) {
           await closeAndUnlink()
           throw err
+        } finally {
+          await converter.close()
         }
 
         await rename(temporary, destination)
@@ -175,10 +157,12 @@ export async function createPngFileWriter(destination: string): Promise<PngFileW
 
       async abort() {
         deflate.destroy()
+        await converter.close()
         await closeAndUnlink()
       }
     }
   } catch (err) {
+    await converter.close()
     await closeAndUnlink()
     throw err
   }
