@@ -12,7 +12,7 @@ import {
   type WriteResult
 } from './shared'
 import { getSettings, updateSettings } from './settings'
-import { createPngEncoder } from './png'
+import { createPngFileWriter } from './png'
 import { beginMainMeasure, captureMainMemory, captureWebContentsMemory } from './performance'
 
 const FILTERS: Record<ExportFormat, Electron.FileFilter> = {
@@ -119,7 +119,7 @@ export async function exportDocumentToPath(request: unknown, filePath: string): 
   try {
     if (format === 'html') await writeFile(filePath, html, 'utf-8')
     else if (format === 'pdf') await writeFile(filePath, await htmlToPdf(html, pageSize, pageOrientation, assetBaseUrl))
-    else await writeFile(filePath, await htmlToPng(html, pageSize, pageOrientation, assetBaseUrl))
+    else await htmlToPngFile(filePath, html, pageSize, pageOrientation, assetBaseUrl)
     void captureMainMemory('main:memory:document-export')
     return { ok: true, path: filePath }
   } catch (err) {
@@ -316,16 +316,15 @@ function captureSliceHeight(): number {
   return Math.max(1, Math.min(CAPTURE_SLICE_CSS_PX, withinTexture))
 }
 
-async function htmlToPng(
+/** Capture the page in slices and stream them straight into `filePath`. */
+async function htmlToPngFile(
+  filePath: string,
   html: string,
   pageSize: ExportPageSize,
   pageOrientation: ExportPageOrientation,
   assetBaseUrl?: string
-): Promise<Buffer> {
+): Promise<void> {
   const size = pagePixels(pageSize, pageOrientation)
-  // The PDF path moved to `withExportWindow` and this one was left calling the window
-  // helper with the old argument list, so it handed the whole document where a file path
-  // belongs. It goes through the same wrapper now, which also removes the temp page.
   return withExportWindow(html, pageSize, pageOrientation, assetBaseUrl, async (win) => {
     const finishMeasure = beginMainMeasure('export:png-render', { htmlChars: html.length })
     try {
@@ -340,37 +339,43 @@ async function htmlToPng(
       win.setContentSize(size.width, Math.min(totalHeight, sliceHeight))
       await new Promise((r) => setTimeout(r, 50))
 
-      // Each slice is compressed and released as it is captured, so peak memory follows the
-      // slice height rather than the height of the document.
-      const encoder = createPngEncoder()
+      // Each slice is compressed and written out as it is captured, so peak memory follows
+      // the slice height rather than the height of the document.
+      const writer = await createPngFileWriter(filePath)
       let width = 0
       let height = 0
 
-      for (let top = 0; top < totalHeight; top += sliceHeight) {
-        const remaining = Math.min(sliceHeight, totalHeight - top)
+      try {
+        for (let top = 0; top < totalHeight; top += sliceHeight) {
+          const remaining = Math.min(sliceHeight, totalHeight - top)
 
-        // The page cannot scroll past `totalHeight - viewport`, so the final scrollTo is
-        // clamped. Capture from where the page actually landed, or the last slice repeats a
-        // band already captured.
-        const scrollY = (await win.webContents.executeJavaScript(
-          `window.scrollTo(0, ${top}); Math.round(window.scrollY)`
-        )) as number
-        await new Promise((r) => setTimeout(r, 50))
+          // The page cannot scroll past `totalHeight - viewport`, so the final scrollTo is
+          // clamped. Capture from where the page actually landed, or the last slice repeats
+          // a band already captured.
+          const scrollY = (await win.webContents.executeJavaScript(
+            `window.scrollTo(0, ${top}); Math.round(window.scrollY)`
+          )) as number
+          await new Promise((r) => setTimeout(r, 50))
 
-        const image = await win.webContents.capturePage({
-          x: 0,
-          y: top - scrollY,
-          width: size.width,
-          height: remaining
-        })
+          const image = await win.webContents.capturePage({
+            x: 0,
+            y: top - scrollY,
+            width: size.width,
+            height: remaining
+          })
 
-        const captured = image.getSize()
-        width = captured.width
-        height += captured.height
-        await encoder.addSlice(image.toBitmap(), captured.width, captured.height)
+          const captured = image.getSize()
+          width = captured.width
+          height += captured.height
+          await writer.addSlice(image.toBitmap(), captured.width, captured.height)
+        }
+
+        await writer.finish(width, height)
+      } catch (err) {
+        // A half-written capture is worse than no file at all.
+        await writer.abort()
+        throw err
       }
-
-      return encoder.finish(width, height)
     } finally {
       finishMeasure()
     }

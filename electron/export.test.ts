@@ -1,12 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { readFile } from 'node:fs/promises'
+// `rm` is mocked below, so the fixture directory is reset through the unmocked sync API.
+import { mkdirSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 
 const exportTempDirectory = join(tmpdir(), 'moji-export-tests')
-/** Stands in for the OS temp directory the export page is written into. */
-const exportPageDirectory = join(tmpdir(), 'moji-export-tests-temp')
-/** The page path `writeExportSource` builds from that directory and a fixed UUID. */
-const exportPagePath = join(exportPageDirectory, 'moji-export-fixed-uuid.html')
+
 const selectedHtmlPath = join(exportTempDirectory, 'chosen', 'report.html')
 const selectedPdfPath = join(exportTempDirectory, 'chosen', 'report.pdf')
 const selectedPngPath = join(exportTempDirectory, 'chosen', 'report.png')
@@ -22,6 +22,18 @@ const PNG_SIGNATURE = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0
 // The IHDR chunk opens the file: signature (8), length (4), type (4), then width and height.
 const IHDR_WIDTH_OFFSET = 16
 const IHDR_HEIGHT_OFFSET = 20
+
+const paths = vi.hoisted(() => {
+  const { tmpdir } = require('node:os')
+  const { join } = require('node:path')
+  const directory = join(tmpdir(), 'moji-export-tests-temp')
+  return { directory, page: join(directory, 'moji-export-fixed-uuid.html') }
+})
+
+/** Stands in for the OS temp directory the export page is written into. */
+const exportPageDirectory = paths.directory
+/** The page path `writeExportSource` builds from that directory and a fixed UUID. */
+const exportPagePath = paths.page
 
 const state = vi.hoisted(() => ({
   showSaveDialog: vi.fn(),
@@ -66,11 +78,23 @@ vi.mock('electron', () => ({
   screen: { getPrimaryDisplay: vi.fn(() => ({ scaleFactor: 1 })) }
 }))
 
-vi.mock('node:fs/promises', () => ({
-  writeFile: state.writeFile,
-  open: state.open,
-  unlink: state.unlink
-}))
+// The PNG writer opens the destination itself and streams into it, so the real file
+// system stays in place and only the calls the export makes directly are observed.
+// Partial mock: the PNG writer opens and renames the destination for real, so only the
+// calls the export makes for its temp page are intercepted.
+vi.mock('node:fs/promises', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('node:fs/promises')>()
+  return {
+    ...actual,
+    writeFile: state.writeFile,
+    unlink: (path: string) => {
+      state.unlink(path)
+      return actual.unlink(path).catch(() => undefined)
+    },
+    open: (path: string, flags: string) =>
+      path === paths.page ? state.open(path, flags) : actual.open(path, flags)
+  }
+})
 
 // A fixed name keeps the temp page path predictable across a run.
 vi.mock('node:crypto', () => ({ randomUUID: () => 'fixed-uuid' }))
@@ -88,7 +112,10 @@ const request = {
   baseName: 'Report'
 }
 
-beforeEach(() => {
+beforeEach(async () => {
+  // The streamed PNG lands on the real file system, so give it a real, empty directory.
+  rmSync(dirname(selectedPngPath), { recursive: true, force: true })
+  mkdirSync(dirname(selectedPngPath), { recursive: true })
   vi.resetModules()
   vi.clearAllMocks()
   state.windows.length = 0
@@ -209,12 +236,29 @@ describe('exportDocument', () => {
 
     // The capture is encoded straight to PNG rather than assembled into a bitmap first,
     // so assert on the written file: a PNG signature, then an IHDR of the captured size.
-    const pngWrite = state.writeFile.mock.calls.find(([path]) => path === selectedPngPath)
-    const written = pngWrite?.[1] as Buffer
-    expect(written).toBeDefined()
+    const written = await readFile(selectedPngPath)
     expect(written.subarray(0, PNG_SIGNATURE.length)).toEqual(PNG_SIGNATURE)
     expect(written.readUInt32BE(IHDR_WIDTH_OFFSET)).toBe(capturedSize)
     expect(written.readUInt32BE(IHDR_HEIGHT_OFFSET)).toBe(capturedSize)
+  })
+
+  it('leaves no partial PNG behind when a capture fails midway', async () => {
+    state.showSaveDialog.mockResolvedValue({ canceled: false, filePath: selectedPngPath })
+    state.writeFile.mockResolvedValue(undefined)
+    state.executeJavaScript
+      .mockResolvedValueOnce(undefined)
+      .mockResolvedValueOnce(undefined)
+      .mockResolvedValueOnce(capturedSize)
+      .mockResolvedValueOnce(0)
+    state.capturePage.mockRejectedValue(new Error('UnknownVizError'))
+    const { exportDocument } = await import('./export')
+
+    await expect(exportDocument({ ...request, format: 'png' })).resolves.toEqual({
+      ok: false,
+      error: 'UnknownVizError'
+    })
+    await expect(readFile(selectedPngPath)).rejects.toThrow()
+    await expect(readFile(`${selectedPngPath}.tmp`)).rejects.toThrow()
   })
 
   it('hands the page to Chromium as a temp file rather than a percent-encoded data URL', async () => {

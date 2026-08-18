@@ -1,13 +1,14 @@
+import { open, rename, unlink, type FileHandle } from 'node:fs/promises'
 import { createDeflate } from 'node:zlib'
 
 /**
  * Minimal streaming PNG encoder, written against the PNG specification (RFC 2083).
  *
- * A tall document is captured in slices. Keeping every slice in order to stitch one
- * bitmap costs memory proportional to the whole document: a 30000px page needs more
- * than a gigabyte before a single byte is written. This encoder compresses each slice
- * as it arrives and lets it go, so memory stays proportional to one slice instead of
- * to the document.
+ * A tall document is captured in slices. Holding every slice to stitch one bitmap costs
+ * memory proportional to the whole document: a 30000px page needs more than a gigabyte
+ * before a single byte is written. This encoder compresses each slice as it arrives and
+ * writes the compressed bytes straight to the destination file, so memory follows one
+ * slice plus the deflate window rather than the size of the finished image.
  *
  * The output is 8-bit RGBA with no per-row filtering, which is all the export needs.
  */
@@ -18,6 +19,9 @@ const BIT_DEPTH = 8
 const COLOUR_TYPE_RGBA = 6
 const FILTER_NONE = 0
 const BYTES_PER_PIXEL = 4
+
+/** Bytes of a complete IHDR chunk: length, type, 13-byte payload, CRC. */
+const IHDR_CHUNK_BYTES = 25
 
 const CRC_TABLE = buildCrcTable()
 
@@ -64,58 +68,118 @@ function imageHeader(width: number, height: number): Buffer {
   return chunk('IHDR', payload)
 }
 
-export interface PngEncoder {
-  /** Append the next horizontal slice, as the BGRA bitmap `capturePage` hands back. */
-  addSlice: (bgra: Buffer, width: number, height: number) => Promise<void>
-  /** Close the stream and assemble the complete PNG. */
-  finish: (width: number, height: number) => Promise<Buffer>
+/** Turn one BGRA slice into PNG scanlines: a filter byte, then RGBA pixels, per row. */
+function scanlines(bgra: Buffer, width: number, height: number): Buffer {
+  const stride = width * BYTES_PER_PIXEL
+
+  // Laying the whole slice out in one buffer keeps this to a single write to the
+  // deflate stream, rather than two per row.
+  const rows = Buffer.allocUnsafe(height * (1 + stride))
+
+  for (let y = 0; y < height; y += 1) {
+    const source = y * stride
+    const target = y * (1 + stride)
+    rows[target] = FILTER_NONE
+
+    for (let i = 0; i < stride; i += BYTES_PER_PIXEL) {
+      // capturePage returns BGRA; PNG expects RGBA.
+      rows[target + 1 + i] = bgra[source + i + 2]
+      rows[target + 2 + i] = bgra[source + i + 1]
+      rows[target + 3 + i] = bgra[source + i]
+      rows[target + 4 + i] = bgra[source + i + 3]
+    }
+  }
+
+  return rows
 }
 
-export function createPngEncoder(): PngEncoder {
-  const deflate = createDeflate()
-  const compressed: Buffer[] = []
+export interface PngFileWriter {
+  /** Append the next horizontal slice, as the BGRA bitmap `capturePage` hands back. */
+  addSlice: (bgra: Buffer, width: number, height: number) => Promise<void>
+  /** Close the stream, stamp the final size, and move the file into place. */
+  finish: (width: number, height: number) => Promise<void>
+  /** Give up and leave no partial file behind. */
+  abort: () => Promise<void>
+}
 
-  deflate.on('data', (part: Buffer) => compressed.push(part))
-  const drained = new Promise<void>((resolve) => deflate.on('end', resolve))
+/**
+ * Open `destination` for a streamed PNG.
+ *
+ * Bytes go to a sibling `.tmp` file and are renamed into place only once the image is
+ * complete, so a cancelled or failed export never leaves a truncated PNG where the user
+ * asked for a picture. The sibling shares the destination's directory, which keeps the
+ * rename on one filesystem and therefore atomic.
+ *
+ * The size is not known until the last slice has been captured, but IHDR has to be
+ * written first. It is written with a placeholder size and rewritten in place at the end,
+ * which is safe because IHDR always occupies the same 25 bytes right after the signature.
+ */
+export async function createPngFileWriter(destination: string): Promise<PngFileWriter> {
+  const temporary = `${destination}.tmp`
+  const handle: FileHandle = await open(temporary, 'w')
 
-  const write = (bytes: Buffer): Promise<void> =>
-    deflate.write(bytes) ? Promise.resolve() : new Promise((resolve) => deflate.once('drain', () => resolve()))
-
-  return {
-    async addSlice(bgra, width, height) {
-      const stride = width * BYTES_PER_PIXEL
-
-      // Every PNG row is a filter byte followed by its pixels. Laying the whole slice out
-      // in one buffer keeps this to a single write, rather than two per row.
-      const rows = Buffer.allocUnsafe(height * (1 + stride))
-
-      for (let y = 0; y < height; y += 1) {
-        const source = y * stride
-        const target = y * (1 + stride)
-        rows[target] = FILTER_NONE
-
-        for (let i = 0; i < stride; i += BYTES_PER_PIXEL) {
-          // capturePage returns BGRA; PNG expects RGBA.
-          rows[target + 1 + i] = bgra[source + i + 2]
-          rows[target + 2 + i] = bgra[source + i + 1]
-          rows[target + 3 + i] = bgra[source + i]
-          rows[target + 4 + i] = bgra[source + i + 3]
-        }
-      }
-
-      await write(rows)
-    },
-
-    async finish(width, height) {
-      deflate.end()
-      await drained
-
-      return Buffer.concat([
-        SIGNATURE,
-        imageHeader(width, height),
-        chunk('IDAT', Buffer.concat(compressed)),
-        chunk('IEND', Buffer.alloc(0))
-      ])
+  let closed = false
+  const closeAndUnlink = async (): Promise<void> => {
+    if (!closed) {
+      closed = true
+      await handle.close()
     }
+    await unlink(temporary).catch(() => undefined)
+  }
+
+  try {
+    await handle.write(SIGNATURE)
+    await handle.write(imageHeader(0, 0))
+
+    const deflate = createDeflate()
+
+    // Consuming the stream with `for await` applies backpressure and keeps the IDAT
+    // chunks in order: the next compressed block is only pulled once the previous one
+    // has reached the file.
+    const pump = (async () => {
+      for await (const part of deflate) {
+        await handle.write(chunk('IDAT', part as Buffer))
+      }
+    })()
+
+    // A rejected pump with no attached handler would surface as an unhandled rejection
+    // before `finish` gets to await it.
+    pump.catch(() => undefined)
+
+    const write = (bytes: Buffer): Promise<void> =>
+      deflate.write(bytes) ? Promise.resolve() : new Promise((resolve) => deflate.once('drain', () => resolve()))
+
+    return {
+      async addSlice(bgra, width, height) {
+        await write(scanlines(bgra, width, height))
+      },
+
+      async finish(width, height) {
+        try {
+          deflate.end()
+          await pump
+
+          await handle.write(chunk('IEND', Buffer.alloc(0)))
+          // Now that the height is known, restate IHDR over the placeholder.
+          await handle.write(imageHeader(width, height), 0, IHDR_CHUNK_BYTES, SIGNATURE.length)
+
+          closed = true
+          await handle.close()
+        } catch (err) {
+          await closeAndUnlink()
+          throw err
+        }
+
+        await rename(temporary, destination)
+      },
+
+      async abort() {
+        deflate.destroy()
+        await closeAndUnlink()
+      }
+    }
+  } catch (err) {
+    await closeAndUnlink()
+    throw err
   }
 }
