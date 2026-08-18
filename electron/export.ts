@@ -1,5 +1,6 @@
-import { BrowserWindow, dialog, screen } from 'electron'
-import { writeFile } from 'node:fs/promises'
+import { app, BrowserWindow, dialog, screen } from 'electron'
+import { open, unlink, writeFile } from 'node:fs/promises'
+import { randomUUID } from 'node:crypto'
 import { dirname, join } from 'node:path'
 import {
   EXPORT_PAGE_SIZES,
@@ -167,13 +168,100 @@ async function waitForFonts(win: BrowserWindow): Promise<void> {
   ])
 }
 
-async function createExportWindow(
+/** Opening tag of the document head, where the `<base>` below has to land. */
+const HEAD_TAG = /<head[^>]*>/i
+
+/** The temporary file the hidden window loads, and the promise that removes it. */
+interface ExportSource {
+  path: string
+  /** Removes the file. Never throws: a leftover temporary must not fail an export that worked. */
+  discard: () => Promise<void>
+}
+
+function escapeAttribute(value: string): string {
+  return value.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;')
+}
+
+/**
+ * Writes the document the hidden window renders from.
+ *
+ * The document used to travel as `data:text/html;charset=utf-8,` + `encodeURIComponent(html)`: a
+ * percent-encoded copy of the whole export, around three times its size, built in main and parsed
+ * back by Chromium. A temporary file carries the same bytes without that copy ever existing — the
+ * document is written once, in slices that share the original string, and Chromium reads it from
+ * disk.
+ *
+ * The `data:` URL resolved relative assets through `baseURLForDataURL`. A file in the temporary
+ * directory would resolve them against that directory instead, so a `<base>` naming the document's
+ * own directory is written into the head. Relative images and links written as raw HTML inside the
+ * Markdown therefore keep resolving exactly where they did.
+ */
+async function writeExportSource(html: string, assetBaseUrl?: string): Promise<ExportSource> {
+  const path = join(app.getPath('temp'), `moji-export-${randomUUID()}.html`)
+  const base = exportAssetBaseUrl(assetBaseUrl)
+  // Without a head there is nowhere valid to put the base: a stray tag before the doctype would
+  // switch the document to quirks mode, which changes far more than asset resolution.
+  const head = base ? HEAD_TAG.exec(html) : null
+  const discard = async (): Promise<void> => {
+    try {
+      await unlink(path)
+    } catch {
+      // Already gone, or never created. Either way there is nothing to clean up.
+    }
+  }
+
+  const handle = await open(path, 'w')
+  try {
+    if (head) {
+      const insertAt = head.index + head[0].length
+      await handle.write(html.slice(0, insertAt))
+      await handle.write(`<base href="${escapeAttribute(base as string)}">`)
+      await handle.write(html.slice(insertAt))
+    } else {
+      await handle.write(html)
+    }
+  } catch (err) {
+    await discard()
+    throw err
+  } finally {
+    await handle.close()
+  }
+
+  return { path, discard }
+}
+
+/**
+ * Renders the export in a hidden window and tears down everything it needed.
+ *
+ * The window stays sandboxed, context-isolated and without Node, because it renders a document
+ * assembled from the user's Markdown. The temporary file is removed after the window is gone,
+ * whether the render succeeded, failed or never started.
+ */
+async function withExportWindow<T>(
   html: string,
   pageSize: ExportPageSize,
   pageOrientation: ExportPageOrientation,
-  assetBaseUrl?: string
+  assetBaseUrl: string | undefined,
+  use: (win: BrowserWindow) => Promise<T>
+): Promise<T> {
+  const source = await writeExportSource(html, assetBaseUrl)
+  let win: BrowserWindow | null = null
+  try {
+    win = await createExportWindow(source.path, html.length, pageSize, pageOrientation)
+    return await use(win)
+  } finally {
+    win?.destroy()
+    await source.discard()
+  }
+}
+
+async function createExportWindow(
+  sourcePath: string,
+  htmlChars: number,
+  pageSize: ExportPageSize,
+  pageOrientation: ExportPageOrientation
 ): Promise<BrowserWindow> {
-  const finishMeasure = beginMainMeasure('export-window:mount', { htmlChars: html.length })
+  const finishMeasure = beginMainMeasure('export-window:mount', { htmlChars })
   const size = pagePixels(pageSize, pageOrientation)
   const win = new BrowserWindow({
     show: false,
@@ -188,12 +276,14 @@ async function createExportWindow(
     }
   })
   try {
-    await win.loadURL('data:text/html;charset=utf-8,' + encodeURIComponent(html), {
-      baseURLForDataURL: exportAssetBaseUrl(assetBaseUrl)
-    })
+    await win.loadFile(sourcePath)
     await waitForFonts(win)
     void captureWebContentsMemory('export-window:memory', win.webContents)
     return win
+  } catch (err) {
+    // The caller never receives this window, so nothing else would close it.
+    win.destroy()
+    throw err
   } finally {
     finishMeasure()
   }
@@ -205,19 +295,19 @@ async function htmlToPdf(
   pageOrientation: ExportPageOrientation,
   assetBaseUrl?: string
 ): Promise<Buffer> {
-  const win = await createExportWindow(html, pageSize, pageOrientation, assetBaseUrl)
-  const finishMeasure = beginMainMeasure('export:pdf-render', { htmlChars: html.length })
-  try {
-    return await win.webContents.printToPDF({
-      printBackground: true,
-      margins: { marginType: 'default' },
-      pageSize,
-      landscape: pageOrientation === 'landscape'
-    })
-  } finally {
-    finishMeasure()
-    win.destroy()
-  }
+  return withExportWindow(html, pageSize, pageOrientation, assetBaseUrl, async (win) => {
+    const finishMeasure = beginMainMeasure('export:pdf-render', { htmlChars: html.length })
+    try {
+      return await win.webContents.printToPDF({
+        printBackground: true,
+        margins: { marginType: 'default' },
+        pageSize,
+        landscape: pageOrientation === 'landscape'
+      })
+    } finally {
+      finishMeasure()
+    }
+  })
 }
 
 /** Height of one capture, in CSS pixels, honouring both the texture cap and the display scale. */

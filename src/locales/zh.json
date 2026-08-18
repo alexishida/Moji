@@ -251,6 +251,8 @@
     "saveSuccess": "已保存",
     "saveFailed": "保存失败：{{error}}",
     "autoSaveFailed": "无法保存恢复草稿：{{error}}",
+    "autoSaveOverMemoryBudget": "无法保存恢复草稿：需要 {{required}}，但草稿仅预留了 {{available}}。文本未被截断——请将文档保存为文件以保留内容。",
+    "autoSaveNoDiskSpace": "无法保存恢复草稿：需要 {{required}} 可用空间，但磁盘仅剩 {{available}}。文本未被截断——请释放空间或将文档保存为文件。",
     "autoSaveCleanupFailed": "无法删除恢复草稿：{{error}}",
     "draftRestoreFailed": "无法恢复草稿：{{error}}",
     "openFailed": "无法打开文件：{{error}}",

@@ -65,3 +65,11 @@ The system SHALL persist documents without a filesystem path as internal recover
 #### Scenario: Disable recovery
 - **WHEN** the user disables untitled-document recovery in Settings
 - **THEN** new changes are not written to internal recovery storage and normal unsaved-change confirmation applies
+
+#### Scenario: Recover a large document
+- **WHEN** an untitled document holds more text than any fixed character limit would allow, and the machine has memory and disk space for it
+- **THEN** the recovery draft is persisted and restored in full, with no content removed
+
+#### Scenario: Recovery storage is unavailable
+- **WHEN** a recovery draft cannot be written because the memory budget or the free disk space is insufficient
+- **THEN** the application reports how much was needed and how much was available, keeps the previously stored draft unchanged, and never stores a shortened copy of the document

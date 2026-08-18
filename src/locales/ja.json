@@ -251,6 +251,8 @@
     "saveSuccess": "保存しました",
     "saveFailed": "保存に失敗しました: {{error}}",
     "autoSaveFailed": "復元用下書きを保存できませんでした: {{error}}",
+    "autoSaveOverMemoryBudget": "復元用下書きを保存できませんでした: {{required}} 必要ですが、下書き用には {{available}} しか確保されていません。テキストは切り詰められていません。ドキュメントをファイルに保存して保持してください。",
+    "autoSaveNoDiskSpace": "復元用下書きを保存できませんでした: 空き容量が {{required}} 必要ですが、ディスクには {{available}} しか残っていません。テキストは切り詰められていません。空き容量を増やすか、ドキュメントをファイルに保存してください。",
     "autoSaveCleanupFailed": "復元用下書きを削除できませんでした: {{error}}",
     "draftRestoreFailed": "復元用下書きを復元できませんでした: {{error}}",
     "openFailed": "ファイルを開けませんでした: {{error}}",

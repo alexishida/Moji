@@ -251,6 +251,8 @@
     "saveSuccess": "Guardado",
     "saveFailed": "Error al guardar: {{error}}",
     "autoSaveFailed": "No se pudo guardar el borrador de recuperación: {{error}}",
+    "autoSaveOverMemoryBudget": "No se pudo guardar el borrador de recuperación: necesita {{required}}, pero solo hay {{available}} reservados para borradores. No se recortó nada del texto: guarda el documento en un archivo para conservarlo.",
+    "autoSaveNoDiskSpace": "No se pudo guardar el borrador de recuperación: necesita {{required}} libres, pero solo quedan {{available}} en el disco. No se recortó nada del texto: libera espacio o guarda el documento en un archivo.",
     "autoSaveCleanupFailed": "No se pudo eliminar el borrador de recuperación: {{error}}",
     "draftRestoreFailed": "No se pudieron restaurar los borradores de recuperación: {{error}}",
     "openFailed": "No se pudo abrir el archivo: {{error}}",

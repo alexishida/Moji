@@ -11,6 +11,7 @@ import {
   type DocumentSizeProfile,
   type DocumentStreamMessage,
   type DraftAppendResult,
+  type DraftPersistProblem,
   type DraftResult,
   type OpenDialogResult,
   type OpenResult,
@@ -21,6 +22,7 @@ import {
 import { getSettings, updateSettings } from './settings'
 import { appendDraftEdits, getDrafts, removeDraft, saveDraft } from './drafts'
 import { isDraftId } from './draftStore'
+import { isDraftPersistError } from './draftCapacity'
 import { areDraftEditBatches } from './draftJournal'
 import { assetContentType, assetPathFromUrl, authorizedAsset } from './assetPaths'
 import { isMarkdown, sanitizeDraft, sanitizeSettingsPatch, suggestedMarkdownName } from './ipcInput'
@@ -482,6 +484,18 @@ function createWindow(): void {
   }
 }
 
+/**
+ * Describes a failed draft write to the renderer.
+ *
+ * A refusal for memory or disk carries its measurements so the renderer can name what is missing;
+ * anything else keeps travelling as its message. Either way the draft in the editor is untouched,
+ * so the renderer can retry after the user frees space.
+ */
+function draftFailure(err: unknown): { error: string; problem?: DraftPersistProblem } {
+  const error = (err as Error).message
+  return isDraftPersistError(err) ? { error, problem: err.problem } : { error }
+}
+
 function registerIpc(): void {
   ipcMain.handle(IPC.getSettings, (): Settings => getSettings())
 
@@ -496,7 +510,7 @@ function registerIpc(): void {
       await saveDraft(draft)
       return { ok: true }
     } catch (err) {
-      return { ok: false, error: (err as Error).message }
+      return { ok: false, ...draftFailure(err) }
     }
   })
 
@@ -512,7 +526,7 @@ function registerIpc(): void {
         if (outcome === 'out-of-sync' || outcome === 'unknown-draft') return { ok: false, reason: outcome }
         return { ok: true }
       } catch (err) {
-        return { ok: false, reason: 'error', error: (err as Error).message }
+        return { ok: false, reason: 'error', ...draftFailure(err) }
       }
     }
   )

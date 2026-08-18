@@ -4,6 +4,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { DraftStore, DRAFTS_DIRECTORY, isDraft, isDraftId, LEGACY_DRAFTS_FILE, MANIFEST_FILE } from './draftStore'
+import { DISK_HEADROOM_BYTES } from './draftCapacity'
 
 let userData = ''
 const draftsDirectory = (): string => join(userData, DRAFTS_DIRECTORY)
@@ -61,10 +62,14 @@ describe('isDraft', () => {
     expect(isDraft({ id: 'draft-1', title: '', content: '' })).toBe(true)
   })
 
-  it('rejects a title or content past the stored limit', () => {
+  it('rejects a title past the manifest limit', () => {
     expect(isDraft({ ...draft, title: 'x'.repeat(512) })).toBe(true)
     expect(isDraft({ ...draft, title: 'x'.repeat(513) })).toBe(false)
-    expect(isDraft({ ...draft, content: 'x'.repeat(10 * 1024 * 1024 + 1) })).toBe(false)
+  })
+
+  // Content size is a machine limit, decided at write time by the store, not by this shape check.
+  it('accepts content past the character cap the store used to enforce', () => {
+    expect(isDraft({ ...draft, content: 'x'.repeat(10 * 1024 * 1024 + 1) })).toBe(true)
   })
 
   it.each([
@@ -397,6 +402,81 @@ describe('DraftStore', () => {
       // The file is the only copy of whatever it held; recovery must stay possible.
       expect(existsSync(legacyPath())).toBe(true)
       await expect(readFile(legacyPath(), 'utf-8')).resolves.toBe('not json at all')
+    })
+  })
+
+  /**
+   * Drafts are no longer capped at a character count. What replaces it is measured in bytes against
+   * the machine, and a draft that does not fit is refused whole — the store never writes a shortened
+   * copy, because a draft the user cannot see is truncated is worse than one that failed loudly.
+   */
+  describe('capacity', () => {
+    const plentyOfDisk = async (): Promise<number> => 8 * 1024 * 1024 * 1024
+
+    it('stores and restores a draft far past the old ten-million-character cap', async () => {
+      const content = 'x'.repeat(12 * 1024 * 1024)
+      await new DraftStore(userData).saveDraft({ id: 'draft-1', title: 'Big', content })
+
+      const restored = await new DraftStore(userData).getDrafts()
+      expect(restored).toHaveLength(1)
+      expect(restored[0]?.content).toBe(content)
+      expect(restored[0]?.content.length).toBe(content.length)
+    })
+
+    it('refuses a draft past the memory budget and keeps the stored one intact', async () => {
+      const store = new DraftStore(userData, { memoryBudgetBytes: 1024, freeDiskBytes: plentyOfDisk })
+      await store.saveDraft({ id: 'draft-1', title: 'One', content: 'kept' })
+
+      await expect(
+        store.saveDraft({ id: 'draft-1', title: 'One', content: 'y'.repeat(2048) })
+      ).rejects.toMatchObject({ problem: { reason: 'memory-budget', requiredBytes: 2048, availableBytes: 1024 } })
+
+      await expect(readFile(contentPath('draft-1'), 'utf-8')).resolves.toBe('kept')
+      await expect(store.getDrafts()).resolves.toEqual([{ id: 'draft-1', title: 'One', content: 'kept' }])
+      expect(existsSync(join(draftsDirectory(), 'draft-1.md.tmp'))).toBe(false)
+    })
+
+    it('counts every draft against one budget', async () => {
+      const store = new DraftStore(userData, { memoryBudgetBytes: 1000, freeDiskBytes: plentyOfDisk })
+      await store.saveDraft({ id: 'draft-1', title: 'One', content: 'a'.repeat(600) })
+
+      await expect(store.saveDraft({ id: 'draft-2', title: 'Two', content: 'b'.repeat(600) })).rejects.toMatchObject({
+        problem: { reason: 'memory-budget' }
+      })
+
+      // Removing the first one gives the budget back, so the same draft now fits.
+      await store.removeDraft('draft-1')
+      await expect(store.saveDraft({ id: 'draft-2', title: 'Two', content: 'b'.repeat(600) })).resolves.toBeUndefined()
+    })
+
+    it('refuses a write that would fill the volume, reporting both sizes', async () => {
+      const store = new DraftStore(userData, { freeDiskBytes: async () => 1024 })
+
+      await expect(store.saveDraft({ id: 'draft-1', title: 'One', content: 'x'.repeat(10) })).rejects.toMatchObject({
+        problem: { reason: 'disk-space', requiredBytes: 10 + DISK_HEADROOM_BYTES, availableBytes: 1024 }
+      })
+      expect(existsSync(contentPath('draft-1'))).toBe(false)
+    })
+
+    it('saves when free space cannot be measured', async () => {
+      const store = new DraftStore(userData, { freeDiskBytes: async () => null })
+
+      await expect(store.saveDraft({ id: 'draft-1', title: 'One', content: 'written' })).resolves.toBeUndefined()
+      await expect(readFile(contentPath('draft-1'), 'utf-8')).resolves.toBe('written')
+    })
+
+    it('refuses journaled edits it cannot back and leaves the journal untouched', async () => {
+      let free = 8 * 1024 * 1024 * 1024
+      const store = new DraftStore(userData, { freeDiskBytes: async () => free })
+      await store.saveDraft({ id: 'draft-1', title: 'One', content: 'hello' })
+      free = 1024
+
+      await expect(store.appendEdits('draft-1', [[{ from: 5, to: 5, insert: '!' }]], 6)).rejects.toMatchObject({
+        problem: { reason: 'disk-space' }
+      })
+
+      expect(existsSync(journalPath('draft-1'))).toBe(false)
+      await expect(readFile(contentPath('draft-1'), 'utf-8')).resolves.toBe('hello')
     })
   })
 })
