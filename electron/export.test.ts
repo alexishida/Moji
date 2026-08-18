@@ -352,6 +352,89 @@ describe('exportDocument', () => {
     expect(state.unlink).toHaveBeenCalledWith(exportPagePath)
   })
 
+  it('reports each phase of a PNG export, with the slice it is on', async () => {
+    state.showSaveDialog.mockResolvedValue({ canceled: false, filePath: selectedPngPath })
+    state.writeFile.mockResolvedValue(undefined)
+    state.executeJavaScript
+      .mockResolvedValueOnce(undefined)
+      .mockResolvedValueOnce(undefined)
+      .mockResolvedValueOnce(capturedSize)
+      .mockResolvedValueOnce(0)
+    state.capturePage.mockResolvedValue({
+      getSize: () => ({ width: capturedSize, height: capturedSize }),
+      toBitmap: () => Buffer.alloc(capturedSize * capturedSize * BYTES_PER_PIXEL)
+    })
+    const progress: unknown[] = []
+    const { exportDocument } = await import('./export')
+
+    await exportDocument({ ...request, format: 'png' }, (update) => progress.push(update))
+
+    expect(progress).toEqual([
+      { phase: 'render' },
+      { phase: 'fonts' },
+      { phase: 'capture', slice: 1, slices: 1 },
+      { phase: 'compress', slice: 1, slices: 1 },
+      { phase: 'write' }
+    ])
+  })
+
+  it('refuses a second export while one is already running', async () => {
+    let releaseDialog = (): void => undefined
+    state.showSaveDialog.mockReturnValue(new Promise((resolve) => {
+      releaseDialog = () => resolve({ canceled: true })
+    }))
+    const { exportDocument } = await import('./export')
+
+    const first = exportDocument(request)
+    await expect(exportDocument(request)).resolves.toEqual({
+      ok: false,
+      error: 'An export is already in progress.'
+    })
+
+    releaseDialog()
+    await first
+
+    // Once the first finishes the next export is accepted again.
+    state.showSaveDialog.mockResolvedValue({ canceled: true })
+    await expect(exportDocument(request)).resolves.toEqual({ ok: false, canceled: true })
+  })
+
+  it('stops a PNG export between slices and leaves no file behind', async () => {
+    state.showSaveDialog.mockResolvedValue({ canceled: false, filePath: selectedPngPath })
+    state.writeFile.mockResolvedValue(undefined)
+    state.executeJavaScript
+      .mockResolvedValueOnce(undefined)
+      .mockResolvedValueOnce(undefined)
+      // A document tall enough to need several slices.
+      .mockResolvedValueOnce(capturedSize * 8)
+      .mockResolvedValue(0)
+    state.capturePage.mockResolvedValue({
+      getSize: () => ({ width: capturedSize, height: capturedSize }),
+      toBitmap: () => Buffer.alloc(capturedSize * capturedSize * BYTES_PER_PIXEL)
+    })
+    const { cancelExport, exportDocument } = await import('./export')
+
+    const running = exportDocument({ ...request, format: 'png' }, (update) => {
+      if ((update as { phase: string }).phase === 'compress') cancelExport()
+    })
+
+    await expect(running).resolves.toEqual({ ok: false, canceled: true })
+    await expect(readFile(selectedPngPath)).rejects.toThrow()
+    await expect(readFile(`${selectedPngPath}.tmp`)).rejects.toThrow()
+  })
+
+  it('removes an HTML export that was cancelled before it finished', async () => {
+    state.showSaveDialog.mockResolvedValue({ canceled: false, filePath: selectedHtmlPath })
+    const { cancelExport, exportDocument } = await import('./export')
+
+    // Cancelling while the dialog is still open stops the export before it writes.
+    const running = exportDocument(request)
+    cancelExport()
+
+    await expect(running).resolves.toEqual({ ok: false, canceled: true })
+    expect(state.writeFile).not.toHaveBeenCalledWith(selectedHtmlPath, request.html, 'utf-8')
+  })
+
 })
 
 describe('exportDiagramPng', () => {

@@ -8,6 +8,7 @@ import {
   type ExportFormat,
   type ExportPageOrientation,
   type ExportPageSize,
+  type ExportProgress,
   type ExportRequest,
   type WriteResult
 } from './shared'
@@ -35,6 +36,54 @@ const MAX_CAPTURE_DEVICE_PX = 16384
  * slice simply costs less memory, at the price of one more scroll and capture.
  */
 const CAPTURE_SLICE_CSS_PX = 2048
+
+export type ExportProgressReporter = (progress: ExportProgress) => void
+
+/** Raised when the user cancels; carried to the top so the partial file is discarded. */
+class ExportCanceled extends Error {
+  constructor() {
+    super('Export canceled.')
+  }
+}
+
+interface ExportSession {
+  canceled: boolean
+  report: ExportProgressReporter
+  /** Throw if the user has cancelled, at a point where nothing is half-written. */
+  checkpoint: () => void
+}
+
+/**
+ * Rendering an export holds a hidden window, a capture pipeline and a worker thread.
+ * Running two at once would multiply that cost while making the progress the user sees
+ * ambiguous, so a second request is refused rather than queued.
+ */
+let activeExport: ExportSession | null = null
+
+export function isExportRunning(): boolean {
+  return activeExport !== null
+}
+
+/** Ask the running export to stop. It ends at the next checkpoint. */
+export function cancelExport(): void {
+  if (activeExport) activeExport.canceled = true
+}
+
+function beginExportSession(report: ExportProgressReporter): ExportSession {
+  const session: ExportSession = {
+    canceled: false,
+    report,
+    checkpoint: () => {
+      if (session.canceled) throw new ExportCanceled()
+    }
+  }
+  activeExport = session
+  return session
+}
+
+function endExportSession(session: ExportSession): void {
+  if (activeExport === session) activeExport = null
+}
 
 function isExportFormat(format: unknown): format is ExportFormat {
   return format === 'pdf' || format === 'html' || format === 'png'
@@ -92,10 +141,17 @@ function rememberDialogDirectory(filePath: string): void {
  * - PDF: load the HTML into a hidden window and print it to PDF.
  * - PNG: render the HTML at the selected page width and capture it as an image.
  */
-export async function exportDocument(request: unknown): Promise<WriteResult> {
+export async function exportDocument(
+  request: unknown,
+  onProgress: ExportProgressReporter = () => undefined
+): Promise<WriteResult> {
   if (!isExportRequest(request)) return { ok: false, error: 'Invalid export request.' }
+  if (isExportRunning()) return { ok: false, error: 'An export is already in progress.' }
 
   const { format, baseName } = request
+  // The session opens before the dialog, so a second request while the user is still
+  // choosing a destination is refused rather than starting a competing render.
+  const session = beginExportSession(onProgress)
 
   try {
     const { canceled, filePath } = await dialog.showSaveDialog({
@@ -105,24 +161,58 @@ export async function exportDocument(request: unknown): Promise<WriteResult> {
     if (canceled || !filePath) return { ok: false, canceled: true }
     rememberDialogDirectory(filePath)
 
-    return await exportDocumentToPath(request, filePath)
+    return await runExport(request, filePath, session)
   } catch (err) {
     return { ok: false, error: (err as Error).message }
+  } finally {
+    endExportSession(session)
   }
 }
 
 /** Export without native dialog. Used only by local `--benchmark` runner. */
-export async function exportDocumentToPath(request: unknown, filePath: string): Promise<WriteResult> {
+export async function exportDocumentToPath(
+  request: unknown,
+  filePath: string,
+  onProgress: ExportProgressReporter = () => undefined
+): Promise<WriteResult> {
   if (!isExportRequest(request)) return { ok: false, error: 'Invalid export request.' }
+  if (isExportRunning()) return { ok: false, error: 'An export is already in progress.' }
+
+  const session = beginExportSession(onProgress)
+  try {
+    return await runExport(request, filePath, session)
+  } finally {
+    endExportSession(session)
+  }
+}
+
+async function runExport(request: ExportRequest, filePath: string, session: ExportSession): Promise<WriteResult> {
   const { format, pageSize, pageOrientation, html, assetBaseUrl } = request
   const finishMeasure = beginMainMeasure('document:export', { htmlChars: html.length })
   try {
-    if (format === 'html') await writeFile(filePath, html, 'utf-8')
-    else if (format === 'pdf') await writeFile(filePath, await htmlToPdf(html, pageSize, pageOrientation, assetBaseUrl))
-    else await htmlToPngFile(filePath, html, pageSize, pageOrientation, assetBaseUrl)
+    session.checkpoint()
+
+    if (format === 'html') {
+      session.report({ phase: 'write' })
+      await writeFile(filePath, html, 'utf-8')
+    } else if (format === 'pdf') {
+      const pdf = await htmlToPdf(html, pageSize, pageOrientation, session, assetBaseUrl)
+      session.checkpoint()
+      session.report({ phase: 'write' })
+      await writeFile(filePath, pdf)
+    } else {
+      await htmlToPngFile(filePath, html, pageSize, pageOrientation, session, assetBaseUrl)
+    }
+
     void captureMainMemory('main:memory:document-export')
     return { ok: true, path: filePath }
   } catch (err) {
+    if (err instanceof ExportCanceled) {
+      // The PNG writer discards its own partial file; HTML and PDF are written in one
+      // call, so anything already on disk is removed here.
+      await unlink(filePath).catch(() => undefined)
+      return { ok: false, canceled: true }
+    }
     return { ok: false, error: (err as Error).message }
   } finally {
     finishMeasure()
@@ -242,12 +332,15 @@ async function withExportWindow<T>(
   pageSize: ExportPageSize,
   pageOrientation: ExportPageOrientation,
   assetBaseUrl: string | undefined,
+  session: ExportSession,
   use: (win: BrowserWindow) => Promise<T>
 ): Promise<T> {
+  session.report({ phase: 'render' })
   const source = await writeExportSource(html, assetBaseUrl)
   let win: BrowserWindow | null = null
   try {
-    win = await createExportWindow(source.path, html.length, pageSize, pageOrientation)
+    win = await createExportWindow(source.path, html.length, pageSize, pageOrientation, session)
+    session.checkpoint()
     return await use(win)
   } finally {
     win?.destroy()
@@ -259,7 +352,8 @@ async function createExportWindow(
   sourcePath: string,
   htmlChars: number,
   pageSize: ExportPageSize,
-  pageOrientation: ExportPageOrientation
+  pageOrientation: ExportPageOrientation,
+  session: ExportSession
 ): Promise<BrowserWindow> {
   const finishMeasure = beginMainMeasure('export-window:mount', { htmlChars })
   const size = pagePixels(pageSize, pageOrientation)
@@ -277,6 +371,9 @@ async function createExportWindow(
   })
   try {
     await win.loadFile(sourcePath)
+    session.checkpoint()
+
+    session.report({ phase: 'fonts' })
     await waitForFonts(win)
     void captureWebContentsMemory('export-window:memory', win.webContents)
     return win
@@ -293,11 +390,13 @@ async function htmlToPdf(
   html: string,
   pageSize: ExportPageSize,
   pageOrientation: ExportPageOrientation,
+  session: ExportSession,
   assetBaseUrl?: string
 ): Promise<Buffer> {
-  return withExportWindow(html, pageSize, pageOrientation, assetBaseUrl, async (win) => {
+  return withExportWindow(html, pageSize, pageOrientation, assetBaseUrl, session, async (win) => {
     const finishMeasure = beginMainMeasure('export:pdf-render', { htmlChars: html.length })
     try {
+      session.report({ phase: 'capture' })
       return await win.webContents.printToPDF({
         printBackground: true,
         margins: { marginType: 'default' },
@@ -322,10 +421,11 @@ async function htmlToPngFile(
   html: string,
   pageSize: ExportPageSize,
   pageOrientation: ExportPageOrientation,
+  session: ExportSession,
   assetBaseUrl?: string
 ): Promise<void> {
   const size = pagePixels(pageSize, pageOrientation)
-  return withExportWindow(html, pageSize, pageOrientation, assetBaseUrl, async (win) => {
+  return withExportWindow(html, pageSize, pageOrientation, assetBaseUrl, session, async (win) => {
     const finishMeasure = beginMainMeasure('export:png-render', { htmlChars: html.length })
     try {
       await win.webContents.executeJavaScript("document.documentElement.classList.add('export-png')")
@@ -342,11 +442,19 @@ async function htmlToPngFile(
       // Each slice is compressed and written out as it is captured, so peak memory follows
       // the slice height rather than the height of the document.
       const writer = await createPngFileWriter(filePath)
+      const slices = Math.max(1, Math.ceil(totalHeight / sliceHeight))
       let width = 0
       let height = 0
+      let slice = 0
 
       try {
         for (let top = 0; top < totalHeight; top += sliceHeight) {
+          // Between slices nothing is half-written: the file holds whole rows, so this is
+          // where a cancellation can drop out and discard the partial image.
+          session.checkpoint()
+
+          slice += 1
+          session.report({ phase: 'capture', slice, slices })
           const remaining = Math.min(sliceHeight, totalHeight - top)
 
           // The page cannot scroll past `totalHeight - viewport`, so the final scrollTo is
@@ -367,9 +475,13 @@ async function htmlToPngFile(
           const captured = image.getSize()
           width = captured.width
           height += captured.height
+
+          session.report({ phase: 'compress', slice, slices })
           await writer.addSlice(image.toBitmap(), captured.width, captured.height)
         }
 
+        session.checkpoint()
+        session.report({ phase: 'write' })
         await writer.finish(width, height)
       } catch (err) {
         // A half-written capture is worse than no file at all.
