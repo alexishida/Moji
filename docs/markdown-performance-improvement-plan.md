@@ -465,15 +465,21 @@ Critério de aceite:
 
 #### PERF-503 — Escrever PNG em streaming
 
-- [ ] Escrever assinatura e `IHDR` diretamente no destino.
-- [ ] Emitir múltiplos chunks `IDAT` durante deflate.
-- [ ] Evitar acumular todos os buffers comprimidos.
-- [ ] Evitar `Buffer.concat` final do PNG completo.
-- [ ] Finalizar com `IEND` e rename atômico.
+- [x] Escrever assinatura e `IHDR` diretamente no destino.
+- [x] Emitir múltiplos chunks `IDAT` durante deflate.
+- [x] Evitar acumular todos os buffers comprimidos.
+- [x] Evitar `Buffer.concat` final do PNG completo.
+- [x] Finalizar com `IEND` e rename atômico.
 
 Critério de aceite:
 
 - Pico de memória segue tamanho de uma fatia mais buffers pequenos, não tamanho do PNG completo.
+
+`createPngEncoder` deu lugar a `createPngFileWriter(destination)`, que abre o arquivo antes da primeira captura. O estado anterior descrevia a si mesmo como streaming, e era pela metade: convertia e comprimia fatia a fatia, mas acumulava todo o resultado do deflate em um array e terminava com `Buffer.concat` do PNG inteiro, de modo que o pico ainda acompanhava o tamanho da imagem final. Agora cada bloco que o deflate emite vira um `IDAT` escrito na hora.
+
+O tamanho impôs a ordem da escrita. `IHDR` abre o arquivo mas a altura só é conhecida depois da última fatia, então ele é gravado com tamanho zero e reescrito no fim, sobre os mesmos 25 bytes que ocupa logo após a assinatura. O consumo do deflate usa `for await`, o que dá backpressure e garante que os `IDAT` cheguem ao arquivo na ordem em que foram comprimidos.
+
+Bytes vão para um `.tmp` irmão do destino, renomeado só quando a imagem fecha; irmão para que o rename fique no mesmo sistema de arquivos e seja atômico. Falha em qualquer ponto chama `abort()`, que destrói o deflate e remove o parcial: uma exportação interrompida não deixa PNG truncado onde o usuário pediu uma imagem. Testes cobrem múltiplos `IDAT` com round-trip das scanlines, a ausência do destino durante a captura e a limpeza após falha, tanto no encoder quanto no caminho completo de exportação.
 
 Dependência: pode ser feita junto de `PERF-502`.
 
