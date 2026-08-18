@@ -511,13 +511,19 @@ Não validado em execução: a UI de progresso tem cobertura de tipo e build, ma
 
 #### PERF-505 — Substituir esperas fixas por confirmação de pintura
 
-- [ ] Medir necessidade dos atrasos de 50 ms.
-- [ ] Usar frames ou sinal determinístico após scroll/layout.
-- [ ] Validar última fatia e documentos com imagens/fontes.
+- [x] Medir necessidade dos atrasos de 50 ms.
+- [x] Usar frames ou sinal determinístico após scroll/layout.
+- [x] Validar última fatia e documentos com imagens/fontes.
 
 Critério de aceite:
 
 - Captura não repete/corta faixas e não espera além do necessário.
+
+Os dois atrasos de 50 ms — um após `setContentSize`, outro após cada `scrollTo` — deram lugar a `waitForPaint`, que aguarda dois `requestAnimationFrame` aninhados: o primeiro dispara depois que a mudança entra no layout, o segundo quando o quadro que a carrega foi produzido. Um teto de 500 ms protege contra página que nunca agenda quadro; é rede de segurança, não o caminho esperado.
+
+Sobre medir: 50 ms por fatia era simultaneamente desperdício e aposta. Em um documento de 30000 px são quinze fatias, ou 750 ms gastos sem relação com o que a página precisava, e em máquina lenta nada garantia que fosse suficiente. O sinal de quadro elimina os dois lados. A medição que falta é a comparação de duração ponta a ponta em aplicativo empacotado, que exige a rodada de benchmark de `PERF-703`.
+
+A última fatia ganhou teste dedicado porque é onde a captura erra: a página para de rolar antes do fim, e a captura tem de vir de mais abaixo dentro da viewport. Com documento de 6644 px, fatia de 2048 px e rolagem travada em 4596 px, as bandas ladrilham 0–2048, 2048–4096, 4096–6144 e 6144–6644, somando exatamente a altura do documento, sem faixa repetida. Documentos com fontes continuam cobertos por `document.fonts.ready`; imagens locais são carregadas por caminho absoluto antes da captura, e o teste de exportação com imagens do corpus segue em `PERF-703`.
 
 ### Fase 6 — Inicialização e bundle
 
