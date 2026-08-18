@@ -150,12 +150,15 @@ To sign locally, install an Apple Developer ID certificate in the keychain and d
 
 ### Publishing a release
 
-1. Update `version` in `package.json` and `package-lock.json`.
-2. Commit changes, then create and push the matching tag, such as `v1.0.5`.
-3. `.github/workflows/release.yml` validates tag, then builds Windows, Linux, and macOS in that order, uploading each platform's artifacts to a draft release. No binary is attached by hand.
-4. Workflow makes GitHub Release public once Windows and Linux have succeeded: NSIS, AppImage, DEB, and the `latest.yml` / `latest-linux.yml` update metadata.
+Releases are built and published by hand. There is no CI workflow in this repository.
 
-A Windows or Linux failure leaves the release as a draft. A macOS failure does not: the publish step waits for the macOS job to finish, so the release is never made public while the DMG is still uploading, but it does not require it to have succeeded. macOS is unsigned and secondary, and a broken DMG should not hold back a good Windows and Linux release. The macOS job still fails visibly in the workflow.
+1. Update `version` in `package.json` and `package-lock.json`.
+2. Run `npm run verify` (typecheck plus the unit suite) and `npm run test:e2e`. The `dist*` scripts already run `verify` first, so a release cannot be produced from a failing tree.
+3. Build each platform on that platform: `npm run dist:win`, `npm run dist:linux`, `npm run dist:mac`. Cross-building is not set up, and `electron-builder.yml` publishes to a draft GitHub Release.
+4. Commit the version bump, then create and push the matching tag, such as `v1.0.5`.
+5. Upload the artifacts to the draft release and publish it once Windows and Linux are in place: NSIS, AppImage, DEB, and the `latest.yml` / `latest-linux.yml` update metadata that `electron-updater` reads.
+
+macOS is unsigned and secondary. A missing or broken DMG should not hold back a good Windows and Linux release, so publish without it rather than waiting.
 
 `electron-updater` checks GitHub Releases only in packaged Windows NSIS builds and Linux AppImages. Development, deb, and macOS builds do not check for updates. When a newer version is found, Moji opens GitHub Releases for the user to choose and install the correct artifact. Windows production releases should use an Authenticode certificate through electron-builder signing environment variables; never store certificate credentials in repository.
 

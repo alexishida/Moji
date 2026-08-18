@@ -600,7 +600,7 @@ A validação virou teste em vez de inspeção: `src/lib/exportHtml.test.ts` afi
 
 Rodar isso exigiu alinhar o runner com o build: `vitest.config.ts` não conhecia `virtual:katex-fonts-css` nem `?inline`, então qualquer teste que tocasse o pipeline de exportação falhava ao importar. O runner passou a resolver o módulo virtual por um stub com regra-marcador — o que os testes precisam observar é que o conteúdo chega ao documento exportado, não um megabyte de fontes — e a habilitar `css: true`. Também passou a aceitar `*.test.tsx`, que `PERF-701` exige.
 
-Aberto por decisão de produto: "usar stack do sistema" significaria remover o Inter empacotado, o que muda a aparência do aplicativo. O critério de aceite já é cumprido por outro caminho — o Inter é servido localmente por `@fontsource`, não pelo Google Fonts, e `--font-sans` já cai para `system-ui` em seguida. Trocar a tipografia é decisão de quem cuida do produto, não consequência de desempenho.
+Não será feito, por decisão de produto: "usar stack do sistema" significaria remover o Inter empacotado, o que muda a aparência do aplicativo. O critério de aceite já é cumprido por outro caminho — o Inter é servido localmente por `@fontsource`, não pelo Google Fonts, e `--font-sans` já cai para `system-ui` em seguida. Consultado em 17/08/2026, o mantenedor optou por manter o Inter; o item fica desmarcado como registro dessa escolha, não como trabalho pendente.
 
 ### Fase 7 — Testes, build e segurança
 
@@ -660,14 +660,18 @@ Aberto: publicação como artefato depende de haver CI, o que está em `PERF-704
 
 - [x] Fazer build de release depender de typecheck e testes.
 - [ ] Adicionar workflow real para Windows, Linux e macOS.
-- [ ] Confirmar afirmações do changelog e README contra arquivos existentes.
+- [x] Confirmar afirmações do changelog e README contra arquivos existentes.
 - [x] Evitar empacotar fixtures e artefatos de benchmark.
 
 `npm run verify` encadeia typecheck e testes, e os quatro scripts `dist*` passaram a começar por ele: não há mais como produzir binário de release sem que os dois tenham passado.
 
 Empacotamento já estava correto e faltava constatar: `electron-builder.yml` declara `files` como lista de inclusão (`out/**/*`, `package.json`, `samples/**/*`), então corpus, baselines e artefatos de benchmark não têm como entrar — eles vivem em `.tmp/` e `docs/`, fora da lista.
 
-Verificação do README e do CHANGELOG foi feita e encontrou uma afirmação falsa, ainda não corrigida porque a correção depende de decisão: o README descreve o processo de release como conduzido por `.github/workflows/release.yml`, arquivo que `c388441 chore: remove GitHub workflows` apagou. O CHANGELOG não cita caminho inexistente algum. Enquanto não se decidir entre recriar o workflow e reescrever o README, o texto continua descrevendo um processo que não existe.
+Verificação do README e do CHANGELOG encontrou uma afirmação falsa: o README descrevia o release como conduzido por `.github/workflows/release.yml`, arquivo que `c388441 chore: remove GitHub workflows` apagou. O CHANGELOG não cita caminho inexistente algum.
+
+Decisão tomada: corrigir o texto em vez de recriar o workflow. A seção "Publishing a release" passou a descrever o processo manual real — verificar, construir em cada plataforma, marcar, subir e publicar — e afirma explicitamente que não existe CI neste repositório. Uma varredura por caminhos e por scripts `npm` citados no README não encontra mais nada inexistente.
+
+Permanece aberto por decisão, não por falta de trabalho: não há workflow para os três sistemas, e por consequência `PERF-703` não tem onde publicar seu resultado como artefato.
 
 Nota fora do escopo deste plano: `package.json` está em `1.0.5` enquanto a branch e o commit de release falam em `v0.1.6`, e o CHANGELOG segue a primeira numeração.
 
