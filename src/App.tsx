@@ -42,8 +42,34 @@ import {
 } from '../electron/shared'
 import packageJson from '../package.json'
 
-const Editor = lazy(async () => ({ default: (await import('./components/Editor')).Editor }))
-const ExportDialog = lazy(async () => ({ default: (await import('./components/ExportDialog')).ExportDialog }))
+const loadEditor = (): Promise<typeof import('./components/Editor')> => import('./components/Editor')
+const loadExportDialog = (): Promise<typeof import('./components/ExportDialog')> => import('./components/ExportDialog')
+
+const Editor = lazy(async () => ({ default: (await loadEditor()).Editor }))
+const ExportDialog = lazy(async () => ({ default: (await loadExportDialog()).ExportDialog }))
+
+/**
+ * Fetch the editor chunk once the app has settled.
+ *
+ * Splitting it out keeps CodeMirror off the startup path, but the first keystroke would
+ * then pay for the download. Warming it while the window is idle keeps both: the chunk is
+ * not on the critical path, and it is already there when the user starts typing. The
+ * import is cached by the module registry, so `lazy` later resolves without a second
+ * fetch, and a failure here is not surfaced — `lazy` will retry and report it properly.
+ */
+function warmLazyChunks(): () => void {
+  const warm = (): void => {
+    void loadEditor().catch(() => undefined)
+  }
+
+  if (typeof requestIdleCallback === 'function') {
+    const handle = requestIdleCallback(warm, { timeout: 2000 })
+    return () => cancelIdleCallback(handle)
+  }
+
+  const handle = setTimeout(warm, 1000)
+  return () => clearTimeout(handle)
+}
 
 const MIN_PREVIEW_FONT_SIZE = 12
 const MAX_PREVIEW_FONT_SIZE = 24
@@ -190,6 +216,8 @@ export function App(): JSX.Element {
 
   const debouncedContent = useDebounced(content, previewSchedule.debounceMs)
   const debouncedSearchTerm = useDebounced(searchTerm, 200)
+
+  useEffect(() => warmLazyChunks(), [])
   useEffect(() => {
     if (mode !== 'view' || debouncedContent !== content) {
       return

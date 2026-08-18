@@ -9,7 +9,12 @@ import {
   renderMarkdownDocument,
   sanitizeMarkdownHtml
 } from './markdown'
-import { renderMarkdownDocumentRaw } from './markdownCore'
+import {
+  lazyLanguagesIn,
+  registerLanguagesIn,
+  renderMarkdownDocumentRaw,
+  renderMarkdownDocumentRawAsync
+} from './markdownCore'
 
 describe('documentAssetBaseUrl', () => {
   it('converts Windows paths to an encoded file URL', () => {
@@ -170,5 +175,42 @@ describe('extractMarkdownOutline', () => {
     })
     expect(sanitized.html).toBe('')
     expect(sanitized.blocks?.map((block) => block.html).join('')).not.toContain('onerror')
+  })
+})
+
+describe('lazily registered languages', () => {
+  it('names only the languages a document uses that are not already registered', () => {
+    const source = [
+      '```js',
+      'const a = 1',
+      '```',
+      '',
+      '```elixir',
+      'IO.puts "hi"',
+      '```',
+      '',
+      '~~~scala',
+      'val x = 1',
+      '~~~'
+    ].join('\n')
+
+    // `js` is in the common set registered at startup, so it is not asked for again.
+    expect(lazyLanguagesIn(source).sort()).toEqual(['elixir', 'scala'])
+  })
+
+  it('ignores closing fences and languages it cannot supply', () => {
+    expect(lazyLanguagesIn('```\nplain\n```')).toEqual([])
+    expect(lazyLanguagesIn('```brainfuck\n+++\n```')).toEqual([])
+  })
+
+  it('highlights a lazily loaded language once it has been registered', async () => {
+    const source = '```elixir\ndefmodule M do\nend\n```'
+
+    await registerLanguagesIn(source)
+    const { rawHtml } = await renderMarkdownDocumentRawAsync(source)
+
+    // Registered languages produce highlight spans; unknown ones stay escaped text.
+    expect(rawHtml).toContain('<span class="hljs-')
+    expect(lazyLanguagesIn(source)).toEqual([])
   })
 })
