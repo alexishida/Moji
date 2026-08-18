@@ -82,9 +82,24 @@ export interface AutoSaveDraft {
   content: string
 }
 
+/**
+ * Why a draft could not be written. Drafts have no size limit of their own: a save is refused only
+ * when the machine cannot hold the result, and the refusal always carries the numbers behind it so
+ * the renderer can say what is missing instead of showing a raw errno.
+ */
+export type DraftPersistReason = 'memory-budget' | 'disk-space'
+
+export interface DraftPersistProblem {
+  reason: DraftPersistReason
+  /** Bytes the write needs, including the headroom kept free. */
+  requiredBytes: number
+  /** Bytes actually available under that limit. */
+  availableBytes: number
+}
+
 export type DraftResult =
   | { ok: true }
-  | { ok: false; error?: string }
+  | { ok: false; error?: string; problem?: DraftPersistProblem }
 
 /** One splice recorded by the editor, in the coordinates of the text it was produced against. */
 export interface DraftEditPayload {
@@ -99,7 +114,7 @@ export interface DraftEditPayload {
  */
 export type DraftAppendResult =
   | { ok: true }
-  | { ok: false; reason: 'out-of-sync' | 'unknown-draft' | 'error'; error?: string }
+  | { ok: false; reason: 'out-of-sync' | 'unknown-draft' | 'error'; error?: string; problem?: DraftPersistProblem }
 
 /** Result of an operation that reads/opens a file. */
 export type OpenResult =

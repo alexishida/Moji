@@ -251,6 +251,8 @@
     "saveSuccess": "Salvo",
     "saveFailed": "Falha ao salvar: {{error}}",
     "autoSaveFailed": "Falha ao salvar rascunho de recuperação: {{error}}",
+    "autoSaveOverMemoryBudget": "Falha ao salvar rascunho de recuperação: precisa de {{required}}, mas apenas {{available}} estão reservados para rascunhos. Nada foi cortado do texto — salve o documento em um arquivo para preservá-lo.",
+    "autoSaveNoDiskSpace": "Falha ao salvar rascunho de recuperação: precisa de {{required}} livres, mas restam apenas {{available}} em disco. Nada foi cortado do texto — libere espaço ou salve o documento em um arquivo.",
     "autoSaveCleanupFailed": "Falha ao remover rascunho de recuperação: {{error}}",
     "draftRestoreFailed": "Falha ao restaurar rascunhos de recuperação: {{error}}",
     "openFailed": "Não foi possível abrir o arquivo: {{error}}",

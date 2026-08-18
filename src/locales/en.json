@@ -251,6 +251,8 @@
     "saveSuccess": "Saved",
     "saveFailed": "Save failed: {{error}}",
     "autoSaveFailed": "Could not save recovery draft: {{error}}",
+    "autoSaveOverMemoryBudget": "Could not save the recovery draft: it needs {{required}} but only {{available}} is reserved for drafts. Nothing was cut from your text — save the document to a file to keep it.",
+    "autoSaveNoDiskSpace": "Could not save the recovery draft: it needs {{required}} of free space but only {{available}} is left on disk. Nothing was cut from your text — free space or save the document to a file.",
     "autoSaveCleanupFailed": "Could not remove recovery draft: {{error}}",
     "draftRestoreFailed": "Could not restore recovery drafts: {{error}}",
     "openFailed": "Could not open file: {{error}}",

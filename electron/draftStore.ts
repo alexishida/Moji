@@ -3,6 +3,14 @@ import { join } from 'node:path'
 import type { AutoSaveDraft } from './shared'
 import { stripLeadingBom } from './documentDecoder'
 import { applyDraftEditBatches, encodeJournalEntries, replayJournal, type DraftEdit } from './draftJournal'
+import {
+  defaultMemoryBudgetBytes,
+  diskSpaceErrorFrom,
+  DISK_HEADROOM_BYTES,
+  DraftPersistError,
+  draftBytes,
+  freeDiskBytes
+} from './draftCapacity'
 
 /**
  * Recovery drafts on disk.
@@ -10,6 +18,10 @@ import { applyDraftEditBatches, encodeJournalEntries, replayJournal, type DraftE
  * Each draft owns a content file, and a small manifest holds only ids and titles. Saving one
  * draft therefore rewrites that draft plus a few hundred bytes of manifest, never the text of
  * every other draft.
+ *
+ * Size is bounded by the machine rather than by a fixed character count: every write is checked
+ * against a memory budget and the free space on the volume, and a write that does not fit is
+ * refused whole, with the numbers behind the refusal. See `draftCapacity.ts`.
  *
  * Autosave appends edits to a per-draft journal instead of rewriting the snapshot, so the cost of
  * a keystroke follows the size of the edit. The journal is folded back into the snapshot once it
@@ -31,7 +43,6 @@ export const COMPACT_JOURNAL_BYTES = 256 * 1024
 export type AppendEditsOutcome = 'appended' | 'compacted' | 'unknown-draft' | 'out-of-sync'
 
 const MAX_TITLE_LENGTH = 512
-const MAX_CONTENT_LENGTH = 10 * 1024 * 1024
 const DRAFT_ID_PATTERN = /^draft-[a-zA-Z0-9-]+$/
 
 interface ManifestEntry {
@@ -39,10 +50,26 @@ interface ManifestEntry {
   title: string
 }
 
+/** Injection points for the capacity checks, so tests can shrink the machine instead of filling it. */
+export interface DraftStoreLimits {
+  /** Bytes all drafts together may occupy in main-process memory. */
+  memoryBudgetBytes?: number
+  /** Free bytes on the volume holding the drafts directory, or `null` when unknown. */
+  freeDiskBytes?: (directory: string) => Promise<number | null>
+}
+
 export function isDraftId(value: unknown): value is string {
   return typeof value === 'string' && DRAFT_ID_PATTERN.test(value)
 }
 
+/**
+ * Shape check only.
+ *
+ * Content length is deliberately unbounded here: how much text can be kept is a property of the
+ * machine, not of the message, so it is decided by `DraftStore` at write time — where the answer
+ * can be measured in bytes and reported. The title stays bounded because it lives in the manifest,
+ * which is rewritten whole.
+ */
 export function isDraft(value: unknown): value is AutoSaveDraft {
   if (!value || typeof value !== 'object') return false
   const raw = value as Record<string, unknown>
@@ -50,15 +77,24 @@ export function isDraft(value: unknown): value is AutoSaveDraft {
     isDraftId(raw['id']) &&
     typeof raw['title'] === 'string' &&
     raw['title'].length <= MAX_TITLE_LENGTH &&
-    typeof raw['content'] === 'string' &&
-    raw['content'].length <= MAX_CONTENT_LENGTH
+    typeof raw['content'] === 'string'
   )
 }
 
-/** Write to a sibling temporary file, then rename. A crash leaves either the old file or the new one. */
+/**
+ * Write to a sibling temporary file, then rename. A crash leaves either the old file or the new one.
+ *
+ * A failed write also leaves neither a half-written draft nor a stray temporary file: the partial
+ * copy is removed before the error propagates, and the previous content stays in place.
+ */
 async function writeFileAtomic(file: string, data: string): Promise<void> {
   const temporaryFile = `${file}.tmp`
-  await writeFile(temporaryFile, data, 'utf-8')
+  try {
+    await writeFile(temporaryFile, data, 'utf-8')
+  } catch (err) {
+    await removeIfPresent(temporaryFile)
+    throw diskSpaceErrorFrom(err, Buffer.byteLength(data, 'utf-8')) ?? err
+  }
   await rename(temporaryFile, file)
 }
 
@@ -87,11 +123,17 @@ export class DraftStore {
    */
   private readonly order = new Map<string, number>()
   private nextOrder = 0
+  /** Bytes each cached draft currently costs, so the memory budget never rescans every draft. */
+  private readonly bytes = new Map<string, number>()
+  private readonly memoryBudgetBytes: number
+  private readonly freeDiskBytes: (directory: string) => Promise<number | null>
 
-  constructor(userDataDirectory: string) {
+  constructor(userDataDirectory: string, limits: DraftStoreLimits = {}) {
     this.directory = join(userDataDirectory, DRAFTS_DIRECTORY)
     this.manifestFile = join(this.directory, MANIFEST_FILE)
     this.legacyFile = join(userDataDirectory, LEGACY_DRAFTS_FILE)
+    this.memoryBudgetBytes = limits.memoryBudgetBytes ?? defaultMemoryBudgetBytes()
+    this.freeDiskBytes = limits.freeDiskBytes ?? freeDiskBytes
   }
 
   private contentFile(id: string): string {
@@ -237,6 +279,9 @@ export class DraftStore {
       // An entry whose content never landed is an interrupted save, not a recoverable draft.
       if (content === null) continue
       drafts.push({ id: entry.id, title: entry.title, content })
+      // Restored drafts are counted, never rejected: text already on disk is the user's, whatever
+      // the budget says about writing more of it.
+      this.bytes.set(entry.id, draftBytes(content))
       surviving.push(entry)
     }
 
@@ -271,6 +316,27 @@ export class DraftStore {
     return position
   }
 
+  /**
+   * Refuses a write that the machine cannot back, before anything touches the disk.
+   *
+   * `contentBytes` is what the draft will cost once stored, and `writeBytes` is what this particular
+   * write puts on the volume — the whole snapshot when it is rewritten, only the appended edits when
+   * it is not. Either check fails whole: the caller is told what was missing and the draft on disk
+   * stays exactly as it was.
+   */
+  private async assertCanPersist(id: string, contentBytes: number, writeBytes: number): Promise<void> {
+    let others = 0
+    for (const [draftId, size] of this.bytes) if (draftId !== id) others += size
+    const required = others + contentBytes
+    if (required > this.memoryBudgetBytes) {
+      throw new DraftPersistError('memory-budget', required, this.memoryBudgetBytes)
+    }
+
+    const free = await this.freeDiskBytes(this.directory)
+    const needed = writeBytes + DISK_HEADROOM_BYTES
+    if (free !== null && needed > free) throw new DraftPersistError('disk-space', needed, free)
+  }
+
   private manifestEntries(drafts: readonly AutoSaveDraft[]): ManifestEntry[] {
     return drafts.map(({ id, title }) => ({ id, title }))
   }
@@ -293,8 +359,12 @@ export class DraftStore {
     return this.enqueue(draft.id, async () => {
       await this.ensureLoaded()
 
+      const bytes = draftBytes(draft.content)
+      await this.assertCanPersist(draft.id, bytes, bytes)
+
       // Content lands before the manifest names it, so the manifest never points at a missing file.
       await this.writeSnapshot(draft.id, draft.content)
+      this.bytes.set(draft.id, bytes)
 
       const previous = (this.cache ?? []).find((item) => item.id === draft.id)
       const next = this.mutateCache((drafts) => {
@@ -338,15 +408,28 @@ export class DraftStore {
 
       const encoded = encodeJournalEntries(batches)
       const compacting = await this.shouldCompact(id, encoded)
+      const contentBytes = draftBytes(content)
+      // Compaction rewrites the snapshot; an append only adds the encoded edits.
+      await this.assertCanPersist(id, contentBytes, compacting ? contentBytes : draftBytes(encoded))
+
       if (compacting) await this.writeSnapshot(id, content)
       // One write for the whole batch: a crash can tear the tail, never the middle.
-      else if (encoded) await appendFile(this.journalFile(id), encoded, 'utf-8')
+      else if (encoded) await this.appendJournal(id, encoded)
+      this.bytes.set(id, contentBytes)
 
       this.mutateCache((drafts) =>
         drafts.map((draft) => (draft.id === id ? { ...draft, content } : draft))
       )
       return compacting ? 'compacted' : 'appended'
     })
+  }
+
+  private async appendJournal(id: string, encoded: string): Promise<void> {
+    try {
+      await appendFile(this.journalFile(id), encoded, 'utf-8')
+    } catch (err) {
+      throw diskSpaceErrorFrom(err, draftBytes(encoded)) ?? err
+    }
   }
 
   private async shouldCompact(id: string, encoded: string): Promise<boolean> {
@@ -365,6 +448,7 @@ export class DraftStore {
 
       // Manifest first: a crash before the unlink leaves an orphan file, which load() sweeps up.
       const next = this.mutateCache((drafts) => drafts.filter((draft) => draft.id !== id))
+      this.bytes.delete(id)
       await this.writeManifest(this.manifestEntries(next))
       await removeIfPresent(this.contentFile(id))
       await removeIfPresent(this.journalFile(id))

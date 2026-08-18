@@ -26,6 +26,7 @@ import { useDocumentState, usePanelState, useSearchState, useSettingsState, useU
 import { getPreviewSchedule } from './lib/previewSchedule'
 import { beginRendererMeasure } from './lib/performanceMetrics'
 import { findLiteralMatches } from './lib/search'
+import { draftFailureNotice } from './lib/draftFailure'
 import type { OutlineItem } from './lib/outline'
 import { getExtraMermaidGuideExamples } from './lib/mermaidGuide'
 import { renderMermaidFlowcharts } from './lib/mermaid'
@@ -520,7 +521,8 @@ export function App(): JSX.Element {
               return true
             }
             if (appended.reason === 'error') {
-              flash(t('notice.autoSaveFailed', { error: appended.error }), true)
+              const notice = draftFailureNotice(appended)
+              flash(t(notice.key, notice.params), true)
               return false
             }
             // The journal cannot describe this state; fall through to a full snapshot.
@@ -531,7 +533,8 @@ export function App(): JSX.Element {
             : doc.content
           const result = await window.api.saveDraft({ id: draftId, title, content })
           if (!result.ok) {
-            flash(t('notice.autoSaveFailed', { error: result.error }), true)
+            const notice = draftFailureNotice(result)
+            flash(t(notice.key, notice.params), true)
             return false
           }
           setDocuments((prev) =>

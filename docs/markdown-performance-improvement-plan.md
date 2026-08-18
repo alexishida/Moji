@@ -409,16 +409,28 @@ Concorrência: as filas passaram a ser por rascunho, com o manifesto serializado
 
 #### PERF-406 — Revisar limite de rascunho
 
-- [ ] Remover limite fixo de 10 milhões de caracteres após novo armazenamento.
-- [ ] Definir proteção baseada em bytes, espaço disponível e orçamento de memória.
-- [ ] Exibir erro claro quando persistência não for possível.
-- [ ] Nunca truncar rascunho silenciosamente.
+- [x] Remover limite fixo de 10 milhões de caracteres após novo armazenamento.
+- [x] Definir proteção baseada em bytes, espaço disponível e orçamento de memória.
+- [x] Exibir erro claro quando persistência não for possível.
+- [x] Nunca truncar rascunho silenciosamente.
 
 Critério de aceite:
 
 - Rascunho de teste acima de 10 MB salva e restaura integralmente.
 
 Dependência: `PERF-404`; idealmente `PERF-405`.
+
+`isDraft` deixou de medir conteúdo: o antigo teto de 10 milhões de caracteres não correspondia a nenhum recurso real da máquina — recusava texto que caberia e aceitava texto que não caberia. Quanto se pode guardar passou a ser decidido no momento da escrita, em `electron/draftCapacity.ts`, contra os dois recursos que de fato acabam. O limite de título continua, porque título vive no manifesto reescrito por inteiro.
+
+Orçamento de memória: todos os rascunhos somados não passam de 25% do `heap_size_limit` do V8, com piso de 128 MB para que uma heap pequena ainda aceite rascunhos muito acima do teto antigo. `DraftStore` mantém o custo de cada rascunho em bytes, então a verificação não relê a lista a cada tecla. Rascunhos já em disco são contados na carga, nunca rejeitados: texto que já é do usuário não se perde por causa do orçamento.
+
+Espaço em disco: `statfs` responde o espaço livre do volume, e a escrita precisa caber com 32 MB de folga — a escrita atômica cria a cópia temporária enquanto o arquivo anterior ainda existe, e encher o volume até o último byte quebra bem mais que o autosave. Onde a plataforma não sabe responder, a resposta é `null` e a gravação segue: incerteza não recusa salvamento. `ENOSPC`, `EDQUOT` e `EFBIG` vindos da escrita são traduzidos para a mesma recusa, cobrindo o volume que enche entre a verificação e a gravação.
+
+Medida única em bytes UTF-8 para os dois recursos: é exatamente o que o arquivo ocupa em disco e é igual ou maior que o custo da string no V8 — string de um byte gasta um byte por caractere, e todo caractere que o V8 guarda em dois bytes precisa de dois ou mais em UTF-8.
+
+Recusa é integral e informativa. `DraftPersistError` carrega `{ reason, requiredBytes, availableBytes }`, o main repassa esses números em `DraftResult`/`DraftAppendResult`, e o renderer monta a mensagem por `draftFailureNotice`, dizendo quanto faltou e que nada foi cortado do texto. Nenhum caminho grava versão encurtada: escrita falha remove o `.tmp` e mantém o conteúdo anterior, o journal só recebe lote que passou na verificação, e o texto no editor continua intacto para nova tentativa depois de liberar espaço.
+
+Testes cobrem rascunho de 12 MB salvo e restaurado caractere a caractere, recusa por orçamento com o arquivo anterior preservado e sem `.tmp` residual, orçamento compartilhado que volta a caber após remover outro rascunho, recusa por disco com os dois números, gravação normal quando o espaço livre é desconhecido, e recusa no caminho incremental sem criar journal.
 
 ### Fase 5 — Exportação
 
