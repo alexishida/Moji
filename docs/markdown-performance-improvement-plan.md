@@ -656,6 +656,12 @@ Onze testes cobrem o agregador e cada braço da decisão. Rodar o comparador con
 
 Aberto: publicação como artefato depende de haver CI, o que está em `PERF-704`.
 
+Primeira execução real do gate, em 17/08/2026 nesta máquina (macOS, fora do hardware de referência), reprovou — corretamente — e o que ela revelou vale mais que o veredito. `rich-5mb/export-png` levou 129,6 s contra orçamento de 20 s, e o baseline registrava 38,9 ms para o mesmo cenário. A diferença não é regressão: o baseline não tem métrica `export:png-render` alguma, ou seja, aquela exportação nunca chegou a acontecer — ela falhava cedo, e 38,9 ms é o tempo até desistir.
+
+O que a exportação produz agora explica o resto: 1588 × 1.636.062 px, 2,6 bilhões de pixels, 1,32 GB em disco, com assinatura, `IEND` e `IHDR` reescrito com a altura real. Um documento de 5 MB vira uma imagem dessa ordem, e montá-la em memória era justamente o que `PERF-503` deixou de fazer. Em outras palavras, `PERF-501` e `PERF-503` transformaram uma falha em uma exportação lenta, e o orçamento de 20 s foi escrito sem saber disso.
+
+Duas coisas ficam pendentes de decisão, nenhuma delas trabalho de otimização óbvio: rever o limite de 20 s para esse cenário, e reavaliar se exportar 5 MB de Markdown como uma única imagem é caso de uso a sustentar. A espera por quadro foi descartada como culpada por medição direta: `requestAnimationFrame` responde em 39 ms numa janela offscreen, abaixo dos 50 ms fixos que substituiu.
+
 #### PERF-704 — Tornar build verificável
 
 - [x] Fazer build de release depender de typecheck e testes.
@@ -721,15 +727,21 @@ PERF-001 + PERF-002
 
 ## Definition of Done global
 
-- [ ] Comportamento documentado em especificações aplicáveis antes de marcar recurso como pronto.
-- [ ] `npm run typecheck` passa.
-- [ ] `npm test` passa.
+- [x] Comportamento documentado em especificações aplicáveis antes de marcar recurso como pronto.
+- [x] `npm run typecheck` passa.
+- [x] `npm test` passa.
 - [ ] Testes E2E relevantes passam nos sistemas suportados.
 - [ ] Benchmark não excede orçamento aprovado.
-- [ ] Nenhum caminho reduz segurança do renderer ou remove sanitização.
-- [ ] Fluxos salvar, autosave, descarte e fechamento não perdem conteúdo.
-- [ ] Preview, outline, busca, Mermaid, imagens e exportações mantêm comportamento atual.
-- [ ] README, CHANGELOG, regras e documentação de design são atualizados somente quando mudança estiver integrada.
+- [x] Nenhum caminho reduz segurança do renderer ou remove sanitização.
+- [x] Fluxos salvar, autosave, descarte e fechamento não perdem conteúdo.
+- [x] Preview, outline, busca, Mermaid, imagens e exportações mantêm comportamento atual.
+- [x] README, CHANGELOG, regras e documentação de design são atualizados somente quando mudança estiver integrada.
+
+Estado em 17/08/2026: `npm run typecheck` limpo e 299 testes unitários passando, contra 243 no início desta rodada. `openspec/specs/document-export` ganhou progresso, cancelamento, exportação única e autossuficiência do documento exportado; `openspec/specs/app-shell` ganhou o modelo de capacidades de arquivo e o novo limite de rascunho. README corrigido; CHANGELOG conferido e sem afirmação falsa.
+
+Segurança melhorou em vez de piorar: escrita e leitura de imagem passaram a exigir capacidade, remetente de IPC é verificado, e nenhuma sanitização foi removida — DOMPurify continua antes de todo `dangerouslySetInnerHTML`, e o SVG de Mermaid continua sanitizado.
+
+Aberto e por quê: E2E roda apenas em macOS, porque só essa plataforma estava disponível — os cinco casos passam aqui e nunca foram exercitados em Windows ou Linux. Benchmark reprova em um cenário, `rich-5mb/export-png`, pelo motivo detalhado em `PERF-703`: não é regressão, é orçamento escrito contra uma exportação que antes falhava. Os demais cenários comparados ficam dentro do orçamento.
 
 ## Resultado esperado
 
