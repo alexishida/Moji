@@ -12,6 +12,7 @@ import type { EditorDocumentStats, EditorHandle, EditorIdleStats } from './compo
 import { SettingsDialog } from './components/SettingsDialog'
 import { AboutDialog } from './components/AboutDialog'
 import { UpdateNotice } from './components/UpdateNotice'
+import { ExportProgress } from './components/ExportProgress'
 import { OpenProgress } from './components/OpenProgress'
 import {
   documentAssetBaseUrl,
@@ -36,12 +37,39 @@ import {
   type DocumentSizeProfile,
   type DraftEditPayload,
   type ExportFormat,
+  type ExportProgress as ExportProgressState,
   type Settings,
 } from '../electron/shared'
 import packageJson from '../package.json'
 
-const Editor = lazy(async () => ({ default: (await import('./components/Editor')).Editor }))
-const ExportDialog = lazy(async () => ({ default: (await import('./components/ExportDialog')).ExportDialog }))
+const loadEditor = (): Promise<typeof import('./components/Editor')> => import('./components/Editor')
+const loadExportDialog = (): Promise<typeof import('./components/ExportDialog')> => import('./components/ExportDialog')
+
+const Editor = lazy(async () => ({ default: (await loadEditor()).Editor }))
+const ExportDialog = lazy(async () => ({ default: (await loadExportDialog()).ExportDialog }))
+
+/**
+ * Fetch the editor chunk once the app has settled.
+ *
+ * Splitting it out keeps CodeMirror off the startup path, but the first keystroke would
+ * then pay for the download. Warming it while the window is idle keeps both: the chunk is
+ * not on the critical path, and it is already there when the user starts typing. The
+ * import is cached by the module registry, so `lazy` later resolves without a second
+ * fetch, and a failure here is not surfaced — `lazy` will retry and report it properly.
+ */
+function warmLazyChunks(): () => void {
+  const warm = (): void => {
+    void loadEditor().catch(() => undefined)
+  }
+
+  if (typeof requestIdleCallback === 'function') {
+    const handle = requestIdleCallback(warm, { timeout: 2000 })
+    return () => cancelIdleCallback(handle)
+  }
+
+  const handle = setTimeout(warm, 1000)
+  return () => clearTimeout(handle)
+}
 
 const MIN_PREVIEW_FONT_SIZE = 12
 const MAX_PREVIEW_FONT_SIZE = 24
@@ -162,6 +190,7 @@ export function App(): JSX.Element {
   const dragDepth = useRef(0)
   const [notice, setNotice] = useState<{ text: string; error?: boolean } | null>(null)
   const [openProgress, setOpenProgress] = useState<{ completed: number; total: number; canceling: boolean } | null>(null)
+  const [exportProgress, setExportProgress] = useState<{ progress: ExportProgressState; canceling: boolean } | null>(null)
   const openSessionRef = useRef<{ sessionId: string; showProgress: boolean; paths: string[] } | null>(null)
   const { updateState, setUpdateState, dismissedUpdate, setDismissedUpdate } = useUpdateState()
   const [activeHeadingId, setActiveHeadingId] = useState<string | null>(null)
@@ -187,8 +216,12 @@ export function App(): JSX.Element {
 
   const debouncedContent = useDebounced(content, previewSchedule.debounceMs)
   const debouncedSearchTerm = useDebounced(searchTerm, 200)
+
+  useEffect(() => warmLazyChunks(), [])
   useEffect(() => {
-    if (mode !== 'view' || debouncedContent !== content) {
+    // With no document open the preview is not mounted at all — the welcome screen is —
+    // so rendering here would be work nothing displays.
+    if (!activeDoc || mode !== 'view' || debouncedContent !== content) {
       return
     }
 
@@ -745,6 +778,11 @@ export function App(): JSX.Element {
     setOpenProgress(showProgress ? { completed: 0, total: res.total, canceling: false } : null)
   }, [flash, materializeEditorContent, t])
 
+  const cancelExport = useCallback(() => {
+    setExportProgress((prev) => (prev ? { ...prev, canceling: true } : prev))
+    void window.api.cancelExport()
+  }, [])
+
   const cancelOpenMany = useCallback(() => {
     const session = openSessionRef.current
     if (!session) return
@@ -814,16 +852,21 @@ export function App(): JSX.Element {
         lineHeight: settings.previewLineHeight
       })
       const base = name.replace(/\.[^.]+$/, '')
-      const res = await window.api.exportAs({
-        format,
-        pageSize,
-        pageOrientation,
-        html: doc,
-        assetBaseUrl: documentAssetBaseUrl(s.activeDoc.path) ?? undefined,
-        baseName: base
-      })
-      if (res.ok) flash(t('notice.exportSuccess', { path: res.path }))
-      else if (!res.canceled) flash(t('notice.exportFailed', { error: res.error }), true)
+      setExportProgress({ progress: { phase: 'render' }, canceling: false })
+      try {
+        const res = await window.api.exportAs({
+          format,
+          pageSize,
+          pageOrientation,
+          html: doc,
+          assetBaseUrl: documentAssetBaseUrl(s.activeDoc.path) ?? undefined,
+          baseName: base
+        })
+        if (res.ok) flash(t('notice.exportSuccess', { path: res.path }))
+        else if (!res.canceled) flash(t('notice.exportFailed', { error: res.error }), true)
+      } finally {
+        setExportProgress(null)
+      }
     },
     [flash, materializeEditorContent, settings.previewFontFamily, settings.previewFontSize, settings.previewLineHeight, t]
   )
@@ -1375,6 +1418,10 @@ export function App(): JSX.Element {
         setOpenProgress((prev) => (prev ? { ...prev, completed: progress.completed, total: progress.total } : prev))
       }
     })
+    const offExport = window.api.onExportProgress((progress) => {
+      // Only decorate a run this window started; the export owns its own lifetime.
+      setExportProgress((prev) => (prev ? { ...prev, progress } : prev))
+    })
     const offDone = window.api.onOpenManyDone((done) => {
       const session = openSessionRef.current
       if (!session || session.sessionId !== done.sessionId) return
@@ -1384,6 +1431,7 @@ export function App(): JSX.Element {
       if (done.errors.length > 0) flash(t('notice.openFailed', { error: done.errors[0] }), true)
     })
     return () => {
+      offExport()
       offClose()
       offDoc()
       offProgress()
@@ -1572,6 +1620,13 @@ export function App(): JSX.Element {
           state={updateState}
           onDismiss={() => setDismissedUpdate(updateKey)}
           onRetry={checkForUpdate}
+        />
+      )}
+      {exportProgress && (
+        <ExportProgress
+          progress={exportProgress.progress}
+          canceling={exportProgress.canceling}
+          onCancel={cancelExport}
         />
       )}
       {openProgress && (

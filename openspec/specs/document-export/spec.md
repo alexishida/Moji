@@ -101,3 +101,32 @@ The system SHALL export the same readable code-block fallback for a Mermaid defi
 #### Scenario: Export invalid Mermaid source
 - **WHEN** a document with invalid Mermaid source is exported in any supported format
 - **THEN** the export contains its readable code-block fallback and the export completes without a Mermaid rendering error
+
+### Requirement: Report export progress
+The system SHALL report the stage of a running export to the user, and SHALL show how far a sliced PNG capture has progressed.
+
+#### Scenario: Long PNG export shows its progress
+- **WHEN** a document tall enough to need several capture slices is exported as PNG
+- **THEN** the current stage is shown, and the slice being captured is shown alongside the total
+
+### Requirement: Cancel a running export
+The system SHALL allow the user to cancel a running export, and SHALL leave no partial file behind when they do.
+
+#### Scenario: User cancels a PNG export midway
+- **WHEN** the user cancels while slices are still being captured
+- **THEN** the export stops at the next point where nothing is half-written
+- **AND** no file exists at the chosen destination
+
+### Requirement: One export at a time
+The system SHALL refuse a new export while another is still running, rather than starting a second one.
+
+#### Scenario: Second export requested during the first
+- **WHEN** an export is requested while one is already in progress
+- **THEN** the request is refused and the running export is unaffected
+
+### Requirement: Exported documents are self-contained
+The system SHALL produce exports that render without network access, with fonts embedded rather than referenced.
+
+#### Scenario: Exporting with no network available
+- **WHEN** a document containing mathematics is exported as HTML, PDF or PNG
+- **THEN** the output renders with the correct fonts and no request is made to any remote host

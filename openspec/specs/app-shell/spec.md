@@ -92,3 +92,24 @@ The system SHALL treat quitting the application as distinct from closing its win
 - **WHEN** the user closes the window on macOS, leaving the app running, then reopens it from the Dock and makes an unsaved edit
 - **THEN** closing that window raises the unsaved-changes confirmation again, rather than discarding the work silently
 
+### Requirement: File access is limited to what the user opened
+The system SHALL write only to files the user has opened or chosen through a save dialog, and SHALL load local images only from directories of documents that have been opened.
+
+#### Scenario: Write to a file that was never opened
+- **WHEN** a write is requested for a path that the user has not opened or chosen
+- **THEN** the write is refused, regardless of the file's extension
+
+#### Scenario: Image outside any opened document's directory
+- **WHEN** a local image is requested from a directory where no document has been opened
+- **THEN** the request is refused
+
+### Requirement: Drafts are bounded by storage, not by a fixed length
+The system SHALL persist drafts larger than ten million characters, and SHALL refuse with a clear reason rather than truncating when storage cannot hold one.
+
+#### Scenario: Draft larger than the old character limit
+- **WHEN** a draft above ten megabytes is auto-saved
+- **THEN** it is stored and restored in full in the next session
+
+#### Scenario: Draft cannot be persisted
+- **WHEN** a draft exceeds the size ceiling or the disk lacks room for it
+- **THEN** the user is told why, and no truncated copy is written

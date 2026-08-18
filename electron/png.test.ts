@@ -1,8 +1,23 @@
-import { describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { mkdtemp, readFile, readdir, rm } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 import { inflateSync } from 'node:zlib'
-import { createPngEncoder } from './png'
+import { createPngFileWriter } from './png'
 
 const SIGNATURE = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])
+
+let directory = ''
+let destination = ''
+
+beforeEach(async () => {
+  directory = await mkdtemp(join(tmpdir(), 'moji-png-'))
+  destination = join(directory, 'capture.png')
+})
+
+afterEach(async () => {
+  await rm(directory, { recursive: true, force: true })
+})
 
 /** Walk the chunk list: each is length, four-letter type, payload, CRC. */
 function readChunks(png: Buffer): Array<{ type: string; payload: Buffer }> {
@@ -32,24 +47,27 @@ function bgra(blue: number, green: number, red: number, alpha = 255): number[] {
   return [blue, green, red, alpha]
 }
 
-describe('createPngEncoder', () => {
+describe('createPngFileWriter', () => {
   it('writes a PNG whose structure a decoder can walk', async () => {
-    const encoder = createPngEncoder()
-    await encoder.addSlice(Buffer.from([...bgra(1, 2, 3), ...bgra(4, 5, 6)]), 2, 1)
-    const png = await encoder.finish(2, 1)
+    const writer = await createPngFileWriter(destination)
+    await writer.addSlice(Buffer.from([...bgra(1, 2, 3), ...bgra(4, 5, 6)]), 2, 1)
+    await writer.finish(2, 1)
 
+    const png = await readFile(destination)
     expect(png.subarray(0, 8)).toEqual(SIGNATURE)
 
     const types = readChunks(png).map((chunk) => chunk.type)
-    expect(types).toEqual(['IHDR', 'IDAT', 'IEND'])
+    expect(types[0]).toBe('IHDR')
+    expect(types.at(-1)).toBe('IEND')
+    expect(types.filter((type) => type === 'IDAT').length).toBeGreaterThanOrEqual(1)
   })
 
   it('describes the image as 8-bit RGBA of the given size', async () => {
-    const encoder = createPngEncoder()
-    await encoder.addSlice(Buffer.alloc(3 * 2 * 4), 3, 2)
-    const png = await encoder.finish(3, 2)
+    const writer = await createPngFileWriter(destination)
+    await writer.addSlice(Buffer.alloc(3 * 2 * 4), 3, 2)
+    await writer.finish(3, 2)
 
-    const header = readChunks(png).find((chunk) => chunk.type === 'IHDR')?.payload as Buffer
+    const header = readChunks(await readFile(destination)).find((chunk) => chunk.type === 'IHDR')?.payload as Buffer
 
     expect(header.readUInt32BE(0)).toBe(3) // width
     expect(header.readUInt32BE(4)).toBe(2) // height
@@ -59,9 +77,9 @@ describe('createPngEncoder', () => {
   })
 
   it('converts the BGRA capture to RGBA and prefixes each row with its filter byte', async () => {
-    const encoder = createPngEncoder()
+    const writer = await createPngFileWriter(destination)
     // Two rows of two pixels, in BGRA as capturePage hands them over.
-    await encoder.addSlice(
+    await writer.addSlice(
       Buffer.from([
         ...bgra(10, 20, 30), ...bgra(40, 50, 60),
         ...bgra(70, 80, 90), ...bgra(100, 110, 120)
@@ -69,30 +87,30 @@ describe('createPngEncoder', () => {
       2,
       2
     )
-    const png = await encoder.finish(2, 2)
+    await writer.finish(2, 2)
 
-    expect([...scanlines(png)]).toEqual([
+    expect([...scanlines(await readFile(destination))]).toEqual([
       0, /* filter: none */ 30, 20, 10, 255, 60, 50, 40, 255,
       0, /* filter: none */ 90, 80, 70, 255, 120, 110, 100, 255
     ])
   })
 
   it('preserves alpha rather than forcing pixels opaque', async () => {
-    const encoder = createPngEncoder()
-    await encoder.addSlice(Buffer.from([...bgra(9, 9, 9, 128)]), 1, 1)
-    const png = await encoder.finish(1, 1)
+    const writer = await createPngFileWriter(destination)
+    await writer.addSlice(Buffer.from([...bgra(9, 9, 9, 128)]), 1, 1)
+    await writer.finish(1, 1)
 
-    expect([...scanlines(png)]).toEqual([0, 9, 9, 9, 128])
+    expect([...scanlines(await readFile(destination))]).toEqual([0, 9, 9, 9, 128])
   })
 
   it('appends slices in the order they arrive, so a tall document is not scrambled', async () => {
-    const encoder = createPngEncoder()
-    await encoder.addSlice(Buffer.from([...bgra(1, 1, 1)]), 1, 1)
-    await encoder.addSlice(Buffer.from([...bgra(2, 2, 2)]), 1, 1)
-    await encoder.addSlice(Buffer.from([...bgra(3, 3, 3)]), 1, 1)
-    const png = await encoder.finish(1, 3)
+    const writer = await createPngFileWriter(destination)
+    await writer.addSlice(Buffer.from([...bgra(1, 1, 1)]), 1, 1)
+    await writer.addSlice(Buffer.from([...bgra(2, 2, 2)]), 1, 1)
+    await writer.addSlice(Buffer.from([...bgra(3, 3, 3)]), 1, 1)
+    await writer.finish(1, 3)
 
-    expect([...scanlines(png)]).toEqual([
+    expect([...scanlines(await readFile(destination))]).toEqual([
       0, 1, 1, 1, 255,
       0, 2, 2, 2, 255,
       0, 3, 3, 3, 255
@@ -100,9 +118,11 @@ describe('createPngEncoder', () => {
   })
 
   it('carries a valid CRC on every chunk', async () => {
-    const encoder = createPngEncoder()
-    await encoder.addSlice(Buffer.alloc(4), 1, 1)
-    const png = await encoder.finish(1, 1)
+    const writer = await createPngFileWriter(destination)
+    await writer.addSlice(Buffer.alloc(4), 1, 1)
+    await writer.finish(1, 1)
+
+    const png = await readFile(destination)
 
     // Recompute each CRC independently and compare with the one written out.
     const table = new Int32Array(256)
@@ -126,6 +146,44 @@ describe('createPngEncoder', () => {
       offset += 12 + length
       checked += 1
     }
-    expect(checked).toBe(3)
+    expect(checked).toBe(readChunks(png).length)
+  })
+
+  it('emits several IDAT chunks rather than holding the whole compressed image', async () => {
+    const writer = await createPngFileWriter(destination)
+
+    // Noise compresses badly, so this produces far more deflate output than one
+    // internal buffer holds and forces the stream to emit repeatedly.
+    const width = 512
+    const height = 256
+    const noise = Buffer.allocUnsafe(width * height * 4)
+    for (let i = 0; i < noise.length; i += 1) noise[i] = (i * 2654435761) % 251
+
+    await writer.addSlice(noise, width, height)
+    await writer.finish(width, height)
+
+    const chunks = readChunks(await readFile(destination))
+    expect(chunks.filter((chunk) => chunk.type === 'IDAT').length).toBeGreaterThan(1)
+    // The scanlines still round-trip, so splitting IDAT did not corrupt the stream.
+    expect(scanlines(await readFile(destination)).length).toBe(height * (1 + width * 4))
+  })
+
+  it('publishes the file only once the image is complete', async () => {
+    const writer = await createPngFileWriter(destination)
+    await writer.addSlice(Buffer.from([...bgra(1, 1, 1)]), 1, 1)
+
+    // Mid-encode the destination does not exist yet; only the sibling temp file does.
+    expect(await readdir(directory)).toEqual(['capture.png.tmp'])
+
+    await writer.finish(1, 1)
+    expect(await readdir(directory)).toEqual(['capture.png'])
+  })
+
+  it('leaves no partial file behind when the export is abandoned', async () => {
+    const writer = await createPngFileWriter(destination)
+    await writer.addSlice(Buffer.from([...bgra(1, 1, 1)]), 1, 1)
+    await writer.abort()
+
+    expect(await readdir(directory)).toEqual([])
   })
 })

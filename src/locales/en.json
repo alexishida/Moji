@@ -244,6 +244,19 @@
     "cancel": "Cancel",
     "canceling": "Canceling…"
   },
+  "exportProgress": {
+    "title": "Exporting…",
+    "slice": "{{phase}} — {{slice}} of {{slices}}",
+    "cancel": "Cancel",
+    "canceling": "Canceling…",
+    "phase": {
+      "render": "Rendering the page…",
+      "fonts": "Loading fonts…",
+      "capture": "Capturing the page…",
+      "compress": "Compressing the image…",
+      "write": "Writing the file…"
+    }
+  },
   "notice": {
     "unsupported": "Unsupported file type. Only .md and .markdown files can be opened.",
     "exportSuccess": "Exported to {{path}}",
