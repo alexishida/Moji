@@ -34,6 +34,11 @@ const paths = vi.hoisted(() => {
 const exportPageDirectory = paths.directory
 /** The page path `writeExportSource` builds from that directory and a fixed UUID. */
 const exportPagePath = paths.page
+/** Page height the fake document reports, and how far it can actually scroll. Set per test. */
+let documentHeight = 0
+let scrollY = 0
+/** When set, scrollTo is clamped to this, as a real page clamps at the end of the document. */
+let maxScroll: number | null = null
 
 const state = vi.hoisted(() => ({
   showSaveDialog: vi.fn(),
@@ -120,7 +125,20 @@ beforeEach(async () => {
   vi.clearAllMocks()
   state.windows.length = 0
   state.getSettings.mockReturnValue({ lastDialogDirectory: exportTempDirectory })
-  state.executeJavaScript.mockResolvedValue(undefined)
+  // Answer by what the script asks for: the export now interleaves frame waits between
+  // the scroll and height queries, and order-based mocks would break on every change.
+  state.executeJavaScript.mockImplementation((script: string) => {
+    if (script.includes('scrollHeight')) return Promise.resolve(documentHeight)
+    if (script.includes('window.scrollTo')) {
+      if (maxScroll === null) return Promise.resolve(scrollY)
+      const requested = Number(/scrollTo\(0, (\d+)\)/.exec(script)?.[1] ?? 0)
+      return Promise.resolve(Math.min(requested, maxScroll))
+    }
+    return Promise.resolve(undefined)
+  })
+  documentHeight = capturedSize
+  scrollY = 0
+  maxScroll = null
   state.sourceWrites.length = 0
   state.open.mockResolvedValue({
     write: (chunk: string) => {
@@ -219,11 +237,6 @@ describe('exportDocument', () => {
   it('renders PNG from HTML containing a Mermaid SVG', async () => {
     state.showSaveDialog.mockResolvedValue({ canceled: false, filePath: selectedPngPath })
     state.writeFile.mockResolvedValue(undefined)
-    state.executeJavaScript
-      .mockResolvedValueOnce(undefined)
-      .mockResolvedValueOnce(undefined)
-      .mockResolvedValueOnce(capturedSize)
-      .mockResolvedValueOnce(0)
     state.capturePage.mockResolvedValue({
       getSize: () => ({ width: capturedSize, height: capturedSize }),
       toBitmap: () => Buffer.alloc(capturedSize * capturedSize * BYTES_PER_PIXEL)
@@ -245,11 +258,6 @@ describe('exportDocument', () => {
   it('leaves no partial PNG behind when a capture fails midway', async () => {
     state.showSaveDialog.mockResolvedValue({ canceled: false, filePath: selectedPngPath })
     state.writeFile.mockResolvedValue(undefined)
-    state.executeJavaScript
-      .mockResolvedValueOnce(undefined)
-      .mockResolvedValueOnce(undefined)
-      .mockResolvedValueOnce(capturedSize)
-      .mockResolvedValueOnce(0)
     state.capturePage.mockRejectedValue(new Error('UnknownVizError'))
     const { exportDocument } = await import('./export')
 
@@ -352,14 +360,61 @@ describe('exportDocument', () => {
     expect(state.unlink).toHaveBeenCalledWith(exportPagePath)
   })
 
+  it('waits for a painted frame rather than a fixed delay before each capture', async () => {
+    state.showSaveDialog.mockResolvedValue({ canceled: false, filePath: selectedPngPath })
+    state.writeFile.mockResolvedValue(undefined)
+    state.capturePage.mockResolvedValue({
+      getSize: () => ({ width: capturedSize, height: capturedSize }),
+      toBitmap: () => Buffer.alloc(capturedSize * capturedSize * BYTES_PER_PIXEL)
+    })
+    const { exportDocument } = await import('./export')
+
+    await exportDocument({ ...request, format: 'png' })
+
+    const scripts = state.executeJavaScript.mock.calls.map(([script]) => script as string)
+    expect(scripts.filter((script) => script.includes('requestAnimationFrame')).length).toBeGreaterThan(0)
+    expect(scripts.every((script) => !script.includes('setTimeout'))).toBe(true)
+  })
+
+  it('captures the final band once when the page cannot scroll any further', async () => {
+    // Four slices' worth of document, but the page stops scrolling one slice early,
+    // which is what makes the last capture prone to repeating the band before it.
+    const slice = 2048
+    documentHeight = slice * 3 + 500
+    maxScroll = slice * 2 + 500
+
+    state.showSaveDialog.mockResolvedValue({ canceled: false, filePath: selectedPngPath })
+    state.writeFile.mockResolvedValue(undefined)
+    const captured: Array<{ y: number; height: number }> = []
+    state.capturePage.mockImplementation((rect: { y: number; height: number }) => {
+      captured.push({ y: rect.y, height: rect.height })
+      return Promise.resolve({
+        getSize: () => ({ width: 4, height: rect.height }),
+        toBitmap: () => Buffer.alloc(4 * rect.height * BYTES_PER_PIXEL)
+      })
+    })
+    const { exportDocument } = await import('./export')
+
+    await expect(exportDocument({ ...request, format: 'png' })).resolves.toEqual({
+      ok: true,
+      path: selectedPngPath
+    })
+
+    // The last scroll is clamped at maxScroll, so the final band is taken from further
+    // down inside the viewport. The bands then tile the document exactly: 0-2048,
+    // 2048-4096, 4096-6144, 6144-6644, with no repeated strip.
+    expect(captured).toEqual([
+      { y: 0, height: slice },
+      { y: 0, height: slice },
+      { y: 0, height: slice },
+      { y: slice * 3 - maxScroll!, height: documentHeight - slice * 3 }
+    ])
+    expect(captured.reduce((total, band) => total + band.height, 0)).toBe(documentHeight)
+  })
+
   it('reports each phase of a PNG export, with the slice it is on', async () => {
     state.showSaveDialog.mockResolvedValue({ canceled: false, filePath: selectedPngPath })
     state.writeFile.mockResolvedValue(undefined)
-    state.executeJavaScript
-      .mockResolvedValueOnce(undefined)
-      .mockResolvedValueOnce(undefined)
-      .mockResolvedValueOnce(capturedSize)
-      .mockResolvedValueOnce(0)
     state.capturePage.mockResolvedValue({
       getSize: () => ({ width: capturedSize, height: capturedSize }),
       toBitmap: () => Buffer.alloc(capturedSize * capturedSize * BYTES_PER_PIXEL)
@@ -402,12 +457,8 @@ describe('exportDocument', () => {
   it('stops a PNG export between slices and leaves no file behind', async () => {
     state.showSaveDialog.mockResolvedValue({ canceled: false, filePath: selectedPngPath })
     state.writeFile.mockResolvedValue(undefined)
-    state.executeJavaScript
-      .mockResolvedValueOnce(undefined)
-      .mockResolvedValueOnce(undefined)
-      // A document tall enough to need several slices.
-      .mockResolvedValueOnce(capturedSize * 8)
-      .mockResolvedValue(0)
+    // A document tall enough to need several slices.
+    documentHeight = capturedSize * 8
     state.capturePage.mockResolvedValue({
       getSize: () => ({ width: capturedSize, height: capturedSize }),
       toBitmap: () => Buffer.alloc(capturedSize * capturedSize * BYTES_PER_PIXEL)

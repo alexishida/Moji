@@ -251,11 +251,42 @@ export async function exportDiagramPng(request: unknown): Promise<WriteResult> {
   }
 }
 
-async function waitForFonts(win: BrowserWindow): Promise<void> {
+/**
+ * Upper bound on waiting for a frame, in milliseconds.
+ *
+ * `requestAnimationFrame` is the signal that layout landed and was painted, but a page
+ * that never schedules a frame would stall the export outright. The race keeps the wait
+ * bounded; it is a safety net, not the expected path.
+ */
+const PAINT_TIMEOUT_MS = 500
+
+/** Upper bound on waiting for webfonts before capturing anyway. */
+const FONT_TIMEOUT_MS = 5000
+
+function delay(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms))
+}
+
+/**
+ * Wait until the page has painted the layout just requested.
+ *
+ * Scrolling and resizing take effect over the following frames, so the capture used to
+ * be preceded by a flat 50 ms guess: long enough to waste on every slice of a long
+ * document, and with no guarantee of being long enough on a slow one. Two nested frames
+ * are a direct signal instead — the first fires after the change is laid out, the second
+ * once the frame carrying it has been produced.
+ */
+async function waitForPaint(win: BrowserWindow): Promise<void> {
   await Promise.race([
-    win.webContents.executeJavaScript('document.fonts.ready'),
-    new Promise((r) => setTimeout(r, 5000))
+    win.webContents.executeJavaScript(
+      'new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve(true))))'
+    ),
+    delay(PAINT_TIMEOUT_MS)
   ])
+}
+
+async function waitForFonts(win: BrowserWindow): Promise<void> {
+  await Promise.race([win.webContents.executeJavaScript('document.fonts.ready'), delay(FONT_TIMEOUT_MS)])
 }
 
 /** Opening tag of the document head, where the `<base>` below has to land. */
@@ -437,7 +468,7 @@ async function htmlToPngFile(
       const sliceHeight = captureSliceHeight()
 
       win.setContentSize(size.width, Math.min(totalHeight, sliceHeight))
-      await new Promise((r) => setTimeout(r, 50))
+      await waitForPaint(win)
 
       // Each slice is compressed and written out as it is captured, so peak memory follows
       // the slice height rather than the height of the document.
@@ -463,7 +494,7 @@ async function htmlToPngFile(
           const scrollY = (await win.webContents.executeJavaScript(
             `window.scrollTo(0, ${top}); Math.round(window.scrollY)`
           )) as number
-          await new Promise((r) => setTimeout(r, 50))
+          await waitForPaint(win)
 
           const image = await win.webContents.capturePage({
             x: 0,
