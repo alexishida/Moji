@@ -37,6 +37,7 @@
     "benchmark:corpus": "node scripts/generate-benchmark-corpus.cjs",
     "benchmark:ipc": "node scripts/measure-ipc-transport.cjs",
     "benchmark:record": "npm run build && npm run benchmark:corpus && node scripts/run-benchmark.cjs --benchmark-corpus=.tmp/benchmark-corpus --benchmark-output=docs/baseline-v1.json",
+    "benchmark:compare": "node scripts/compare-benchmark.cjs",
     "preview": "node scripts/run-electron-vite.cjs preview",
     "dist": "electron-vite build && electron-builder",
     "dist:win": "electron-vite build && electron-builder --win",
