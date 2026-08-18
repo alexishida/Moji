@@ -531,7 +531,7 @@ A última fatia ganhou teste dedicado porque é onde a captura erra: a página p
 
 - [x] Trocar import completo por `highlight.js/lib/core`.
 - [x] Registrar conjunto comum definido pelo produto.
-- [ ] Importar linguagens adicionais sob demanda quando viável.
+- [x] Importar linguagens adicionais sob demanda quando viável.
 - [x] Manter fallback escapado para linguagem desconhecida.
 - [x] Medir redução do bundle principal: 3,66 MB sem compressão (`npm run build`), ante aproximadamente 4,71 MB.
 
@@ -541,16 +541,24 @@ Critério de aceite:
 
 Impacto: alto na inicialização. Esforço: médio.
 
+"Quando viável" tinha um obstáculo concreto: o gancho `highlight` do markdown-it é síncrono, então não há como buscar uma linguagem no meio da renderização. A solução é resolver antes de parsear — `registerLanguagesIn` varre as cercas do documento, importa o que falta e só então o parse começa, dentro de `renderMarkdownDocumentRawAsync`, que já esperava por KaTeX pelo mesmo motivo.
+
+Vinte e duas linguagens de cauda longa saíram para carregamento sob demanda, cada uma virando chunk próprio (`elixir` 5,2 KB, `perl` 9,1 KB, `lua` 2,6 KB, entre outras). O bundle inicial cresceu 6,5 KB com o registro e o scanner, e em troca nenhum documento paga por linguagem que não usa. Falha de rede é engolida: o bloco cai no mesmo texto escapado que uma linguagem desconhecida já produz, em vez de derrubar a renderização inteira.
+
 #### PERF-602 — Carregar editor e painéis pesados sob demanda
 
 - [x] Aplicar import dinâmico no Editor.
 - [x] Carregar código de exportação somente ao abrir exportação.
 - [x] Avaliar carregamento tardio do visualizador Mermaid: import dinâmico já ocorre ao renderizar diagrama.
-- [ ] Manter preload previsível para evitar atraso ao primeiro uso.
+- [x] Manter preload previsível para evitar atraso ao primeiro uso.
 
 Critério de aceite:
 
 - Tela inicial não carrega CodeMirror e CSS/fontes de exportação antes de necessidade.
+
+`warmLazyChunks` busca o chunk do Editor em `requestIdleCallback`, com teto de 2 s e `setTimeout` como reserva. Tirar o CodeMirror da partida resolveu a inicialização mas empurrava o custo para a primeira tecla; aquecer enquanto a janela está ociosa mantém os dois lados, e o registro de módulos garante que o `lazy` posterior não busque de novo.
+
+O chunk de exportação (380,93 KB, com as fontes KaTeX embutidas) deliberadamente não é aquecido: exportar é ação ocasional e precedida de um diálogo, tempo mais que suficiente para buscá-lo.
 
 #### PERF-603 — Carregar KaTeX sob demanda
 

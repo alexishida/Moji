@@ -10,6 +10,7 @@ import deflist from 'markdown-it-deflist'
 import abbr from 'markdown-it-abbr'
 import { full as emoji } from 'markdown-it-emoji'
 import hljs from 'highlight.js/lib/core'
+import type { LanguageFn } from 'highlight.js'
 import bash from 'highlight.js/lib/languages/bash'
 import c from 'highlight.js/lib/languages/c'
 import cpp from 'highlight.js/lib/languages/cpp'
@@ -98,6 +99,79 @@ hljs.registerLanguage('sql', sql)
 hljs.registerLanguage('swift', swift)
 hljs.registerLanguage('typescript', typescript)
 hljs.registerLanguage('yaml', yaml)
+
+/**
+ * Languages fetched only when a document actually uses one.
+ *
+ * The common set above is registered up front because it covers most documents and the
+ * cost is already paid at startup. These are the long tail: each is a separate chunk, so
+ * a document that never mentions Elixir never downloads it.
+ */
+const LAZY_LANGUAGES: Record<string, () => Promise<{ default: LanguageFn }>> = {
+  clojure: () => import('highlight.js/lib/languages/clojure'),
+  dart: () => import('highlight.js/lib/languages/dart'),
+  elixir: () => import('highlight.js/lib/languages/elixir'),
+  erlang: () => import('highlight.js/lib/languages/erlang'),
+  fsharp: () => import('highlight.js/lib/languages/fsharp'),
+  graphql: () => import('highlight.js/lib/languages/graphql'),
+  groovy: () => import('highlight.js/lib/languages/groovy'),
+  haskell: () => import('highlight.js/lib/languages/haskell'),
+  julia: () => import('highlight.js/lib/languages/julia'),
+  latex: () => import('highlight.js/lib/languages/latex'),
+  lua: () => import('highlight.js/lib/languages/lua'),
+  makefile: () => import('highlight.js/lib/languages/makefile'),
+  matlab: () => import('highlight.js/lib/languages/matlab'),
+  nginx: () => import('highlight.js/lib/languages/nginx'),
+  objectivec: () => import('highlight.js/lib/languages/objectivec'),
+  perl: () => import('highlight.js/lib/languages/perl'),
+  protobuf: () => import('highlight.js/lib/languages/protobuf'),
+  r: () => import('highlight.js/lib/languages/r'),
+  scala: () => import('highlight.js/lib/languages/scala'),
+  scss: () => import('highlight.js/lib/languages/scss'),
+  toml: () => import('highlight.js/lib/languages/ini'),
+  vim: () => import('highlight.js/lib/languages/vim')
+}
+
+/** Opening fences carry the language: ```lang or ~~~lang, at the start of a line. */
+const FENCE_LANGUAGE = /^[ \t]*(?:`{3,}|~{3,})[ \t]*([A-Za-z][\w+#-]*)/gm
+
+const loadedLanguages = new Map<string, Promise<void>>()
+
+/** Language names a document asks for that are neither registered nor already loading. */
+export function lazyLanguagesIn(source: string): string[] {
+  const wanted = new Set<string>()
+  for (const match of source.matchAll(FENCE_LANGUAGE)) {
+    const name = match[1].toLowerCase()
+    if (LAZY_LANGUAGES[name] && !hljs.getLanguage(name)) wanted.add(name)
+  }
+  return [...wanted]
+}
+
+/**
+ * Register every lazily-available language the document uses.
+ *
+ * A failed fetch is swallowed: the block then renders as escaped text, which is what an
+ * unknown language already does, and is better than failing the whole render.
+ */
+export async function registerLanguagesIn(source: string): Promise<void> {
+  const names = lazyLanguagesIn(source)
+  if (names.length === 0) return
+
+  await Promise.all(
+    names.map((name) => {
+      const already = loadedLanguages.get(name)
+      if (already) return already
+
+      const loading = LAZY_LANGUAGES[name]()
+        .then((module) => {
+          if (!hljs.getLanguage(name)) hljs.registerLanguage(name, module.default)
+        })
+        .catch(() => undefined)
+      loadedLanguages.set(name, loading)
+      return loading
+    })
+  )
+}
 
 function safeHeadingId(id: string): string {
   return id.startsWith(HEADING_ID_PREFIX) ? id : `${HEADING_ID_PREFIX}${id}`
@@ -403,6 +477,10 @@ export async function renderMarkdownDocumentRawAsync(
   source: string,
   options: RenderMarkdownOptions = {}
 ): Promise<RawMarkdownRenderResult> {
+  // Both of these have to settle before parsing: markdown-it's `highlight` hook is
+  // synchronous, so a language that is not registered by the time it runs falls back to
+  // escaped text for this render.
+  await registerLanguagesIn(source)
   const renderer = hasPotentialMath(source) ? await getMathRenderer() : md
   return renderMarkdownDocumentRaw(source, options, renderer)
 }
