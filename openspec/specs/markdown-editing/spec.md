@@ -15,11 +15,27 @@ The system SHALL default to a view-only preview and allow the user to toggle an 
 - **THEN** the editor is hidden and only the rendered preview remains visible
 
 ### Requirement: Live preview while editing
-The system SHALL update the rendered preview to reflect edits to the source with a short debounce, without requiring a manual refresh.
+The system SHALL offer a split view that shows the rendered preview beside the source editor, and SHALL update it to reflect edits with a short debounce, without requiring a manual refresh.
+
+#### Scenario: Show the preview beside the editor
+- **WHEN** the user activates the live preview toggle in the toolbar or its shortcut while editing
+- **THEN** the preview appears beside the source editor and both panes stay usable
 
 #### Scenario: Preview follows edits
-- **WHEN** the user types or deletes text in the source editor
+- **WHEN** the user types or deletes text in the source editor with the live preview showing
 - **THEN** the preview updates to reflect the new content within a brief delay
+
+#### Scenario: Preview follows the editor position
+- **WHEN** the user scrolls or edits at some point of the document
+- **THEN** the preview scrolls to the matching part of the rendered document instead of staying where it was
+
+#### Scenario: Resize the panes
+- **WHEN** the user drags the divider between the panes
+- **THEN** the panes resize within their allowed range, and the chosen ratio is restored in later sessions
+
+#### Scenario: Workspace too narrow
+- **WHEN** the workspace is too narrow to show two readable panes
+- **THEN** the live preview toggle is disabled and explains why
 
 ### Requirement: Dirty-state tracking
 The system SHALL track unsaved changes and indicate the dirty state, warning before actions that would discard unsaved edits.

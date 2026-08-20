@@ -2,7 +2,7 @@ function getPreviewScroller(target: Element | null): HTMLElement | null {
   return target?.closest('.pane') as HTMLElement | null
 }
 
-function getHeadingTopInScroller(scroller: HTMLElement, heading: HTMLElement): number {
+export function getHeadingTopInScroller(scroller: HTMLElement, heading: HTMLElement): number {
   const scrollerRect = scroller.getBoundingClientRect()
   const headingRect = heading.getBoundingClientRect()
   return headingRect.top - scrollerRect.top + scroller.scrollTop

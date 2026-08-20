@@ -32,6 +32,8 @@ interface PreviewProps {
   settings: Settings
   onOpenLocalPath: (fileUrl: string) => void
   onPreviewHeadingsChange: (headings: HTMLElement[]) => void
+  /** Publishes the scroller so the split view can follow the editor. */
+  onPaneElement?: (element: HTMLDivElement | null) => void
   className?: string
 }
 
@@ -87,6 +89,7 @@ export function Preview({
   settings,
   onOpenLocalPath,
   onPreviewHeadingsChange,
+  onPaneElement,
   className
 }: PreviewProps): JSX.Element {
   const { t } = useTranslation()
@@ -125,6 +128,11 @@ export function Preview({
   )
   const virtualOffsetsRef = useRef(virtualOffsets)
   virtualOffsetsRef.current = virtualOffsets
+
+  useEffect(() => {
+    onPaneElement?.(paneRef.current)
+    return () => onPaneElement?.(null)
+  }, [onPaneElement])
 
   useLayoutEffect(() => {
     const anchor = virtualScrollAnchor.current

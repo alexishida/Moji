@@ -45,6 +45,8 @@ export function sanitizeSettingsPatch(value: unknown): Partial<Settings> {
   if (typeof raw['editorFontSize'] === 'number') patch.editorFontSize = raw['editorFontSize']
   if (typeof raw['previewLineHeight'] === 'number') patch.previewLineHeight = raw['previewLineHeight']
   if (typeof raw['previewFluidWidth'] === 'boolean') patch.previewFluidWidth = raw['previewFluidWidth']
+  if (typeof raw['splitView'] === 'boolean') patch.splitView = raw['splitView']
+  if (typeof raw['splitRatio'] === 'number') patch.splitRatio = raw['splitRatio']
   if (typeof raw['previewWidth'] === 'number') patch.previewWidth = raw['previewWidth']
   if (typeof raw['autoSave'] === 'boolean') patch.autoSave = raw['autoSave']
   if (Array.isArray(raw['recentFiles'])) patch.recentFiles = raw['recentFiles'].filter((p): p is string => typeof p === 'string')

@@ -28,6 +28,11 @@ describe('sanitizeSettingsPatch', () => {
     })
   })
 
+  it('keeps the split view fields', () => {
+    expect(sanitizeSettingsPatch({ splitView: true, splitRatio: 65 })).toEqual({ splitView: true, splitRatio: 65 })
+    expect(sanitizeSettingsPatch({ splitView: 'on', splitRatio: '65' })).toEqual({})
+  })
+
   it('drops fields whose type does not match', () => {
     expect(sanitizeSettingsPatch({
       language: 'klingon',

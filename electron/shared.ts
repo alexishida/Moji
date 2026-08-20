@@ -16,6 +16,19 @@ export const PREVIEW_WIDTH_MAX = 100
 export const PREVIEW_WIDTH_STEP = 5
 export const PREVIEW_WIDTH_DEFAULT = 60
 
+/** Editor share of the split view, as a percentage of the workspace width. */
+export const SPLIT_RATIO_MIN = 20
+export const SPLIT_RATIO_MAX = 80
+export const SPLIT_RATIO_DEFAULT = 50
+
+/**
+ * Below this workspace width the split view has no room for two readable panes.
+ *
+ * Measured against the workspace, not the window: the outline sidebar takes 260px of it, so
+ * a default 1000px window still fits the split with the outline showing.
+ */
+export const SPLIT_MIN_WIDTH_PX = 700
+
 /** Delay after the latest edit before an untitled draft is persisted. */
 export const AUTO_SAVE_DELAY_MS = 750
 
@@ -23,6 +36,11 @@ export function normalizePreviewWidth(value: unknown, fallback = PREVIEW_WIDTH_D
   if (typeof value !== 'number' || !Number.isFinite(value)) return fallback
   const bounded = Math.min(PREVIEW_WIDTH_MAX, Math.max(PREVIEW_WIDTH_MIN, value))
   return Math.round(bounded / PREVIEW_WIDTH_STEP) * PREVIEW_WIDTH_STEP
+}
+
+export function normalizeSplitRatio(value: unknown, fallback = SPLIT_RATIO_DEFAULT): number {
+  if (typeof value !== 'number' || !Number.isFinite(value)) return fallback
+  return Math.round(Math.min(SPLIT_RATIO_MAX, Math.max(SPLIT_RATIO_MIN, value)))
 }
 
 export interface Settings {
@@ -35,6 +53,10 @@ export interface Settings {
   editorFontSize: number
   previewLineHeight: number
   previewFluidWidth: boolean
+  /** Show the live preview beside the source editor while editing. */
+  splitView: boolean
+  /** Editor share of the split view as a percentage (20-80) of the workspace width. */
+  splitRatio: number
   /** Reading column width as a percentage (20-100, in steps of 5) of the available preview area. */
   previewWidth: number
   /** Persist and restore untitled documents between app sessions. */

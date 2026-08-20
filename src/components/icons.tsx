@@ -258,3 +258,12 @@ export const IconSidebar = (p: IconProps): JSX.Element => (
     <path d="M9 4v16" />
   </svg>
 )
+
+/** Panel split down the middle — toggles the live preview beside the editor. */
+export const IconSplitPreview = (p: IconProps): JSX.Element => (
+  <svg {...base} {...p}>
+    <rect x="3" y="4" width="18" height="16" rx="2" />
+    <path d="M12 4v16" />
+    <path d="M15 9.5h3M15 12h3M15 14.5h2" />
+  </svg>
+)

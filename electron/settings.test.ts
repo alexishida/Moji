@@ -91,6 +91,18 @@ describe('settings', () => {
     expect(persisted.autoSave).toBe(false)
   })
 
+  it('persists the split view and clamps the pane ratio', async () => {
+    const { getSettings, updateSettings } = await import('./settings')
+
+    expect(getSettings().splitView).toBe(false)
+    expect(updateSettings({ splitView: true, splitRatio: 95 })).toMatchObject({ splitView: true, splitRatio: 80 })
+    expect(updateSettings({ splitRatio: 5 }).splitRatio).toBe(20)
+
+    const persisted = JSON.parse(state.files.get(SETTINGS_FILE) ?? '{}')
+    expect(persisted.splitView).toBe(true)
+    expect(persisted.splitRatio).toBe(20)
+  })
+
   it('falls back to defaults when settings file is invalid JSON', async () => {
     state.files.set(SETTINGS_FILE, '{ invalid')
     const { getSettings } = await import('./settings')
