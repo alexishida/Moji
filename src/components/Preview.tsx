@@ -128,6 +128,14 @@ export function Preview({
   )
   const virtualOffsetsRef = useRef(virtualOffsets)
   virtualOffsetsRef.current = virtualOffsets
+  /**
+   * Identity of the body DOM currently mounted.
+   *
+   * The body is keyed by theme, so switching themes remounts it from the pristine HTML and
+   * drops every imperative patch: image sources, copy buttons, search marks, observed nodes.
+   * Effects that patch or observe the body re-run whenever this changes.
+   */
+  const bodyVersion = `${mdTheme}:${domPatchVersion}`
 
   useEffect(() => {
     onPaneElement?.(paneRef.current)
@@ -265,7 +273,7 @@ export function Preview({
     })
     body.querySelectorAll<HTMLElement>('[data-preview-block-index]').forEach((block) => observer.observe(block))
     return () => observer.disconnect()
-  }, [domPatchVersion, virtualRange.end, virtualRange.start, virtualized])
+  }, [bodyVersion, virtualRange.end, virtualRange.start, virtualized])
 
   useEffect(() => {
     const measurement = previewMountMeasure.current
@@ -292,7 +300,7 @@ export function Preview({
       previewMountMeasure.current = null
     })
     return () => cancelAnimationFrame(frame)
-  }, [domPatchVersion, html, virtualBlocks, virtualRange.end, virtualRange.start, virtualized])
+  }, [bodyVersion, html, virtualBlocks, virtualRange.end, virtualRange.start, virtualized])
 
   const handleClick = useCallback((e: MouseEvent<HTMLDivElement>) => {
     const target = e.target as HTMLElement
@@ -382,7 +390,7 @@ export function Preview({
       button.title = t('preview.copyCode')
       wrapper.append(button)
     })
-  }, [domPatchVersion, html, t, virtualRange.end, virtualRange.start, virtualized])
+  }, [bodyVersion, html, t, virtualRange.end, virtualRange.start, virtualized])
 
   useEffect(() => {
     const body = bodyRef.current
@@ -474,7 +482,7 @@ export function Preview({
       observer?.disconnect()
       queued.clear()
     }
-  }, [domPatchVersion, html, virtualRange.end, virtualRange.start, virtualized])
+  }, [bodyVersion, html, virtualRange.end, virtualRange.start, virtualized])
 
   useEffect(() => {
     const body = bodyRef.current
@@ -501,7 +509,7 @@ export function Preview({
       canceled = true
     }
   }, [
-    domPatchVersion,
+    bodyVersion,
     html,
     onSearchMatchCountChange,
     searchTerm,
@@ -552,7 +560,7 @@ export function Preview({
   }, [
     onActiveHeadingChange,
     onPreviewHeadingsChange,
-    domPatchVersion,
+    bodyVersion,
     html,
     virtualBlocks,
     virtualRange.end,
