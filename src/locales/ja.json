@@ -205,7 +205,9 @@
       "link": "リンクを挿入",
       "list": "リスト切替",
       "checklist": "チェックリスト切替",
-      "codeBlock": "コードブロックを挿入"
+      "codeBlock": "コードブロックを挿入",
+      "indent": "インデントを増やす",
+      "outdent": "インデントを減らす"
     }
   },
   "aboutDialog": {
