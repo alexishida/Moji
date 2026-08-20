@@ -23,7 +23,7 @@ import {
   type MarkdownRenderResult
 } from './lib/markdown'
 import { getHeadingTopInScroller, scrollPreviewHeadingIntoView } from './lib/previewScroll'
-import { buildSplitAnchors, headingIdForLine, previewTopForEditorLine } from './lib/splitScroll'
+import { buildSplitAnchors, editorLineForPreviewTop, headingIdForLine, previewTopForEditorLine } from './lib/splitScroll'
 import { useDebounced } from './lib/useDebounced'
 import { useDocumentState, usePanelState, useSearchState, useSettingsState, useUpdateState, type WorkspaceDocument } from './hooks/useAppState'
 import { useElementWidth } from './hooks/useElementWidth'
@@ -85,6 +85,8 @@ const DEFAULT_EDITOR_FONT_SIZE = 14
 
 /** Below this file count, an open-dialog selection resolves fast enough that a progress banner would only flicker. */
 const LARGE_OPEN_SELECTION_THRESHOLD = 4
+/** How long the pane being scrolled keeps the sync to itself, so the other pane cannot bounce back. */
+const SCROLL_OWNER_HOLD_MS = 150
 
 type DocumentState = WorkspaceDocument
 
@@ -216,10 +218,13 @@ export function App(): JSX.Element {
   const editorRef = useRef<EditorHandle | null>(null)
   const mainRef = useRef<HTMLElement>(null)
   const previewPaneRef = useRef<HTMLDivElement | null>(null)
+  const [previewPaneElement, setPreviewPaneElement] = useState<HTMLDivElement | null>(null)
   /** Pane the font-size control acts on while both are visible. */
   const [splitFocus, setSplitFocus] = useState<'editor' | 'preview'>('editor')
   const editorTopLineRef = useRef(0)
   const syncedHeadingRef = useRef<string | null>(null)
+  /** Pane currently driving the split scroll sync, with the time of its last scroll. */
+  const scrollOwnerRef = useRef<{ pane: 'editor' | 'preview'; at: number } | null>(null)
 
   const hasDoc = activeDoc !== null
   const content = activeDoc?.content ?? ''
@@ -231,8 +236,8 @@ export function App(): JSX.Element {
   const panelOpen = exportDialogFormat !== null || settingsOpen || aboutOpen
   /** Two panes below this width leave neither of them readable. */
   const splitFits = workspaceWidth >= SPLIT_MIN_WIDTH_PX
-  const canToggleSplit = hasDoc && activeDoc?.readOnly !== true && !panelOpen && splitFits
-  const splitActive = canToggleSplit && settings.splitView && mode === 'edit'
+  const canToggleSplit = hasDoc && activeDoc?.readOnly !== true && !panelOpen && splitFits && mode === 'edit'
+  const splitActive = canToggleSplit && settings.splitView
   const previewVisible = mode === 'view' || splitActive
 
   const debouncedContent = useDebounced(content, previewSchedule.debounceMs)
@@ -1238,11 +1243,8 @@ export function App(): JSX.Element {
   const toggleSplitView = useCallback(() => {
     const s = stateRef.current
     if (!s.canToggleSplit) return
-    const next = !s.splitView
-    changeSettings({ splitView: next })
-    // Turning it on from the preview is a request to edit with the preview beside it.
-    if (next && s.mode !== 'edit') setModeSafe('edit')
-  }, [changeSettings, setModeSafe])
+    changeSettings({ splitView: !s.splitView })
+  }, [changeSettings])
 
   const changeSplitRatio = useCallback(
     (ratio: number) => changeSettings({ splitRatio: ratio }),
@@ -1251,7 +1253,29 @@ export function App(): JSX.Element {
 
   const setPreviewPane = useCallback((element: HTMLDivElement | null) => {
     previewPaneRef.current = element
+    setPreviewPaneElement(element)
   }, [])
+
+  /**
+   * Sync runs one way at a time.
+   *
+   * Scrolling either pane scrolls the other, and that scroll is itself an event: without an
+   * owner the two panes would keep correcting each other. The pane the user is scrolling holds
+   * the sync until it goes quiet.
+   */
+  const claimScrollOwner = useCallback((pane: 'editor' | 'preview'): boolean => {
+    const owner = scrollOwnerRef.current
+    const now = performance.now()
+    if (owner && owner.pane !== pane && now - owner.at < SCROLL_OWNER_HOLD_MS) return false
+    scrollOwnerRef.current = { pane, at: now }
+    return true
+  }, [])
+
+  const splitAnchorsFor = useCallback((pane: HTMLDivElement, headingLines: ReadonlyMap<string, number>) =>
+    buildSplitAnchors(
+      previewHeadingsRef.current.map((heading) => ({ id: heading.id, top: getHeadingTopInScroller(pane, heading) })),
+      headingLines
+    ), [])
 
   /**
    * Move the live preview to the part of the document the editor is showing.
@@ -1259,10 +1283,12 @@ export function App(): JSX.Element {
    * A virtualized preview only keeps the visible blocks in the DOM, so there are no heading
    * offsets to interpolate between; it falls back to jumping to the enclosing heading.
    */
-  const syncPreviewToEditorLine = useCallback((line: number) => {
+  const syncPreviewToEditorLine = useCallback((line: number, realign = false) => {
     editorTopLineRef.current = line
     const { active, virtualized, headingLines, totalLines } = splitSyncRef.current
     if (!active) return
+    // A realign follows a re-render, not a scroll, so it must not take the sync from the preview.
+    if (!realign && !claimScrollOwner('editor')) return
 
     if (virtualized) {
       const id = headingIdForLine(line, headingLines)
@@ -1274,17 +1300,49 @@ export function App(): JSX.Element {
 
     const pane = previewPaneRef.current
     if (!pane) return
-    const anchors = buildSplitAnchors(
-      previewHeadingsRef.current.map((heading) => ({ id: heading.id, top: getHeadingTopInScroller(pane, heading) })),
-      headingLines
-    )
-    const top = previewTopForEditorLine(line, anchors, {
+    const top = previewTopForEditorLine(line, splitAnchorsFor(pane, headingLines), {
       contentHeight: pane.scrollHeight,
       maxScrollTop: Math.max(0, pane.scrollHeight - pane.clientHeight),
       totalLines
     })
     if (Math.abs(pane.scrollTop - top) > 1) pane.scrollTo({ top, behavior: 'auto' })
-  }, [])
+  }, [claimScrollOwner, splitAnchorsFor])
+
+  /** Move the editor to the part of the document the live preview is showing. */
+  const syncEditorToPreviewScroll = useCallback(() => {
+    const { active, headingLines, totalLines } = splitSyncRef.current
+    const pane = previewPaneRef.current
+    const editor = editorRef.current
+    if (!active || !pane || !editor) return
+    if (!claimScrollOwner('preview')) return
+
+    const line = editorLineForPreviewTop(pane.scrollTop, splitAnchorsFor(pane, headingLines), {
+      contentHeight: pane.scrollHeight,
+      maxScrollTop: Math.max(0, pane.scrollHeight - pane.clientHeight),
+      totalLines
+    })
+    editorTopLineRef.current = line
+    editor.scrollToLine(line)
+  }, [claimScrollOwner, splitAnchorsFor])
+
+  // Follow the preview while it is the pane being scrolled.
+  useEffect(() => {
+    if (!splitActive || !previewPaneElement) return
+    let frame = 0
+    const onScroll = (): void => {
+      // Scroll fires far more often than the editor can be laid out; one sync per frame is enough.
+      if (frame !== 0) return
+      frame = window.requestAnimationFrame(() => {
+        frame = 0
+        syncEditorToPreviewScroll()
+      })
+    }
+    previewPaneElement.addEventListener('scroll', onScroll, { passive: true })
+    return () => {
+      if (frame !== 0) window.cancelAnimationFrame(frame)
+      previewPaneElement.removeEventListener('scroll', onScroll)
+    }
+  }, [previewPaneElement, splitActive, syncEditorToPreviewScroll])
 
   // Another tab starts from an unknown position in the preview.
   useEffect(() => {
@@ -1295,7 +1353,7 @@ export function App(): JSX.Element {
   useEffect(() => {
     if (!splitActive) return
     const frame = window.requestAnimationFrame(() => {
-      syncPreviewToEditorLine(editorRef.current?.getTopVisibleLine() ?? editorTopLineRef.current)
+      syncPreviewToEditorLine(editorRef.current?.getTopVisibleLine() ?? editorTopLineRef.current, true)
     })
     return () => window.cancelAnimationFrame(frame)
   }, [html, settings.previewFluidWidth, settings.previewFontSize, settings.previewWidth, splitActive, syncPreviewToEditorLine])

@@ -94,6 +94,40 @@ export function previewTopForEditorLine(
   return clamp(start.top + (end.top - start.top) * clamp(progress, 1), maxScrollTop)
 }
 
+/**
+ * Editor line that lines up with `top` in the preview: the inverse of
+ * `previewTopForEditorLine`, used when the preview is the pane being scrolled.
+ */
+export function editorLineForPreviewTop(
+  top: number,
+  anchors: readonly SplitAnchor[],
+  geometry: PreviewScrollGeometry
+): number {
+  const { contentHeight, maxScrollTop, totalLines } = geometry
+  if (maxScrollTop <= 0) return 0
+
+  const lines = Math.max(1, totalLines)
+  const target = clamp(top, maxScrollTop)
+  if (target <= 0) return 0
+
+  if (anchors.length === 0) {
+    return clamp((target / maxScrollTop) * lines, lines)
+  }
+
+  let index = -1
+  for (let i = 0; i < anchors.length; i += 1) {
+    if (anchors[i].top <= target) index = i
+    else break
+  }
+
+  const start = index < 0 ? { line: 0, top: 0 } : anchors[index]
+  const end = index + 1 < anchors.length ? anchors[index + 1] : { line: lines, top: contentHeight }
+  const span = end.top - start.top
+  const progress = span > 0 ? (target - start.top) / span : 0
+
+  return clamp(start.line + (end.line - start.line) * clamp(progress, 1), lines)
+}
+
 function clamp(value: number, max: number): number {
   if (!Number.isFinite(value)) return 0
   return Math.min(max, Math.max(0, value))

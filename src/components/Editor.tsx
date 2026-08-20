@@ -39,6 +39,8 @@ export interface EditorHandle {
   replaceContent: (content: string) => void
   /** Zero-based source line at the top of the viewport. */
   getTopVisibleLine: () => number
+  /** Scroll so `line` (zero-based, fractional allowed) sits at the top of the viewport. */
+  scrollToLine: (line: number) => void
 }
 
 export interface EditorDocumentStats {
@@ -251,6 +253,25 @@ function topVisibleLine(view: EditorView): number {
   return view.state.doc.lineAt(position).number - 1
 }
 
+/**
+ * Put `line` at the top of the editor viewport.
+ *
+ * Screen coordinates are the only space both the line block and the scroller agree on, so the
+ * distance is measured there and applied to `scrollTop`; the fractional part of `line` moves
+ * inside a wrapped line, which keeps the preview mapping continuous instead of stepping.
+ */
+function scrollLineToTop(view: EditorView, line: number): void {
+  const doc = view.state.doc
+  const index = Math.min(Math.max(0, Math.floor(line)), doc.lines - 1)
+  const fraction = Math.min(Math.max(line - index, 0), 1)
+  const block = view.lineBlockAt(doc.line(index + 1).from)
+  const scroller = view.scrollDOM
+  const delta = view.documentTop + block.top + fraction * block.height - scroller.getBoundingClientRect().top
+  const maxScrollTop = Math.max(0, scroller.scrollHeight - scroller.clientHeight)
+  const next = Math.min(Math.max(0, scroller.scrollTop + delta), maxScrollTop)
+  if (Math.abs(scroller.scrollTop - next) > 1) scroller.scrollTop = next
+}
+
 function activeElementAcceptsText(): boolean {
   const element = document.activeElement
   if (!(element instanceof HTMLElement)) return false
@@ -332,6 +353,11 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor({ do
     getTopVisibleLine: () => {
       const view = viewRef.current
       return view ? topVisibleLine(view) : 0
+    },
+    scrollToLine: (line: number) => {
+      const view = viewRef.current
+      if (!view) return
+      scrollLineToTop(view, line)
     }
   }), [value])
 
