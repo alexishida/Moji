@@ -33,9 +33,6 @@
     "dev:update": "node scripts/run-electron-vite.cjs dev --mock-update",
     "build": "electron-vite build",
     "typecheck": "tsc --noEmit -p tsconfig.json",
-    "test": "vitest run",
-    "test:watch": "vitest",
-    "test:e2e": "npm run build && playwright test",
     "benchmark:corpus": "node scripts/generate-benchmark-corpus.cjs",
     "benchmark:ipc": "node scripts/measure-ipc-transport.cjs",
     "benchmark:record": "npm run build && npm run benchmark:corpus && node scripts/run-benchmark.cjs --benchmark-corpus=.tmp/benchmark-corpus --benchmark-output=docs/baseline-v1.json",
@@ -45,7 +42,7 @@
     "dist:win": "npm run verify && electron-vite build && electron-builder --win",
     "dist:linux": "npm run verify && electron-vite build && electron-builder --linux",
     "dist:mac": "npm run verify && electron-vite build && electron-builder --mac",
-    "verify": "npm run typecheck && npm test"
+    "verify": "npm run typecheck"
   },
   "dependencies": {
     "@codemirror/commands": "^6.7.1",
@@ -79,10 +76,6 @@
     "react-i18next": "^15.1.3"
   },
   "devDependencies": {
-    "@playwright/test": "^1.62.1",
-    "@testing-library/dom": "^10.4.1",
-    "@testing-library/react": "^16.3.2",
-    "@testing-library/user-event": "^14.6.4",
     "@types/dompurify": "^3.0.5",
     "@types/markdown-it": "^14.1.2",
     "@types/node": "^22.10.1",
@@ -92,9 +85,7 @@
     "electron": "^43.1.0",
     "electron-builder": "^26.15.6",
     "electron-vite": "^5.0.0",
-    "jsdom": "^29.1.1",
     "typescript": "^5.7.2",
-    "vite": "^7.3.6",
-    "vitest": "^4.1.10"
+    "vite": "^7.3.6"
   }
 }

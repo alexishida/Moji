@@ -536,7 +536,10 @@ export function App(): JSX.Element {
   }, [])
 
   const updateEditorOutline = useCallback((documentId: string, nextOutline: OutlineItem[]) => {
-    if (stateRef.current.activeDocId === documentId && stateRef.current.mode === 'edit') {
+    // The editor stays mounted in both view and edit mode, so it keeps emitting outline
+    // updates while hidden; drop only stale callbacks from a since-deactivated document,
+    // not ones that just arrived while viewing, or edit mode would open with a stale outline.
+    if (stateRef.current.activeDocId === documentId) {
       setEditorOutline(nextOutline)
     }
   }, [])
@@ -1200,7 +1203,7 @@ export function App(): JSX.Element {
       return
     }
     const target = previewHeadingsRef.current.find((heading) => heading.id === id)
-    if (target) scrollPreviewHeadingIntoView(target)
+    if (target) scrollPreviewHeadingIntoView(target, 'auto')
     else setPreviewHeadingRequest((previous) => ({ id, request: (previous?.request ?? 0) + 1 }))
     setActiveHeadingId(id)
   }, [mode])
