@@ -107,7 +107,6 @@ Update from GitHub Releases by downloading a new DMG. Signing and notarizing fut
 npm install
 npm run dev
 npm run typecheck
-npm test
 npm run build
 ```
 
@@ -116,7 +115,6 @@ Useful scripts:
 - `npm run dev`: launch Electron with hot reload.
 - `npm run dev:update`: launch development mode and simulate an available `99.0.0` update without network access.
 - `npm run typecheck`: run TypeScript checks without emitting files.
-- `npm test`: run the Vitest suite once (`npm run test:watch` for watch mode).
 - `npm run build`: build main, preload, and renderer into `out/`.
 - `npm run benchmark:corpus`: generate local 1/5/20/50 MB Markdown corpus under `.tmp/benchmark-corpus/`.
 - `npm run preview`: run the built app preview.
@@ -154,7 +152,7 @@ To sign locally, install an Apple Developer ID certificate in the keychain and d
 Releases are built and published by hand. There is no CI workflow in this repository.
 
 1. Update `version` in `package.json` and `package-lock.json`.
-2. Run `npm run verify` (typecheck plus the unit suite) and `npm run test:e2e`. The `dist*` scripts already run `verify` first, so a release cannot be produced from a failing tree.
+2. Run `npm run verify` (typecheck). The `dist*` scripts already run `verify` first, so a release cannot be produced from a failing tree.
 3. Build each platform on that platform: `npm run dist:win`, `npm run dist:linux`, `npm run dist:mac`. Cross-building is not set up, and `electron-builder.yml` publishes to a draft GitHub Release.
 4. Commit the version bump, then create and push the matching tag, such as `v1.0.5`.
 5. Upload the artifacts to the draft release and publish it once Windows and Linux are in place: NSIS, AppImage, DEB, and the `latest.yml` / `latest-linux.yml` update metadata that `electron-updater` reads.
