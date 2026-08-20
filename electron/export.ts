@@ -13,6 +13,7 @@ import {
   type WriteResult
 } from './shared'
 import { getSettings, updateSettings } from './settings'
+import { sanitizeFileNameComponent } from './ipcInput'
 import { createPngFileWriter } from './png'
 import { beginMainMeasure, captureMainMemory, captureWebContentsMemory } from './performance'
 
@@ -121,7 +122,7 @@ function exportAssetBaseUrl(assetBaseUrl: unknown): string | undefined {
 }
 
 function exportBaseName(baseName: string): string {
-  return baseName.replace(/[\\/]/g, '').trim() || 'document'
+  return sanitizeFileNameComponent(baseName) || 'document'
 }
 
 function exportDefaultPath(baseName: string, format: ExportFormat): string {
@@ -515,7 +516,11 @@ async function htmlToPngFile(
           })
 
           const captured = image.getSize()
-          width = captured.width
+          if (slice === 1) {
+            width = captured.width
+          } else if (captured.width !== width) {
+            throw new Error(`PNG export slice width changed from ${width} to ${captured.width}`)
+          }
           height += captured.height
 
           session.report({ phase: 'compress', slice, slices })

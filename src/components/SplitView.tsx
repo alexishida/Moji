@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState, type CSSProperties, type KeyboardEvent, type PointerEvent, type ReactNode } from 'react'
+import { useCallback, useEffect, useRef, useState, type CSSProperties, type KeyboardEvent, type PointerEvent, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import { SPLIT_RATIO_DEFAULT, SPLIT_RATIO_MAX, SPLIT_RATIO_MIN, normalizeSplitRatio } from '../../electron/shared'
 
@@ -49,10 +49,23 @@ export function SplitView({ split, viewOnly = false, ratio, editor, preview, onR
 
   const endDrag = useCallback((event: PointerEvent<HTMLDivElement>) => {
     if (dragRatio === null) return
-    event.currentTarget.releasePointerCapture(event.pointerId)
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId)
+    }
     setDragRatio(null)
     if (dragRatio !== ratio) onRatioChange(dragRatio)
   }, [dragRatio, onRatioChange, ratio])
+
+  // The divider unmounts the instant `split` turns off (e.g. the window shrank below the
+  // width the split needs mid-drag), so a pointerup/pointercancel on it never fires. Without
+  // this the ratio picked mid-gesture is silently dropped instead of persisted, and a later
+  // `dragRatio` stays stuck overriding `ratio` until another drag starts and finishes normally.
+  useEffect(() => {
+    if (split || dragRatio === null) return
+    const finalRatio = dragRatio
+    setDragRatio(null)
+    if (finalRatio !== ratio) onRatioChange(finalRatio)
+  }, [split, dragRatio, ratio, onRatioChange])
 
   const onKeyDown = useCallback((event: KeyboardEvent<HTMLDivElement>) => {
     const step = event.key === 'ArrowLeft' ? -KEYBOARD_STEP : event.key === 'ArrowRight' ? KEYBOARD_STEP : 0

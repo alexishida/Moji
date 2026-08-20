@@ -13,24 +13,8 @@
     "closeSaved": "保存済みを閉じる",
     "closeAll": "すべて閉じる"
   },
-  "menu": {
-    "file": "ファイル",
-    "open": "開く…",
-    "save": "保存",
-    "saveAs": "名前を付けて保存…",
-    "export": "エクスポート",
-    "exportHtml": "HTML としてエクスポート…",
-    "exportPdf": "PDF としてエクスポート…",
-    "quit": "終了",
-    "view": "表示",
-    "toggleEdit": "編集を切り替え",
-    "toggleTheme": "テーマを切り替え",
-    "language": "言語"
-  },
   "toolbar": {
     "open": "開く",
-    "edit": "編集",
-    "view": "表示",
     "preview": "プレビュー",
     "editor": "エディター",
     "viewMode": "表示モード",
@@ -46,8 +30,6 @@
     "occurrences": "一致数",
     "close": "閉じる",
     "export": "エクスポート",
-    "exportHtml": "HTML としてエクスポート",
-    "exportPdf": "PDF としてエクスポート",
     "theme": "テーマ",
     "themeLight": "ライトモード",
     "themeDark": "ダークモード",
@@ -65,15 +47,10 @@
     "resizeSplit": "ペインの幅を変更",
     "settings": "設定",
     "about": "このアプリについて",
-    "more": "その他の操作",
     "language": "言語"
   },
   "sidebar": {
-    "library": "ライブラリ",
-    "localStorage": "ローカルストレージ",
-    "documents": "ドキュメント",
     "outline": "アウトライン",
-    "help": "ヘルプ",
     "expand": "展開",
     "collapse": "折りたたむ",
     "expandAll": "すべて展開",
@@ -84,13 +61,9 @@
   "statusbar": {
     "brand": "Moji v{{version}}",
     "guide": "Markdown ガイド",
-    "exportPdf": "PDF をエクスポート",
     "lineCount": "行数: {{count}}",
     "tokenCount": "トークン: {{count}}",
     "wordCount": "単語数: {{count}}"
-  },
-  "help": {
-    "hint": ".md ファイルを開くかドロップし、上部タブでプレビューとエディターを切り替え、アウトラインで見出し間を移動できます。"
   },
   "preview": {
     "copyCode": "コードをコピー",
@@ -131,7 +104,6 @@
   "welcome": {
     "tagline": "軽くてシンプルな Markdown リーダー",
     "title": "Moji v{{version}}",
-    "subtitle": "Markdown ファイルを開いて、すっきり読めます。",
     "openButton": "ファイルを開く",
     "newButton": "新規ファイル",
     "dropHint": "または、このウィンドウのどこかに .md ファイルをドロップ",
@@ -168,6 +140,7 @@
     "general": "一般",
     "preview": "プレビュー",
     "editor": "エディター",
+    "shortcutOr": "または",
     "shortcuts": "ショートカット",
     "fontFamily": "フォント",
     "fontSize": "フォントサイズ",
@@ -212,7 +185,8 @@
       "checklist": "チェックリスト切替",
       "codeBlock": "コードブロックを挿入",
       "indent": "インデントを増やす",
-      "outdent": "インデントを減らす"
+      "outdent": "インデントを減らす",
+      "exitFocus": "エディタのフォーカスを解除"
     }
   },
   "aboutDialog": {

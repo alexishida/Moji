@@ -34,6 +34,19 @@ export class FileCapabilities {
     return resolved
   }
 
+  /**
+   * Grants only asset reads from `filePath`'s directory, not writes to the file itself.
+   *
+   * Packaged guide documents live under the app's own install directory and must stay
+   * read-only: their relative images still need to resolve, but `IPC.save` must not be able
+   * to overwrite a file that ships with the app just because it was opened once.
+   */
+  grantAssetDirectory(filePath: string): string {
+    const resolved = resolve(filePath)
+    this.assetDirectories.add(dirname(resolved))
+    return resolved
+  }
+
   /** True when this exact file was granted. Symlinks are resolved by the caller. */
   allows(filePath: unknown): filePath is string {
     return typeof filePath === 'string' && this.files.has(capabilityPath(filePath))

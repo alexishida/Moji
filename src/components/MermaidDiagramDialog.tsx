@@ -12,6 +12,9 @@ interface MermaidDiagramDialogProps {
   diagramName: string
   diagramIndex: number
   diagramCount: number
+  /** False when the caller cannot know the true position/count across the whole document
+   *  (e.g. a virtualized preview, which only enumerates currently-mounted diagrams). */
+  showNavigation?: boolean
   documentName: string
   mdTheme: Theme
   onPrevious?: () => void
@@ -155,6 +158,7 @@ export function MermaidDiagramDialog({
   diagramName,
   diagramIndex,
   diagramCount,
+  showNavigation = true,
   documentName,
   mdTheme,
   onPrevious,
@@ -479,15 +483,17 @@ export function MermaidDiagramDialog({
             <IconImage aria-hidden="true" />
             <span>{diagramName}</span>
           </h2>
-          <div className="diagram-modal__navigation">
-            <button className="iconbtn diagram-modal__navigation-button" type="button" onClick={onPrevious} disabled={!onPrevious} aria-label={t('preview.previousDiagram')} title={t('preview.previousDiagram')}>
-              <IconChevronRight className="diagram-modal__previous-icon" strokeWidth={2.6} />
-            </button>
-            <span className="diagram-modal__count">{diagramIndex}/{diagramCount}</span>
-            <button className="iconbtn diagram-modal__navigation-button" type="button" onClick={onNext} disabled={!onNext} aria-label={t('preview.nextDiagram')} title={t('preview.nextDiagram')}>
-              <IconChevronRight strokeWidth={2.6} />
-            </button>
-          </div>
+          {showNavigation && (
+            <div className="diagram-modal__navigation">
+              <button className="iconbtn diagram-modal__navigation-button" type="button" onClick={onPrevious} disabled={!onPrevious} aria-label={t('preview.previousDiagram')} title={t('preview.previousDiagram')}>
+                <IconChevronRight className="diagram-modal__previous-icon" strokeWidth={2.6} />
+              </button>
+              <span className="diagram-modal__count">{diagramIndex}/{diagramCount}</span>
+              <button className="iconbtn diagram-modal__navigation-button" type="button" onClick={onNext} disabled={!onNext} aria-label={t('preview.nextDiagram')} title={t('preview.nextDiagram')}>
+                <IconChevronRight strokeWidth={2.6} />
+              </button>
+            </div>
+          )}
           <div className="diagram-modal__actions">
             <button className="iconbtn" type="button" onClick={() => stepZoom(-1)} disabled={view.zoom === MIN_ZOOM} aria-label={t('preview.zoomOut')} title={t('preview.zoomOut')}>
               <IconMinus />

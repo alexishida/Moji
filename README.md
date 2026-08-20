@@ -42,8 +42,12 @@
 - **Editor mode**: CodeMirror 6 Markdown editor with line numbers, history, wrapping, localized untitled document names, Markdown formatting shortcuts, and save/save as flows.
 - **Live preview**: while editing, toggle a resizable split view from the top bar (or `Ctrl`+`\`) to keep the rendered preview beside the source editor. Scrolling either pane moves the other to the matching part of the document, and the pane ratio is remembered. The toggle is disabled in view mode and when the workspace is too narrow for two readable panes.
 - **Untitled document recovery**: documents without a filesystem path are saved as internal recovery drafts and reopened after restarting Moji. Saving as a real file or closing the tab removes the recovery draft.
+- **Large documents**: files are streamed from the main process in UTF-8 chunks and decoded incrementally, Markdown is parsed and highlighted in a Web Worker, and documents above 20 MB switch the preview to block virtualization so only the visible part stays in the DOM.
+- **Batch open with progress**: selecting many files opens them with bounded concurrency, a progress banner, and a cancel action that keeps whatever already opened.
 - **Export mode**: export the active document as HTML, PDF, or PNG. PDF supports A4, Letter, Legal, portrait, and landscape; long code lines wrap in PDF and PNG exports.
+- **Export progress**: HTML, PDF, and PNG exports report their current phase and can be cancelled; a cancelled or failed export never leaves a partial file behind.
 - **Diagram exports**: rendered Mermaid diagrams are embedded as self-contained SVG in HTML, PDF, and PNG exports.
+- **Local images**: images referenced relative to the document are served through an authorized `moji-asset://` protocol, restricted to directories of documents you actually opened, loaded lazily and cached in memory.
 - **Settings view**: centered in-workspace panel for language, untitled-document recovery, preview typography, reading width, and a localized shortcut reference.
 - **About view**: in-workspace panel showing app name, version (from `package.json`), author, repository link, and the story behind the name.
 - **Markdown guide**: bundled localized reference documents (`samples/markdown-guide.<locale>.md`) opened from the status bar.
@@ -115,9 +119,13 @@ Useful scripts:
 - `npm run dev`: launch Electron with hot reload.
 - `npm run dev:update`: launch development mode and simulate an available `99.0.0` update without network access.
 - `npm run typecheck`: run TypeScript checks without emitting files.
+- `npm run verify`: the gate the `dist*` scripts run first. Currently it is `typecheck` alone: this repository has no automated test suite.
 - `npm run build`: build main, preload, and renderer into `out/`.
-- `npm run benchmark:corpus`: generate local 1/5/20/50 MB Markdown corpus under `.tmp/benchmark-corpus/`.
 - `npm run preview`: run the built app preview.
+- `npm run benchmark:corpus`: generate a local 1/5/20/50 MB Markdown corpus under `.tmp/benchmark-corpus/`.
+- `npm run benchmark:ipc`: measure the cost of moving a document across the process boundary.
+- `npm run benchmark:record`: build, generate the corpus, and record a run into `docs/baseline-v1.json`.
+- `npm run benchmark:compare`: compare a run against the recorded baseline and the budgets in `docs/performance-budget.md`.
 
 ## Packaging
 
@@ -165,30 +173,44 @@ macOS is unsigned and secondary. A missing or broken DMG should not hold back a 
 
 ```text
 electron/
-  main.ts        Window lifecycle, persisted bounds, file opening, single-instance flow, close guard, macOS application menu, IPC registration
-  preload.ts     Safe renderer API exposed through contextBridge
-  shared.ts      Shared IPC names, settings, export types, languages, recent-file limits, supported extensions
-  updater.ts     GitHub release checks, update download state, and NSIS/AppImage installation
-  settings.ts    User settings persistence, window bounds, recent files, preview theme, and last dialog directory
-  drafts.ts      Internal recovery storage for untitled documents across app sessions
-  export.ts      HTML/PDF/PNG export implementation with remembered output directory
-  png.ts         Streaming PNG encoder used to keep tall-document exports within memory
+  main.ts             Window lifecycle, persisted bounds, file opening, single-instance flow, close guard, macOS application menu, IPC registration
+  preload.ts          Safe renderer API exposed through contextBridge, including the chunked document read
+  shared.ts           Shared IPC names, settings, export types, languages, recent-file limits, supported extensions
+  ipcInput.ts         Normalization of every value the renderer sends over IPC
+  fileCapabilities.ts Paths the user actually chose; the only paths writes and asset reads are allowed on
+  assetPaths.ts       Authorization for the moji-asset:// protocol, resolved through realpath
+  assetCache.ts       Bounded in-memory LRU cache for served images
+  documentStream.ts   Chunked file reads, paired with documentDecoder.ts for streaming UTF-8 decoding
+  openPool.ts         Bounded-concurrency map used by the multi-file open session
+  settings.ts         User settings persistence, window bounds, recent files, preview theme, and last dialog directory
+  drafts.ts           Recovery storage for untitled documents (draftStore/draftJournal/draftCapacity)
+  export.ts           HTML/PDF/PNG export implementation with progress, cancellation, and remembered output directory
+  png.ts              Streaming PNG encoder (pngWorker/pngScanlines) that keeps tall-document exports within memory
+  updater.ts          GitHub release checks for packaged NSIS and AppImage builds
+  performance.ts      Local numeric measurements, plus the benchmark.ts runner
 
 src/
-  App.tsx        Renderer state, document actions, close guard wiring, mode switching
-  components/    Top bar, tabs, sidebar, outline tree, preview, Mermaid viewer, editor, export/settings/about dialogs, confirm dialog, welcome view
-  lib/           Markdown rendering, Mermaid rendering, outline extraction, preview scroll-spy, export HTML, hooks
+  App.tsx        Renderer state, document actions, close guard wiring, mode switching, split-view scroll sync
+  components/    Top bar, tabs, sidebar, outline tree, preview, split view, Mermaid viewer, editor, export/settings/about dialogs, progress banners, confirm dialog, welcome view
+  hooks/         Grouped app state and the observed workspace width
+  workers/       Markdown parse/highlight/render worker
+  lib/           Markdown and Mermaid rendering, outline extraction, preview scroll/search/virtualization, split-view scroll mapping, draft journaling, export HTML, metrics
   locales/       en, pt-BR, es, ja, zh, ru translation files
   styles/        Theme tokens, app shell CSS, Markdown preview CSS
+  types/         Preload API typings and Vite environment types
+  assets/        App logo used by the welcome and about views
 
 samples/         Bundled Markdown documents (full Markdown guide)
+scripts/         electron-vite runner, Electron binary install, benchmark corpus/run/compare
+docs/            README screenshots, performance budget, recorded benchmark baseline
 ```
 
 ## Documentation
 
 - `.ai-framework/RULES.md`: project rules for AI-assisted changes.
 - `.ai-framework/DESIGN.md`: visual system, tokens, layout, and component rules.
-- `openspec/specs/`: current behavior specs.
+- `openspec/specs/`: current behavior specs (app-shell, appearance, automatic-updates, document-export, document-translation, internationalization, markdown-editing, markdown-viewing).
+- `docs/performance-budget.md`: performance budgets the benchmark scripts compare against.
 
 ## License
 

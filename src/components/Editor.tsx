@@ -176,8 +176,26 @@ const markdownKeymap = [
   { key: 'Mod-Shift-l', run: toggleLinePrefix('- [ ] ') },
   { key: 'Tab', run: indentWithTab, preventDefault: true },
   { key: 'Shift-Tab', run: outdentWithShiftTab, preventDefault: true },
-  { key: 'Mod-Shift-k', run: wrapMarkdown('```\n', '\n```', 'code') }
+  { key: 'Mod-Shift-k', run: wrapMarkdown('```\n', '\n```', 'code') },
+  // Tab indents instead of moving focus, which traps keyboard users inside the editor.
+  // `Mod-Escape` was tried first (it's what CodeMirror's own docs suggest as an escape
+  // hatch), but Windows reserves plain Ctrl+Escape for the Start menu and never delivers
+  // it to the app. `Mod-m` matches the binding Monaco/VS Code already ships for the same
+  // "toggle tab moves focus" affordance, so it also lands as something some users already know.
+  {
+    key: 'Mod-m',
+    run: (view: EditorView) => {
+      view.contentDOM.blur()
+      return true
+    }
+  }
 ]
+
+// App.tsx owns Ctrl+F, F3/Ctrl+G, and Escape through its own top-bar search UI and the
+// window-level keydown listener doesn't stopPropagation, so leaving CodeMirror's own
+// bindings in place fires both handlers for the same keystroke.
+const appOwnedSearchKeys = new Set(['Mod-f', 'F3', 'Mod-g', 'Escape'])
+const editorSearchKeymap = searchKeymap.filter((binding) => !appOwnedSearchKeys.has(binding.key ?? ''))
 
 interface SearchMatch {
   from: number
@@ -367,7 +385,7 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor({ do
     extensions: [
         lineNumbers(),
         history(),
-        keymap.of([...markdownKeymap, ...defaultKeymap, ...historyKeymap, ...searchKeymap]),
+        keymap.of([...markdownKeymap, ...defaultKeymap, ...historyKeymap, ...editorSearchKeymap]),
         markdown(),
         indentUnit.of(EDITOR_INDENT_UNIT),
         search(),
@@ -442,7 +460,16 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor({ do
   useEffect(() => {
     const view = viewRef.current
     if (!view || activeDocumentIdRef.current === documentId) return
-    stateCacheRef.current.set(activeDocumentIdRef.current, view.state)
+    const previousDocumentId = activeDocumentIdRef.current
+    // The 350ms idle-stats timer (see the updateListener above) aborts once the active
+    // document has moved on, so a tab switch right after typing must flush the stats for
+    // the tab being left, or its status bar keeps showing the count from before the last edit.
+    if (idleStatsTimerRef.current !== null) {
+      window.clearTimeout(idleStatsTimerRef.current)
+      idleStatsTimerRef.current = null
+      onIdleStatsChangeRef.current(previousDocumentId, countIdleStats(view.state))
+    }
+    stateCacheRef.current.set(previousDocumentId, view.state)
     const cached = stateCacheRef.current.get(documentId)
     view.setState(cached ?? createState(value))
     activeDocumentIdRef.current = documentId

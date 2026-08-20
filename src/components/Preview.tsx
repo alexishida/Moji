@@ -633,10 +633,14 @@ export function Preview({
         diagramName={activeDiagram?.name ?? t('preview.diagramTitle')}
         diagramIndex={activeDiagram?.index ?? 0}
         diagramCount={activeDiagram?.total ?? 0}
+        // A virtualized preview only mounts the blocks near the viewport, so `previewGraphics`
+        // (DOM-only) sees a window of the document's diagrams, not all of them: the count and
+        // prev/next navigation would be wrong rather than merely incomplete, so both are hidden.
+        showNavigation={!virtualized}
         documentName={documentName}
         mdTheme={mdTheme}
-        onPrevious={activeDiagram && activeDiagram.index > 1 ? () => openDiagramAt(activeDiagram.index - 2) : undefined}
-        onNext={activeDiagram && activeDiagram.index < activeDiagram.total ? () => openDiagramAt(activeDiagram.index) : undefined}
+        onPrevious={!virtualized && activeDiagram && activeDiagram.index > 1 ? () => openDiagramAt(activeDiagram.index - 2) : undefined}
+        onNext={!virtualized && activeDiagram && activeDiagram.index < activeDiagram.total ? () => openDiagramAt(activeDiagram.index) : undefined}
         onClose={() => setActiveDiagram(null)}
       />
     </div>

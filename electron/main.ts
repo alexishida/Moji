@@ -38,10 +38,14 @@ import { beginMainMeasure, captureMainMemory, getMainPerformanceReport } from '.
 
 let mainWindow: BrowserWindow | null = null
 let pendingOpenPath: string | null = null
+/** True once the renderer's `onOpenDocument` listener is confirmed mounted (see IPC.rendererReady). */
+let rendererReady = false
 let forceQuit = false
 let pendingQuit = false
 let updateController: UpdateController | null = null
 let persistWindowBoundsTimer: NodeJS.Timeout | null = null
+/** Forces the close through if a hung or crashed renderer never answers `requestClose`. */
+let closeGuardTimer: NodeJS.Timeout | null = null
 const capabilities = new FileCapabilities()
 const assetCache = new AssetCache(readFile)
 const openManySessions = new Map<string, AbortController>()
@@ -150,7 +154,7 @@ function samplePath(sampleName: unknown): string | null {
   return join(app.getAppPath(), 'samples', sampleName)
 }
 
-async function readDocument(filePath: unknown, signal?: AbortSignal): Promise<OpenResult> {
+async function readDocument(filePath: unknown, signal?: AbortSignal, writable = true): Promise<OpenResult> {
   if (!isMarkdown(filePath)) return { ok: false, error: 'unsupported' }
   if (signal?.aborted) return { ok: false, canceled: true }
   const finishMeasure = beginMainMeasure('document:open')
@@ -161,7 +165,11 @@ async function readDocument(filePath: unknown, signal?: AbortSignal): Promise<Op
     if (signal?.aborted) return { ok: false, canceled: true }
     const content = stripLeadingBom(await readFile(filePath, { encoding: 'utf-8', signal }))
     sizeBytes = fileStat.size
-    grantDocument(filePath)
+    // Packaged guides (`readSample`) pass `writable: false`: their directory still needs to be
+    // readable for relative images, but `IPC.save` must never be able to overwrite a file that
+    // ships inside the app just because it was opened once.
+    if (writable) grantDocument(filePath)
+    else capabilities.grantAssetDirectory(filePath)
     void captureMainMemory('main:memory:document-open')
     return {
       ok: true,
@@ -179,15 +187,30 @@ async function readDocument(filePath: unknown, signal?: AbortSignal): Promise<Op
 }
 
 /** Validates a document and measures it without reading a single byte of content. */
-async function statDocument(filePath: unknown): Promise<DocumentMetadata | null> {
-  if (!isMarkdown(filePath)) return null
+type DocumentMetadataResult = { ok: true; metadata: DocumentMetadata } | { ok: false; error: string }
+
+/**
+ * Validates and measures a document, keeping the reason a lookup failed.
+ *
+ * A missing/wrong-extension file and a share that timed out or a permission error look
+ * identical if both collapse to `null`; callers that decide whether to forget a recent file
+ * (the renderer) need to tell "this path is not a document" from "this document could not be
+ * read right now" apart.
+ */
+async function resolveDocumentMetadata(filePath: unknown): Promise<DocumentMetadataResult> {
+  if (!isMarkdown(filePath)) return { ok: false, error: 'unsupported' }
   try {
     const fileStat = await stat(filePath)
-    if (!fileStat.isFile()) return null
-    return { path: filePath, sizeBytes: fileStat.size, sizeProfile: documentSizeProfile(fileStat.size) }
-  } catch {
-    return null
+    if (!fileStat.isFile()) return { ok: false, error: 'unsupported' }
+    return { ok: true, metadata: { path: filePath, sizeBytes: fileStat.size, sizeProfile: documentSizeProfile(fileStat.size) } }
+  } catch (err) {
+    return { ok: false, error: (err as Error).message }
   }
+}
+
+async function statDocument(filePath: unknown): Promise<DocumentMetadata | null> {
+  const result = await resolveDocumentMetadata(filePath)
+  return result.ok ? result.metadata : null
 }
 
 /**
@@ -213,11 +236,12 @@ async function streamDocumentToPort(filePath: unknown, port: Electron.MessagePor
   }
 
   try {
-    const metadata = await statDocument(filePath)
-    if (!metadata) {
-      postError('unsupported')
+    const result = await resolveDocumentMetadata(filePath)
+    if (!result.ok) {
+      postError(result.error)
       return
     }
+    const metadata = result.metadata
 
     sizeBytes = metadata.sizeBytes
     // Opening is how a file earns its capability. Recent files and drag-and-drop reach
@@ -228,6 +252,10 @@ async function streamDocumentToPort(filePath: unknown, port: Electron.MessagePor
     port.postMessage({ type: 'meta', ...metadata } satisfies DocumentStreamMessage)
     for await (const chunk of readFileChunks(metadata.path)) {
       chunks += 1
+      // No transfer list: `MessagePortMain.postMessage` only accepts `MessagePortMain` entries
+      // there and rejects anything else with `TypeError: Port at index 0 is not a valid port`,
+      // which would abort the read on its very first chunk. The buffer is copied by the
+      // structured clone instead, and released as soon as the next chunk replaces it.
       port.postMessage({ type: 'chunk', buffer: chunk.buffer, byteLength: chunk.byteLength } satisfies DocumentStreamMessage)
     }
     port.postMessage({ type: 'end' } satisfies DocumentStreamMessage)
@@ -260,21 +288,23 @@ async function runOpenManySession(sessionId: string, filePaths: string[], sender
     await mapWithConcurrency(
       filePaths,
       DOCUMENT_OPEN_CONCURRENCY,
-      (filePath) => readDocument(filePath, controller.signal),
+      // Only stats every selected file. The renderer pulls each one's bytes back through the
+      // same streamed `readPathStream` read a single open uses, once it sees the metadata
+      // pushed below — this batch never holds document content in main at all.
+      async (filePath) => {
+        const result = await resolveDocumentMetadata(filePath)
+        if (result.ok) grantDocument(result.metadata.path)
+        return result
+      },
       {
         signal: controller.signal,
         onResult: (result) => {
           completed += 1
           if (result.ok) {
-            send(IPC.openManyProgress, {
-              sessionId,
-              completed,
-              total,
-              document: { path: result.path, content: result.content, sizeBytes: result.sizeBytes, sizeProfile: result.sizeProfile }
-            })
+            send(IPC.openManyProgress, { sessionId, completed, total, document: result.metadata })
           } else {
-            if (!result.canceled && result.error) errors.push(result.error)
-            send(IPC.openManyProgress, { sessionId, completed, total, error: result.canceled ? undefined : result.error })
+            errors.push(result.error)
+            send(IPC.openManyProgress, { sessionId, completed, total, error: result.error })
           }
         }
       }
@@ -308,11 +338,24 @@ async function openDocument(filePath: string): Promise<void> {
   // This funnel is only reached from the OS or a dialog, so it is where the path earns
   // the right to be streamed back when the renderer asks for its bytes.
   if (metadata) grantDocument(metadata.path)
-  if (!mainWindow || mainWindow.isDestroyed()) {
+  // A window can exist before its renderer has mounted the listener this push relies on
+  // (fresh window still loading, or a second-instance file arriving mid-boot). Sending the
+  // event then would be dropped on the floor, so it waits for the same signal `flushPendingOpenPath`
+  // reacts to.
+  if (!mainWindow || mainWindow.isDestroyed() || !rendererReady) {
     if (metadata) pendingOpenPath = filePath
     return
   }
   if (metadata) mainWindow.webContents.send(IPC.openDocument, metadata)
+}
+
+function flushPendingOpenPath(): void {
+  rendererReady = true
+  if (pendingOpenPath) {
+    const path = pendingOpenPath
+    pendingOpenPath = null
+    void openDocument(path)
+  }
 }
 
 function revealMainWindow(): void {
@@ -333,8 +376,39 @@ function openAssociatedDocument(filePath: string): void {
   void openDocument(filePath)
 }
 
+/** How long a hung or unresponsive renderer gets to answer `requestClose` before it is closed anyway. */
+const CLOSE_GUARD_TIMEOUT_MS = 5000
+
+function clearCloseGuardTimer(): void {
+  if (closeGuardTimer !== null) {
+    clearTimeout(closeGuardTimer)
+    closeGuardTimer = null
+  }
+}
+
+/**
+ * Closes or quits without waiting on the renderer.
+ *
+ * The unsaved-changes guard exists to give the renderer a chance to ask the user, but a
+ * renderer that never answers — hung, or gone entirely — must not be able to keep the app
+ * open forever. This is the same path `confirmClose(true)` takes.
+ */
+function forceCloseOrQuit(): void {
+  clearCloseGuardTimer()
+  if (!mainWindow) return
+  forceQuit = true
+  if (pendingQuit) {
+    pendingQuit = false
+    app.quit()
+  } else {
+    mainWindow.close()
+  }
+}
+
 function requestClose(): void {
   mainWindow?.webContents.send(IPC.requestClose)
+  clearCloseGuardTimer()
+  closeGuardTimer = setTimeout(forceCloseOrQuit, CLOSE_GUARD_TIMEOUT_MS)
 }
 
 /** Quit the whole app, not just the window. On macOS closing the last window keeps the app alive. */
@@ -464,6 +538,7 @@ function createWindow(): void {
   // ever asking about unsaved changes. Every new window starts with the guard armed.
   forceQuit = false
   pendingQuit = false
+  rendererReady = false
 
   const iconPath = app.isPackaged ? join(process.resourcesPath, 'icon.png') : join(app.getAppPath(), 'build', 'icon.png')
   mainWindow = new BrowserWindow({
@@ -486,10 +561,8 @@ function createWindow(): void {
   mainWindow.once('ready-to-show', () => {
     mainWindow?.setMenuBarVisibility(false)
     revealMainWindow()
-    if (pendingOpenPath) {
-      void openDocument(pendingOpenPath)
-      pendingOpenPath = null
-    }
+    // Any file still pending is delivered once the renderer confirms its listener is mounted
+    // (`IPC.rendererReady`), not here: first paint does not guarantee `onOpenDocument` is wired up yet.
     if (benchmarkRequested()) {
       void recordBenchmark(mainWindow as BrowserWindow, openDocument)
         .then(() => app.quit())
@@ -530,8 +603,13 @@ function createWindow(): void {
       clearTimeout(persistWindowBoundsTimer)
       persistWindowBoundsTimer = null
     }
+    clearCloseGuardTimer()
     mainWindow = null
   })
+
+  // A crashed or killed renderer can never answer `requestClose`; without this the close
+  // guard would otherwise only recover after the `CLOSE_GUARD_TIMEOUT_MS` fallback.
+  mainWindow.webContents.on('render-process-gone', () => forceCloseOrQuit())
 
   if (process.env['ELECTRON_RENDERER_URL']) {
     void mainWindow.loadURL(process.env['ELECTRON_RENDERER_URL'])
@@ -625,11 +703,13 @@ function registerIpc(): void {
     void streamDocumentToPort(filePath, port)
   })
 
+  onFromRenderer(IPC.rendererReady, (): void => flushPendingOpenPath())
+
   handleFromRenderer(IPC.openLocalPath, (_e, fileUrl: unknown): Promise<WriteResult> => openLocalPath(fileUrl))
 
   handleFromRenderer(IPC.readSample, (_e, name: unknown): Promise<OpenResult> => {
     const path = samplePath(name)
-    return path ? readDocument(path) : Promise.resolve({ ok: false, error: 'unsupported' })
+    return path ? readDocument(path, undefined, false) : Promise.resolve({ ok: false, error: 'unsupported' })
   })
 
   handleFromRenderer(IPC.save, async (_e, filePath: unknown, content: unknown): Promise<WriteResult> => {
@@ -688,6 +768,8 @@ function registerIpc(): void {
   )
 
   handleFromRenderer(IPC.confirmClose, (_e, shouldClose: unknown): void => {
+    // The renderer answered, so the force-close guard no longer needs to fire.
+    clearCloseGuardTimer()
     if (shouldClose === true && mainWindow) {
       forceQuit = true
       if (pendingQuit) {
