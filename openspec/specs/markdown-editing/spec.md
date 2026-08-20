@@ -29,6 +29,14 @@ The system SHALL offer a split view that shows the rendered preview beside the s
 - **WHEN** the user scrolls or edits at some point of the document
 - **THEN** the preview scrolls to the matching part of the rendered document instead of staying where it was
 
+#### Scenario: Editor follows the preview position
+- **WHEN** the user scrolls the preview pane with the live preview showing
+- **THEN** the source editor scrolls to the matching part of the document, and the two panes do not fight each other
+
+#### Scenario: Available only while editing
+- **WHEN** a document is open in view mode
+- **THEN** the live preview toggle is disabled, becoming available once edit mode is on
+
 #### Scenario: Resize the panes
 - **WHEN** the user drags the divider between the panes
 - **THEN** the panes resize within their allowed range, and the chosen ratio is restored in later sessions
