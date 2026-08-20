@@ -179,7 +179,7 @@ describe('App with a document open', () => {
     expect((editor as HTMLTextAreaElement).value).toBe('# Heading\n\ntext')
 
     await user.click(screen.getByRole('tab', { name: 'Preview' }))
-    await waitFor(() => expect(screen.queryByTestId('editor')).toBeNull())
+    await waitFor(() => expect((screen.getByTestId('editor') as HTMLTextAreaElement).value).toBe('# Heading\n\ntext'))
 
     // The text survived the round trip rather than being dropped with the editor.
     // The preview render is debounced, so wait for it rather than assuming it already ran.

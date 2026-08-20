@@ -15,6 +15,7 @@ import type { OutlineItem } from '../lib/outline'
 
 interface EditorProps {
   documentId: string
+  documentIds: readonly string[]
   value: string
   theme: Theme
   fontSize: number
@@ -304,7 +305,7 @@ function countIdleStats(state: EditorState): EditorIdleStats {
 }
 
 /** CodeMirror 6 Markdown source editor with theme-aware styling. */
-export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor({ documentId, value, theme, fontSize, searchTerm, activeSearchIndex, highlightActive, headingToReveal, outlineVisible, onSearchMatchCountChange, onChange, onEdits, onIdleStatsChange, onOutlineChange, onBlur, onVisibleLineChange }, ref): JSX.Element {
+export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor({ documentId, documentIds, value, theme, fontSize, searchTerm, activeSearchIndex, highlightActive, headingToReveal, outlineVisible, onSearchMatchCountChange, onChange, onEdits, onIdleStatsChange, onOutlineChange, onBlur, onVisibleLineChange }, ref): JSX.Element {
   const hostRef = useRef<HTMLDivElement>(null)
   const viewRef = useRef<EditorView | null>(null)
   const stateCacheRef = useRef(new Map<string, EditorState>())
@@ -448,6 +449,13 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor({ do
   }, [documentId])
 
   useEffect(() => {
+    const openDocuments = new Set(documentIds)
+    for (const id of stateCacheRef.current.keys()) {
+      if (!openDocuments.has(id)) stateCacheRef.current.delete(id)
+    }
+  }, [documentIds])
+
+  useEffect(() => {
     if (!outlineVisible) return
     const view = viewRef.current
     if (!view) return
@@ -513,7 +521,7 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor({ do
   useEffect(() => {
     const view = viewRef.current
     if (!view || !headingToReveal) return
-    const position = view.state.doc.line(headingToReveal.line + 1).from
+    const position = view.state.doc.line(Math.min(headingToReveal.line + 1, view.state.doc.lines)).from
     view.dispatch({
       selection: { anchor: position },
       // Top, not centre: it matches where the preview puts a heading picked from the outline,

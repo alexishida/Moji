@@ -147,6 +147,21 @@ describe('readPath', () => {
     await expect(pending).resolves.toMatchObject({ ok: true, content: 'done' })
   })
 
+  it('times out instead of hanging forever when main never responds', async () => {
+    vi.useFakeTimers()
+    try {
+      const api = await loadApi()
+      const pending = api.readPath('/notes/stuck.md')
+      mainPort().start()
+
+      await vi.advanceTimersByTimeAsync(15_000)
+
+      await expect(pending).resolves.toEqual({ ok: false, error: 'Timed out waiting for the file to open.' })
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
   it('opens a private port per request, so two reads cannot cross', async () => {
     const api = await loadApi()
     const first = api.readPath('/notes/one.md')

@@ -1,4 +1,4 @@
-import { app } from 'electron'
+import { app, screen } from 'electron'
 import { readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import {
@@ -62,12 +62,21 @@ function sanitizeWindowBounds(value: unknown): WindowBounds | undefined {
   const width = boundedNumber(raw['width'], 1000, 640, 8192)
   const height = boundedNumber(raw['height'], 760, 480, 8192)
 
-  return {
+  const bounds: WindowBounds = {
     x: optionalBoundedNumber(raw['x'], -8192, 8192),
     y: optionalBoundedNumber(raw['y'], -8192, 8192),
     width,
     height
   }
+
+  if (bounds.x === undefined || bounds.y === undefined) return bounds
+  const visible = screen.getAllDisplays().some(({ workArea }) => (
+    bounds.x! < workArea.x + workArea.width &&
+    bounds.x! + bounds.width > workArea.x &&
+    bounds.y! < workArea.y + workArea.height &&
+    bounds.y! + bounds.height > workArea.y
+  ))
+  return visible ? bounds : { width, height }
 }
 
 /** Keep only string paths, drop duplicates, and cap the list length. */

@@ -730,6 +730,14 @@ body {
   border-left: 1px solid var(--border);
 }
 
+.split--view-only .split__pane--editor {
+  display: none;
+}
+
+.split--view-only .split__pane--preview {
+  flex: 1 1 0;
+}
+
 .split__divider {
   flex: 0 0 5px;
   cursor: col-resize;

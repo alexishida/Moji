@@ -143,7 +143,8 @@ function rememberDialogDirectory(filePath: string): void {
  */
 export async function exportDocument(
   request: unknown,
-  onProgress: ExportProgressReporter = () => undefined
+  onProgress: ExportProgressReporter = () => undefined,
+  parentWindow?: BrowserWindow
 ): Promise<WriteResult> {
   if (!isExportRequest(request)) return { ok: false, error: 'Invalid export request.' }
   if (isExportRunning()) return { ok: false, error: 'An export is already in progress.' }
@@ -154,10 +155,13 @@ export async function exportDocument(
   const session = beginExportSession(onProgress)
 
   try {
-    const { canceled, filePath } = await dialog.showSaveDialog({
+    const options: Electron.SaveDialogOptions = {
       defaultPath: exportDefaultPath(baseName, format),
       filters: [FILTERS[format]]
-    })
+    }
+    const { canceled, filePath } = parentWindow
+      ? await dialog.showSaveDialog(parentWindow, options)
+      : await dialog.showSaveDialog(options)
     if (canceled || !filePath) return { ok: false, canceled: true }
     rememberDialogDirectory(filePath)
 
@@ -189,17 +193,20 @@ export async function exportDocumentToPath(
 async function runExport(request: ExportRequest, filePath: string, session: ExportSession): Promise<WriteResult> {
   const { format, pageSize, pageOrientation, html, assetBaseUrl } = request
   const finishMeasure = beginMainMeasure('document:export', { htmlChars: html.length })
+  let wroteDestination = false
   try {
     session.checkpoint()
 
     if (format === 'html') {
       session.report({ phase: 'write' })
       await writeFile(filePath, html, 'utf-8')
+      wroteDestination = true
     } else if (format === 'pdf') {
       const pdf = await htmlToPdf(html, pageSize, pageOrientation, session, assetBaseUrl)
       session.checkpoint()
       session.report({ phase: 'write' })
       await writeFile(filePath, pdf)
+      wroteDestination = true
     } else {
       await htmlToPngFile(filePath, html, pageSize, pageOrientation, session, assetBaseUrl)
     }
@@ -208,9 +215,9 @@ async function runExport(request: ExportRequest, filePath: string, session: Expo
     return { ok: true, path: filePath }
   } catch (err) {
     if (err instanceof ExportCanceled) {
-      // The PNG writer discards its own partial file; HTML and PDF are written in one
-      // call, so anything already on disk is removed here.
-      await unlink(filePath).catch(() => undefined)
+      // PNG discards its temporary file. Only remove HTML/PDF when this export has
+      // finished writing the destination; otherwise it may be a pre-existing file.
+      if (wroteDestination) await unlink(filePath).catch(() => undefined)
       return { ok: false, canceled: true }
     }
     return { ok: false, error: (err as Error).message }
@@ -226,7 +233,7 @@ function isDiagramPngRequest(request: unknown): request is DiagramPngRequest {
 }
 
 /** Save one renderer-created Mermaid PNG through Electron's native save dialog. */
-export async function exportDiagramPng(request: unknown): Promise<WriteResult> {
+export async function exportDiagramPng(request: unknown, parentWindow?: BrowserWindow): Promise<WriteResult> {
   if (!isDiagramPngRequest(request)) return { ok: false, error: 'Invalid diagram PNG request.' }
 
   const match = /^data:image\/png;base64,([A-Za-z0-9+/]+={0,2})$/.exec(request.dataUrl)
@@ -236,10 +243,13 @@ export async function exportDiagramPng(request: unknown): Promise<WriteResult> {
   const isPng = png.length >= 8 && png.subarray(0, 8).equals(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]))
   if (!isPng) return { ok: false, error: 'Invalid diagram PNG data.' }
 
-  const { canceled, filePath } = await dialog.showSaveDialog({
+  const options: Electron.SaveDialogOptions = {
     defaultPath: exportDefaultPath(request.baseName, 'png'),
     filters: [FILTERS.png]
-  })
+  }
+  const { canceled, filePath } = parentWindow
+    ? await dialog.showSaveDialog(parentWindow, options)
+    : await dialog.showSaveDialog(options)
   if (canceled || !filePath) return { ok: false, canceled: true }
   rememberDialogDirectory(filePath)
 

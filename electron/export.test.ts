@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { readFile } from 'node:fs/promises'
 // `rm` is mocked below, so the fixture directory is reset through the unmocked sync API.
-import { mkdirSync, rmSync } from 'node:fs'
+import { mkdirSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 
@@ -474,8 +474,10 @@ describe('exportDocument', () => {
     await expect(readFile(`${selectedPngPath}.tmp`)).rejects.toThrow()
   })
 
-  it('removes an HTML export that was cancelled before it finished', async () => {
+  it('preserves an existing HTML export when cancellation happens before writing', async () => {
     state.showSaveDialog.mockResolvedValue({ canceled: false, filePath: selectedHtmlPath })
+    const original = 'existing export'
+    writeFileSync(selectedHtmlPath, original)
     const { cancelExport, exportDocument } = await import('./export')
 
     // Cancelling while the dialog is still open stops the export before it writes.
@@ -484,6 +486,8 @@ describe('exportDocument', () => {
 
     await expect(running).resolves.toEqual({ ok: false, canceled: true })
     expect(state.writeFile).not.toHaveBeenCalledWith(selectedHtmlPath, request.html, 'utf-8')
+    await expect(readFile(selectedHtmlPath, 'utf-8')).resolves.toBe(original)
+    expect(state.unlink).not.toHaveBeenCalledWith(selectedHtmlPath)
   })
 
 })

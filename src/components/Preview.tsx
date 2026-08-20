@@ -316,6 +316,8 @@ export function Preview({
           copyButton.setAttribute('aria-label', t('preview.copyCode'))
           copyButton.title = t('preview.copyCode')
         }, 1600)
+      }).catch((error: unknown) => {
+        console.error('Copy code failed:', error)
       })
       return
     }
@@ -520,7 +522,7 @@ export function Preview({
   ])
 
   useEffect(() => {
-    if (!bodyRef.current || !searchTerm.trim()) return
+    if (!bodyRef.current || !searchTerm.trim() || activeSearchIndex === null) return
     const activeMatch = activatePreviewSearchMatch(bodyRef.current, activeSearchIndex)
     activeMatch?.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'nearest' })
   }, [
