@@ -31,6 +31,8 @@ export interface Settings {
   language: Language
   previewFontFamily: string
   previewFontSize: number
+  /** Source editor font size in px; session-only, like previewFontSize. */
+  editorFontSize: number
   previewLineHeight: number
   previewFluidWidth: boolean
   /** Reading column width as a percentage (20-100, in steps of 5) of the available preview area. */

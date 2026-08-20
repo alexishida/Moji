@@ -19,6 +19,7 @@ const settings = {
   language: 'en' as const,
   previewFontFamily: 'Inter',
   previewFontSize: 16,
+  editorFontSize: 14,
   previewLineHeight: 1.7,
   previewFluidWidth: false,
   previewWidth: 900,

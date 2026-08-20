@@ -27,6 +27,23 @@ The system SHALL present a clean, minimal, distraction-free interface: generous 
 - **WHEN** the application starts
 - **THEN** the preview font size is 16px, the full-width toggle is off, and the reading column uses the persisted configured width (60% by default)
 
+### Requirement: Adjust font size in view and edit modes
+The system SHALL let the user increase, decrease, and reset the font size in both view mode and edit mode, from the top-bar font-size control and from the keyboard. Each mode SHALL keep its own size between 12px and 24px, so changing one never changes the other. Sizes apply to the current session only and reset on the next launch.
+
+#### Scenario: Adjust preview font size
+- **WHEN** the user increases, decreases, or resets the font size while a document is in view mode
+- **THEN** the preview font size changes within 12px-24px, resetting to 16px
+- **AND** the editor font size is unchanged
+
+#### Scenario: Adjust editor font size
+- **WHEN** the user increases, decreases, or resets the font size while a document is in edit mode
+- **THEN** the source editor font size changes within 12px-24px, resetting to 14px
+- **AND** the preview font size is unchanged
+
+#### Scenario: Font size control follows the active mode
+- **WHEN** the user switches between view mode and edit mode
+- **THEN** the top-bar control and the Ctrl+Plus / Ctrl+Minus / Ctrl+0 shortcuts read and change the font size of the mode now on screen
+
 ### Requirement: Light and dark theme
 The system SHALL provide both a light and a dark theme and let the user toggle between them at any time. Both preview content and application chrome SHALL adapt to the active theme with adequate contrast.
 

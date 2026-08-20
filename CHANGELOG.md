@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 
 Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [Unreleased]
+
+### Added
+
+- Font size can now be adjusted in Editor mode, from the same top-bar control and the Ctrl+Plus / Ctrl+Minus / Ctrl+0 shortcuts already available in view mode. Editor and preview keep separate sizes (12px-24px), the editor resetting to 14px and the preview to 16px.
+
 ## [1.0.5] - 2026-08-05
 
 ### Added

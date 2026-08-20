@@ -18,7 +18,7 @@ export interface WorkspaceDocument {
 
 export function useSettingsState() {
   const [settings, setSettings] = useState<Settings>({
-    theme: 'dark', previewTheme: 'dark', language: 'en', previewFontFamily: 'Inter', previewFontSize: 16,
+    theme: 'dark', previewTheme: 'dark', language: 'en', previewFontFamily: 'Inter', previewFontSize: 16, editorFontSize: 14,
     previewLineHeight: 1.7, previewFluidWidth: false, previewWidth: PREVIEW_WIDTH_DEFAULT, autoSave: true, recentFiles: []
   })
   const [mdTheme, setMdTheme] = useState<Theme>('dark')

@@ -35,6 +35,7 @@ function defaults(): Settings {
     language: resolveLanguage(app.getLocale()),
     previewFontFamily: 'Inter',
     previewFontSize: 16,
+    editorFontSize: 14,
     previewLineHeight: 1.7,
     previewFluidWidth: false,
     previewWidth: PREVIEW_WIDTH_DEFAULT,
@@ -90,6 +91,7 @@ export function getSettings(): Settings {
       language: raw.language && SUPPORTED_LANGUAGES.includes(raw.language) ? raw.language : base.language,
       previewFontFamily: typeof raw.previewFontFamily === 'string' ? raw.previewFontFamily : base.previewFontFamily,
       previewFontSize: base.previewFontSize,
+      editorFontSize: base.editorFontSize,
       previewLineHeight: boundedNumber(raw.previewLineHeight, base.previewLineHeight, 1.2, 2.4),
       previewFluidWidth: base.previewFluidWidth,
       previewWidth: normalizePreviewWidth(raw.previewWidth, base.previewWidth),
@@ -112,6 +114,7 @@ export function updateSettings(patch: Partial<Settings>): Settings {
     previewTheme: merged.previewTheme === 'light' || merged.previewTheme === 'dark' ? merged.previewTheme : 'dark',
     previewFontFamily: typeof merged.previewFontFamily === 'string' ? merged.previewFontFamily : 'Inter',
     previewFontSize: boundedNumber(merged.previewFontSize, 16, 12, 24),
+    editorFontSize: boundedNumber(merged.editorFontSize, 14, 12, 24),
     previewLineHeight: boundedNumber(merged.previewLineHeight, 1.7, 1.2, 2.4),
     previewFluidWidth: typeof merged.previewFluidWidth === 'boolean' ? merged.previewFluidWidth : false,
     previewWidth: normalizePreviewWidth(merged.previewWidth),
@@ -124,6 +127,7 @@ export function updateSettings(patch: Partial<Settings>): Settings {
   try {
     const persisted: Partial<Settings> = { ...next }
     delete persisted.previewFontSize
+    delete persisted.editorFontSize
     delete persisted.previewFluidWidth
     writeFileSync(settingsFile(), JSON.stringify(persisted, null, 2), 'utf-8')
   } catch {

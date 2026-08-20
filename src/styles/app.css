@@ -2131,7 +2131,7 @@ body {
 .cm-editor {
   height: 100%;
   font-family: var(--font-mono);
-  font-size: 14px;
+  font-size: var(--editor-font-size, 14px);
 }
 
 .cm-editor .cm-scroller {

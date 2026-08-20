@@ -1,4 +1,4 @@
-import { forwardRef, useEffect, useImperativeHandle, useRef } from 'react'
+import { forwardRef, useEffect, useImperativeHandle, useRef, type CSSProperties } from 'react'
 import { Decoration, type Command, type DecorationSet, EditorView, keymap, lineNumbers } from '@codemirror/view'
 import { Annotation, EditorSelection, EditorState, Compartment, RangeSetBuilder, StateEffect, StateField } from '@codemirror/state'
 import { defaultKeymap, history, historyKeymap } from '@codemirror/commands'
@@ -16,6 +16,7 @@ interface EditorProps {
   documentId: string
   value: string
   theme: Theme
+  fontSize: number
   searchTerm: string
   activeSearchIndex: number | null
   highlightActive: boolean
@@ -268,7 +269,7 @@ function countIdleStats(state: EditorState): EditorIdleStats {
 }
 
 /** CodeMirror 6 Markdown source editor with theme-aware styling. */
-export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor({ documentId, value, theme, searchTerm, activeSearchIndex, highlightActive, headingToReveal, outlineVisible, onSearchMatchCountChange, onChange, onEdits, onIdleStatsChange, onOutlineChange, onBlur }, ref): JSX.Element {
+export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor({ documentId, value, theme, fontSize, searchTerm, activeSearchIndex, highlightActive, headingToReveal, outlineVisible, onSearchMatchCountChange, onChange, onEdits, onIdleStatsChange, onOutlineChange, onBlur }, ref): JSX.Element {
   const hostRef = useRef<HTMLDivElement>(null)
   const viewRef = useRef<EditorView | null>(null)
   const stateCacheRef = useRef(new Map<string, EditorState>())
@@ -397,6 +398,11 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor({ do
     }
   }, [value])
 
+  // Font size comes from CSS, so CodeMirror has to re-measure line heights itself.
+  useEffect(() => {
+    viewRef.current?.requestMeasure()
+  }, [fontSize])
+
   // Reconfigure only the theme when it changes.
   useEffect(() => {
     viewRef.current?.dispatch({
@@ -447,5 +453,5 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor({ do
     view.focus()
   }, [headingToReveal])
 
-  return <div className="editor-pane pane" ref={hostRef} />
+  return <div className="editor-pane pane" ref={hostRef} style={{ '--editor-font-size': `${fontSize}px` } as CSSProperties} />
 })
