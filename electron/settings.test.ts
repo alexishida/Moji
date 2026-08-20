@@ -60,11 +60,12 @@ describe('settings', () => {
   it('bounds updates and persists supported settings', async () => {
     const { updateSettings } = await import('./settings')
 
-    const updated = updateSettings({ previewFontSize: 99, previewLineHeight: 0, previewWidth: 200, recentFiles: ['a.md', 'a.md'] })
+    const updated = updateSettings({ previewFontSize: 99, editorFontSize: 2, previewLineHeight: 0, previewWidth: 200, recentFiles: ['a.md', 'a.md'] })
 
-    expect(updated).toMatchObject({ previewFontSize: 24, previewLineHeight: 1.2, previewWidth: 100, recentFiles: ['a.md'] })
+    expect(updated).toMatchObject({ previewFontSize: 24, editorFontSize: 12, previewLineHeight: 1.2, previewWidth: 100, recentFiles: ['a.md'] })
     const persisted = JSON.parse(state.files.get(SETTINGS_FILE) ?? '{}')
     expect(persisted).not.toHaveProperty('previewFontSize')
+    expect(persisted).not.toHaveProperty('editorFontSize')
     expect(persisted).not.toHaveProperty('previewFluidWidth')
     expect(persisted.previewWidth).toBe(100)
   })

@@ -29,7 +29,11 @@ interface TopBarProps {
   searchMatchCount: number
   activeSearchIndex: number | null
   canToggleTheme: boolean
-  previewFontSize: number
+  /** Font size of the active mode: preview in view mode, source editor in edit mode. */
+  fontSize: number
+  minFontSize: number
+  maxFontSize: number
+  defaultFontSize: number
   canAdjustFontSize: boolean
   onFontSizeChange: (value: number) => void
   previewFluidWidth: boolean
@@ -325,7 +329,10 @@ export const TopBar = memo(function TopBar(props: TopBarProps): JSX.Element {
           </button>
 
           <FontSizeButton
-            value={props.previewFontSize}
+            value={props.fontSize}
+            min={props.minFontSize}
+            max={props.maxFontSize}
+            defaultValue={props.defaultFontSize}
             disabled={!props.canAdjustFontSize}
             onChange={props.onFontSizeChange}
           />

@@ -74,6 +74,10 @@ function warmLazyChunks(): () => void {
 const MIN_PREVIEW_FONT_SIZE = 12
 const MAX_PREVIEW_FONT_SIZE = 24
 const DEFAULT_PREVIEW_FONT_SIZE = 16
+const MIN_EDITOR_FONT_SIZE = 12
+const MAX_EDITOR_FONT_SIZE = 24
+/** Matches the `.cm-editor` base size, so an untouched editor looks unchanged. */
+const DEFAULT_EDITOR_FONT_SIZE = 14
 
 /** Below this file count, an open-dialog selection resolves fast enough that a progress banner would only flicker. */
 const LARGE_OPEN_SELECTION_THRESHOLD = 4
@@ -258,6 +262,8 @@ export function App(): JSX.Element {
   outlineRef.current = outline
   const stats = activeDoc?.stats ?? { length: 0, lines: 0, tokens: 0, words: 0 }
   const searchMatchCount = mode === 'view' ? previewSearchMatchCount : editorSearchMatchCount
+  const activeFontSize = mode === 'edit' ? settings.editorFontSize : settings.previewFontSize
+  const defaultFontSize = mode === 'edit' ? DEFAULT_EDITOR_FONT_SIZE : DEFAULT_PREVIEW_FONT_SIZE
   const tabs = useMemo<DocumentTabItem[]>(
     () =>
       documents.map((doc) => ({
@@ -1129,6 +1135,11 @@ export function App(): JSX.Element {
     return s.hasDoc && s.mode === 'view' && !s.exportDialogOpen && !s.settingsOpen && !s.aboutOpen
   }, [])
 
+  const canAdjustFontSize = useCallback(() => {
+    const s = stateRef.current
+    return s.hasDoc && !s.exportDialogOpen && !s.settingsOpen && !s.aboutOpen
+  }, [])
+
   const canToggleOutline = useCallback(() => {
     const s = stateRef.current
     return s.hasDoc && !s.exportDialogOpen && !s.settingsOpen && !s.aboutOpen
@@ -1250,12 +1261,17 @@ export function App(): JSX.Element {
     return false
   }, [])
 
-  const changePreviewFontSize = useCallback(
+  // Font size follows the active mode: preview in view mode, source editor in edit mode.
+  const changeFontSize = useCallback(
     (next: number) => {
-      if (!canToggleMdTheme()) return
+      if (!canAdjustFontSize()) return
+      if (stateRef.current.mode === 'edit') {
+        changeSettings({ editorFontSize: Math.min(MAX_EDITOR_FONT_SIZE, Math.max(MIN_EDITOR_FONT_SIZE, next)) })
+        return
+      }
       changeSettings({ previewFontSize: Math.min(MAX_PREVIEW_FONT_SIZE, Math.max(MIN_PREVIEW_FONT_SIZE, next)) })
     },
-    [canToggleMdTheme, changeSettings]
+    [canAdjustFontSize, changeSettings]
   )
 
   const toggleFullscreen = useCallback(() => {
@@ -1358,24 +1374,25 @@ export function App(): JSX.Element {
       }
       if (key === '+' || key === '=') {
         event.preventDefault()
-        changePreviewFontSize(settings.previewFontSize + 1)
+        changeFontSize(activeFontSize + 1)
         return
       }
       if (key === '-') {
         event.preventDefault()
-        changePreviewFontSize(settings.previewFontSize - 1)
+        changeFontSize(activeFontSize - 1)
         return
       }
       if (key === '0') {
         event.preventDefault()
-        changePreviewFontSize(DEFAULT_PREVIEW_FONT_SIZE)
+        changeFontSize(defaultFontSize)
       }
     }
 
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
   }, [
-    changePreviewFontSize,
+    activeFontSize,
+    changeFontSize,
     closeActivePanel,
     closeDocument,
     dialogOpen,
@@ -1390,8 +1407,8 @@ export function App(): JSX.Element {
     openSettings,
     saveDocument,
     saveDocumentAs,
+    defaultFontSize,
     selectAdjacentDocument,
-    settings.previewFontSize,
     t,
     toggleFullscreen,
     toggleMode
@@ -1492,9 +1509,12 @@ export function App(): JSX.Element {
         searchMatchCount={searchMatchCount}
         activeSearchIndex={activeSearchIndex}
         canToggleTheme={canToggleMdTheme()}
-        previewFontSize={settings.previewFontSize}
-        canAdjustFontSize={canToggleMdTheme()}
-        onFontSizeChange={changePreviewFontSize}
+        fontSize={activeFontSize}
+        minFontSize={mode === 'edit' ? MIN_EDITOR_FONT_SIZE : MIN_PREVIEW_FONT_SIZE}
+        maxFontSize={mode === 'edit' ? MAX_EDITOR_FONT_SIZE : MAX_PREVIEW_FONT_SIZE}
+        defaultFontSize={defaultFontSize}
+        canAdjustFontSize={canAdjustFontSize()}
+        onFontSizeChange={changeFontSize}
         previewFluidWidth={settings.previewFluidWidth}
         canTogglePreviewWidth={canToggleMdTheme()}
         onTogglePreviewWidth={togglePreviewFluidWidth}
@@ -1578,6 +1598,7 @@ export function App(): JSX.Element {
                   documentId={activeDoc.id}
                   value={content}
                   theme={'dark'}
+                  fontSize={settings.editorFontSize}
                   searchTerm={debouncedSearchTerm}
                   activeSearchIndex={activeSearchIndex}
                   highlightActive={activeSearchIndex !== null}

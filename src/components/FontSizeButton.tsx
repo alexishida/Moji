@@ -4,15 +4,15 @@ import { IconMinus, IconPlus, IconRefresh, IconTextSize } from './icons'
 
 interface FontSizeButtonProps {
   value: number
+  min: number
+  max: number
+  /** Size the reset action restores; differs between preview and editor. */
+  defaultValue: number
   disabled: boolean
   onChange: (value: number) => void
 }
 
-const MIN_FONT_SIZE = 12
-const MAX_FONT_SIZE = 24
-const DEFAULT_FONT_SIZE = 16
-
-export function FontSizeButton({ value, disabled, onChange }: FontSizeButtonProps): JSX.Element {
+export function FontSizeButton({ value, min, max, defaultValue, disabled, onChange }: FontSizeButtonProps): JSX.Element {
   const { t } = useTranslation()
   const [open, setOpen] = useState(false)
   const controlRef = useRef<HTMLDivElement>(null)
@@ -59,8 +59,8 @@ export function FontSizeButton({ value, disabled, onChange }: FontSizeButtonProp
           <button
             className="iconbtn font-size-popover__button"
             type="button"
-            onClick={() => onChange(Math.max(MIN_FONT_SIZE, value - 1))}
-            disabled={value <= MIN_FONT_SIZE}
+            onClick={() => onChange(Math.max(min, value - 1))}
+            disabled={value <= min}
             title={t('toolbar.decreaseFontSize')}
             aria-label={t('toolbar.decreaseFontSize')}
           >
@@ -72,8 +72,8 @@ export function FontSizeButton({ value, disabled, onChange }: FontSizeButtonProp
           <button
             className="iconbtn font-size-popover__button"
             type="button"
-            onClick={() => onChange(Math.min(MAX_FONT_SIZE, value + 1))}
-            disabled={value >= MAX_FONT_SIZE}
+            onClick={() => onChange(Math.min(max, value + 1))}
+            disabled={value >= max}
             title={t('toolbar.increaseFontSize')}
             aria-label={t('toolbar.increaseFontSize')}
           >
@@ -82,8 +82,8 @@ export function FontSizeButton({ value, disabled, onChange }: FontSizeButtonProp
           <button
             className="btn font-size-popover__reset"
             type="button"
-            onClick={() => onChange(DEFAULT_FONT_SIZE)}
-            disabled={value === DEFAULT_FONT_SIZE}
+            onClick={() => onChange(defaultValue)}
+            disabled={value === defaultValue}
             title={t('toolbar.resetFontSize')}
           >
             <IconRefresh width={15} height={15} />

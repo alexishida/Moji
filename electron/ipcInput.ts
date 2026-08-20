@@ -42,6 +42,7 @@ export function sanitizeSettingsPatch(value: unknown): Partial<Settings> {
   if (raw['previewTheme'] === 'light' || raw['previewTheme'] === 'dark') patch.previewTheme = raw['previewTheme']
   if (typeof raw['previewFontFamily'] === 'string') patch.previewFontFamily = raw['previewFontFamily']
   if (typeof raw['previewFontSize'] === 'number') patch.previewFontSize = raw['previewFontSize']
+  if (typeof raw['editorFontSize'] === 'number') patch.editorFontSize = raw['editorFontSize']
   if (typeof raw['previewLineHeight'] === 'number') patch.previewLineHeight = raw['previewLineHeight']
   if (typeof raw['previewFluidWidth'] === 'boolean') patch.previewFluidWidth = raw['previewFluidWidth']
   if (typeof raw['previewWidth'] === 'number') patch.previewWidth = raw['previewWidth']
