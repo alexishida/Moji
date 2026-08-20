@@ -13,24 +13,8 @@
     "closeSaved": "Close Saved",
     "closeAll": "Close All"
   },
-  "menu": {
-    "file": "File",
-    "open": "Open…",
-    "save": "Save",
-    "saveAs": "Save As…",
-    "export": "Export",
-    "exportHtml": "Export as HTML…",
-    "exportPdf": "Export as PDF…",
-    "quit": "Quit",
-    "view": "View",
-    "toggleEdit": "Toggle Edit",
-    "toggleTheme": "Toggle Theme",
-    "language": "Language"
-  },
   "toolbar": {
     "open": "Open",
-    "edit": "Edit",
-    "view": "View",
     "preview": "Preview",
     "editor": "Editor",
     "viewMode": "View mode",
@@ -46,8 +30,6 @@
     "occurrences": "Occurrences",
     "close": "Close",
     "export": "Export",
-    "exportHtml": "Export as HTML",
-    "exportPdf": "Export as PDF",
     "theme": "Theme",
     "themeLight": "Light mode",
     "themeDark": "Dark mode",
@@ -65,15 +47,10 @@
     "resizeSplit": "Resize the panes",
     "settings": "Settings",
     "about": "About",
-    "more": "More actions",
     "language": "Language"
   },
   "sidebar": {
-    "library": "Library",
-    "localStorage": "Local Storage",
-    "documents": "Documents",
     "outline": "Outline",
-    "help": "Help",
     "expand": "Expand",
     "collapse": "Collapse",
     "expandAll": "Expand all",
@@ -84,13 +61,9 @@
   "statusbar": {
     "brand": "Moji v{{version}}",
     "guide": "Markdown Guide",
-    "exportPdf": "Export PDF",
     "lineCount": "Lines: {{count}}",
     "tokenCount": "Tokens: {{count}}",
     "wordCount": "Words: {{count}}"
-  },
-  "help": {
-    "hint": "Open or drop a .md file, switch Preview/Editor from the top tabs, and use the outline to jump between headings."
   },
   "preview": {
     "copyCode": "Copy code",
@@ -131,7 +104,6 @@
   "welcome": {
     "tagline": "A lightweight, simple Markdown reader",
     "title": "Moji v{{version}}",
-    "subtitle": "Open a Markdown file to read it cleanly.",
     "openButton": "Open File",
     "newButton": "New File",
     "dropHint": "or drop a .md file anywhere in this window",
@@ -168,6 +140,7 @@
     "general": "General",
     "preview": "Preview",
     "editor": "Editor",
+    "shortcutOr": "or",
     "shortcuts": "Shortcuts",
     "fontFamily": "Font Family",
     "fontSize": "Font Size",
@@ -212,7 +185,8 @@
       "checklist": "Toggle checklist",
       "codeBlock": "Insert code block",
       "indent": "Indent line",
-      "outdent": "Outdent line"
+      "outdent": "Outdent line",
+      "exitFocus": "Exit editor focus"
     }
   },
   "aboutDialog": {

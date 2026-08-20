@@ -11,27 +11,33 @@ Projeto atual: Moji, aplicativo desktop Electron + React + TypeScript para abrir
 - Manter alteracoes pequenas e alinhadas ao pedido.
 - Preservar mudancas locais de usuario; nao reverter arquivos fora do escopo solicitado.
 - Preferir `rg` para localizar arquivos/texto.
-- Usar `npm run typecheck` para validar TypeScript quando houver alteracao em codigo.
+- Usar `npm run typecheck` (ou `npm run verify`, que hoje so roda o typecheck) para validar TypeScript quando houver alteracao em codigo. Nao ha suite de testes automatizada no projeto; nao presumir cobertura de testes nem reintroduzir harness de teste sem pedido explicito.
 
 ## Stack e Arquitetura
 
 ### Main Process (`electron/`)
 
-- `main.ts`: janela (`BrowserWindow` 1000x760, min 640x480), single-instance lock com forward de argumentos de arquivo, handlers IPC, abertura via dialogo nativo, CLI (`process.argv`), evento `open-file` (macOS/Linux), drag-drop (via `webUtils.getPathForFile`) e menu de aplicacao (apenas no macOS; Windows e Linux ficam sem menu).
+- `main.ts`: janela (`BrowserWindow` 1000x760, min 640x480), single-instance lock com forward de argumentos de arquivo, handlers IPC (via wrapper que so aceita eventos vindos da janela do app), abertura via dialogo nativo, CLI (`process.argv`), evento `open-file` (macOS/Linux), drag-drop (via `webUtils.getPathForFile`) e menu de aplicacao (apenas no macOS; Windows e Linux ficam sem menu).
 - `preload.ts`: expoe API segura ao renderer via `contextBridge` com tipagem completa (`RendererApi`).
-- `shared.ts`: tipos e constantes compartilhados entre main, preload e renderer (tipos de resultado IPC, `Settings`, `ExportFormat`, `SUPPORTED_LANGUAGES`, `IPC` channels).
+- `shared.ts`: tipos e constantes compartilhados entre main, preload e renderer (`Settings`, `ExportFormat`, `SUPPORTED_LANGUAGES`, canais `IPC`, formatos/tamanhos de exportacao, tipos de progresso de abertura/exportacao/atualizacao, tipos de draft e metricas de performance).
 - `ipcInput.ts`: normaliza valores vindos do renderer por IPC (`sanitizeSettingsPatch`, `sanitizeDraft`, `suggestedMarkdownName`, `isMarkdown`). Todo payload do renderer passa por aqui antes de ser persistido ou usado em dialogo nativo.
-- `assetPaths.ts`: autorizacao do protocolo `moji-asset://` (`assetPathFromUrl`, `isPathWithin`, `authorizedAsset`, `assetContentType`). Resolve por `realpath` e so serve imagem dentro de diretorio liberado pelo documento aberto.
+- `assetPaths.ts` / `assetCache.ts`: autorizacao e cache do protocolo `moji-asset://` (`assetPathFromUrl`, `isPathWithin`, `authorizedAsset`, `assetContentType`, `AssetCache`). Resolve por `realpath` e so serve imagem dentro de diretorio liberado pelo documento aberto; cache evita releitura de disco por metadado (tamanho/mtime).
+- `documentStream.ts` / `documentDecoder.ts`: leitura de arquivo em chunks (`readFileChunks`) entregue ao renderer via `MessagePort` como bytes UTF-8 (canal `file:read-path-stream`), evitando materializar a string inteira no main; `stripLeadingBom` remove BOM de UTF-8 com assinatura.
+- `openPool.ts`: `mapWithConcurrency` para abrir multiplos arquivos em paralelo com limite de concorrencia, usado no fluxo de abertura em lote (`openManyProgress`/`openManyDone`).
+- `fileCapabilities.ts`: deteccao de capacidades do sistema de arquivos relevantes para abertura/gravacao.
 - `settings.ts`: persiste configuracoes do usuario em `settings.json` no `userData`; resolve idioma inicial a partir do locale do SO; aplica limites numericos (`boundedNumber`).
-- `drafts.ts`: persiste rascunhos internos de documentos sem caminho em `drafts.json` no `userData`, permitindo restauracao entre sessoes.
-- `export.ts`: exporta documento ativo como PDF (via `printToPDF` em `BrowserWindow` oculta), PNG (via `capturePage().toPNG()`) ou HTML (escrita direta). Suporta A4/Letter/Legal e portrait/landscape.
+- `drafts.ts` / `draftStore.ts` / `draftJournal.ts` / `draftCapacity.ts`: persistem rascunhos internos de documentos sem caminho em `drafts.json` no `userData`. `draftJournal` grava um journal append-only de edicoes (`appendDraftEdits`) em vez de reescrever o rascunho inteiro a cada tick; `draftCapacity` calcula limites de memoria/disco (`DraftPersistProblem`) e recusa a escrita quando a maquina nao comporta o resultado, sempre informando os numeros por tras da recusa.
+- `export.ts`: exporta documento ativo como PDF (via `printToPDF` em `BrowserWindow` oculta), PNG (via captura em fatias + worker de PNG) ou HTML (escrita direta). Suporta A4/Letter/Legal e portrait/landscape, com progresso por fase (`ExportPhase`) reportado ao renderer.
+- `png.ts` / `pngWorker.ts` / `pngScanlines.ts` / `pngScanlineConverter.ts`: codificacao PNG da exportacao rodando o loop de pixels (`toScanlines`) em `worker_threads`, isolado do encoder para poder ser reutilizado e testado isoladamente.
+- `benchmark.ts` / `performance.ts`: coleta local de metricas de performance (`PerformanceMetric`/`PerformanceReport`, nunca com conteudo de documento, caminhos ou dados do usuario) e scripts de benchmark (`benchmark:corpus`, `benchmark:ipc`, `benchmark:record`, `benchmark:compare`) fora do bundle do app.
 - `updater.ts`: gerencia verificacao, download e instalacao de GitHub Releases com `electron-updater`; habilitado apenas em Windows NSIS empacotado e Linux AppImage.
 
 ### Renderer (`src/`)
 
-- `App.tsx`: estado principal (documentos, aba ativa, modo view/edit/search/export, tema Markdown, drag-drop, outline scroll-spy, contagem de palavras/linhas/tokens).
-- `src/components/`: 14 componentes React (`AboutDialog`, `ConfirmDialog`, `DocumentTabs`, `Editor`, `ExportDialog`, `icons`, `OutlineTree`, `Preview`, `SettingsButton`, `SettingsDialog`, `Sidebar`, `StatusBar`, `TopBar`, `Welcome`).
-- `src/lib/`: utilitarios (`exportHtml`, `markdown`, `outline`, `previewScroll`, `useDebounced`).
+- `App.tsx`: estado principal (documentos, aba ativa, modo view/edit/split/search/export, tema Markdown, drag-drop, outline scroll-spy, contagem de palavras/linhas/tokens, progresso de abertura/exportacao, estado de atualizacao).
+- `src/components/`: componentes React incluindo `AboutDialog`, `ConfirmDialog`, `DocumentTabs`, `Editor`, `ExportDialog`, `ExportProgress`, `FontSizeButton`, `MermaidDiagramDialog`, `OpenProgress`, `OutlineTree`, `Preview`, `SettingsButton`, `SettingsDialog`, `Sidebar`, `SplitView`, `StatusBar`, `TopBar`, `UpdateNotice`, `Welcome`, `icons`.
+- `SplitView.tsx`: exibe editor e preview lado a lado durante a edicao (controlado por `settings.splitView`), com divisor ajustavel (`settings.splitRatio`, 20-80%) e largura minima de workspace (`SPLIT_MIN_WIDTH_PX`) abaixo da qual o split nao cabe.
+- `src/lib/`: utilitarios incluindo `draftEdits`, `draftFailure`, `editorIndent`, `exportHtml`, `markdown`, `markdownCore`, `markdownWorkerClient`/`markdownWorkerProtocol` (renderizacao Markdown em worker), `mermaid`/`mermaidGuide`, `outline`, `performanceMetrics`, `previewLayoutMetrics`, `previewSchedule`, `previewScroll`, `previewSearch`, `previewSelection`, `previewVirtualization`, `search`, `splitScroll` (sincroniza rolagem entre editor e preview no split view), `useDebounced`.
 - `src/locales/`: arquivos JSON de traducao para `en`, `pt-BR`, `es`, `ja`, `zh`, `ru`.
 - `src/styles/`: `theme.css` (tokens), `markdown.css` (preview/exportacao), `app.css` (layout).
 - `src/types/`: `api.d.ts` (tipagem da API do preload), `vite-env.d.ts`.
@@ -39,13 +45,13 @@ Projeto atual: Moji, aplicativo desktop Electron + React + TypeScript para abrir
 ### Demais diretorios
 
 - `samples/`: documentos Markdown de referencia empacotados com o app.
-- `scripts/`: script auxiliar para `electron-vite`.
+- `scripts/`: scripts auxiliares para `electron-vite`, instalacao do binario do Electron e benchmarks (`generate-benchmark-corpus`, `measure-ipc-transport`, `run-benchmark`, `compare-benchmark`).
 - `build/`: icones e recursos para `electron-builder`.
-- `openspec/specs/`: especificacoes de comportamento atuais (6 dominios: app-shell, appearance, document-export, internationalization, markdown-editing, markdown-viewing).
+- `openspec/specs/`: especificacoes de comportamento atuais.
 
 ### Stack tecnica
 
-- Markdown renderizado por `markdown-it` com plugins (`markdown-it-anchor`, `markdown-it-task-lists`, `markdown-it-footnote`, `markdown-it-deflist`, `markdown-it-sub`, `markdown-it-sup`, `markdown-it-mark`, `markdown-it-ins`, `markdown-it-abbr`, `markdown-it-emoji`, `markdown-it-texmath`), formulas LaTeX via `katex`, codigo destacado com `highlight.js` e HTML sanitizado com `DOMPurify`.
+- Markdown renderizado por `markdown-it` com plugins (`markdown-it-anchor`, `markdown-it-task-lists`, `markdown-it-footnote`, `markdown-it-deflist`, `markdown-it-sub`, `markdown-it-sup`, `markdown-it-mark`, `markdown-it-ins`, `markdown-it-abbr`, `markdown-it-emoji`, `markdown-it-texmath`), formulas LaTeX via `katex`, codigo destacado com `highlight.js`, diagramas com `mermaid` e HTML sanitizado com `DOMPurify`. A renderizacao roda em worker (`markdownWorkerClient`/`markdownWorkerProtocol`) para nao bloquear a UI em documentos grandes.
 - Editor baseado em CodeMirror 6 (`@codemirror/commands`, `@codemirror/lang-markdown`, `@codemirror/search`).
 - Internacionalizacao com `i18next` + `react-i18next`.
 - Build/desenvolvimento com `electron-vite`.
@@ -82,10 +88,19 @@ Projeto atual: Moji, aplicativo desktop Electron + React + TypeScript para abrir
 - Dialogos nativos de abrir, salvar como e exportar usam `settings.lastDialogDirectory`; lembrar diretorio apos operacao concluida ou caminho escolhido.
 - Guias Markdown em `samples/` abrem como documentos somente leitura; nao permitir edicao, salvar ou salvar como sobre recursos empacotados.
 - Novos documentos sem arquivo devem receber titulo localizado: o primeiro usa `app.untitled`; os seguintes usam o mesmo titulo com sequencia crescente.
-- Documentos sem arquivo usam rascunho interno de recuperacao por padrao; reabrem na proxima sessao e removem o rascunho ao salvar como arquivo, fechar a aba ou descartar.
+- Documentos sem arquivo usam rascunho interno de recuperacao por padrao (`settings.autoSave`); reabrem na proxima sessao e removem o rascunho ao salvar como arquivo, fechar a aba ou descartar. Edicoes sao gravadas via journal append-only (`draftJournal.ts`) sempre que possivel; cair para gravacao integral do rascunho apenas quando o journal reportar `out-of-sync` ou `unknown-draft`.
+- Recusa de gravacao de rascunho (`DraftPersistProblem`) deve sempre informar a razao (`memory-budget`/`disk-space`) e os numeros envolvidos (`requiredBytes`/`availableBytes`) para a UI, nunca um erro generico.
+- Abertura de documentos grandes usa leitura em stream por chunks (`documentStream.ts`) via `MessagePort`; abertura de multiplos arquivos usa `mapWithConcurrency` (`openPool.ts`) e reporta progresso incremental (`openManyProgress`/`openManyDone`).
 - Atalhos globais devem respeitar composicao de texto, prevenir comportamento padrao quando acionados e ter referencia localizada em Configuracoes.
 - Atalhos de formatacao Markdown pertencem ao keymap do CodeMirror; preservar selecao e foco apos aplicar a transformacao.
-- Exportacoes PDF e PNG devem quebrar linhas longas de blocos de codigo, sem cortar conteudo horizontalmente.
+- Exportacoes PDF e PNG devem quebrar linhas longas de blocos de codigo, sem cortar conteudo horizontalmente. A exportacao PNG usa fatias (`slice`/`slices`) codificadas por worker thread (`pngWorker.ts`), reportando progresso por fase (`ExportPhase`).
+- Metricas de performance (`PerformanceMetric`) nunca podem carregar conteudo de documento, caminhos de arquivo ou outros dados do usuario.
+
+## Split View
+
+- O split view (editor + preview lado a lado) so aparece durante edicao e e controlado por `settings.splitView`; a proporcao entre os paineis usa `settings.splitRatio` (20-80%, padrao 50%) e nao pode ser aplicada quando o workspace for menor que `SPLIT_MIN_WIDTH_PX`.
+- Rolagem do editor e do preview deve permanecer sincronizada no split view (`src/lib/splitScroll.ts`); a sincronizacao usa a posicao logica no documento, nao apenas pixels, para se manter correta apos re-render do preview (ex.: troca de tema).
+- Patches de DOM do preview (tema, highlight, mermaid) devem ser reaplicados apos qualquer re-render que substitua o HTML, inclusive dentro do split view.
 
 ## Modais e Dialogos
 
@@ -121,7 +136,7 @@ O padrao visual esta documentado em `.ai-framework/DESIGN.md`.
 - Manter chrome do app escuro; alternancia de tema vale para o preview Markdown. Exportacao (HTML/PDF/PNG) sempre usa o tema claro.
 - A fonte padrao de exibicao e `Inter`; nao alterar o valor padrao, remove-la das configuracoes ou troca-la por stack de sistema sem pedido explicito do usuario.
 - Reutilizar classes/componentes existentes antes de criar variacoes.
-- Manter layout compacto: top bar, abas de documentos, sidebar/outline, workspace e status bar.
+- Manter layout compacto: top bar, abas de documentos, sidebar/outline, workspace (editor, preview ou split view) e status bar.
 - Priorizar leitura, contraste, truncamento de textos longos e estados visuais previsiveis.
 - Nao usar cores, sombras, raios ou espacamentos soltos quando houver token existente.
 - Garantir que textos nao estourem botoes, abas, popovers ou dialogos.

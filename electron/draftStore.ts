@@ -344,7 +344,13 @@ export class DraftStore {
   private enqueue<T>(id: string, operation: () => Promise<T>): Promise<T> {
     const previous = this.draftQueues.get(id) ?? Promise.resolve()
     const queued = previous.then(operation, operation)
-    this.draftQueues.set(id, queued.then(() => undefined, () => undefined))
+    const settled = queued.then(() => undefined, () => undefined)
+    this.draftQueues.set(id, settled)
+    // Drop the entry once its queue is empty, or one map entry survives forever per draft
+    // ever seen, even after `removeDraft` retires the id for good.
+    void settled.then(() => {
+      if (this.draftQueues.get(id) === settled) this.draftQueues.delete(id)
+    })
     return queued
   }
 
@@ -435,7 +441,7 @@ export class DraftStore {
   private async shouldCompact(id: string, encoded: string): Promise<boolean> {
     try {
       const journal = await stat(this.journalFile(id))
-      return journal.size + encoded.length >= COMPACT_JOURNAL_BYTES
+      return journal.size + draftBytes(encoded) >= COMPACT_JOURNAL_BYTES
     } catch {
       return false
     }
@@ -449,6 +455,7 @@ export class DraftStore {
       // Manifest first: a crash before the unlink leaves an orphan file, which load() sweeps up.
       const next = this.mutateCache((drafts) => drafts.filter((draft) => draft.id !== id))
       this.bytes.delete(id)
+      this.order.delete(id)
       await this.writeManifest(this.manifestEntries(next))
       await removeIfPresent(this.contentFile(id))
       await removeIfPresent(this.journalFile(id))

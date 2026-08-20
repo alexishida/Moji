@@ -61,15 +61,25 @@ export function sanitizeDraft(value: unknown): AutoSaveDraft | null {
   return { id: value.id, title: value.title, content: value.content }
 }
 
+/** Characters Windows refuses in a file name, plus C0 control characters. `\` and `/` are
+ *  included so a title can only ever name a file inside the directory the user picked, never
+ *  escape it. */
+const INVALID_FILENAME_CHARS = /[<>:"/\\|?*\x00-\x1f]/g
+
 /**
- * Turns a renderer-supplied document title into a file name for the native save dialog.
+ * Makes `name` safe to use as a file name on Windows, macOS and Linux.
  *
- * Path separators are stripped rather than escaped, so a title can only ever name a file inside
- * the directory the user picked in the dialog.
+ * Windows also rejects a name ending in a dot or space; `.trim()` only covers the space, so a
+ * trailing run of dots is stripped separately.
  */
+export function sanitizeFileNameComponent(name: string): string {
+  return name.replace(INVALID_FILENAME_CHARS, '').trim().replace(/\.+$/, '')
+}
+
+/** Turns a renderer-supplied document title into a file name for the native save dialog. */
 export function suggestedMarkdownName(value: unknown): string {
   if (typeof value !== 'string') return 'untitled.md'
-  const name = value.replace(/[\\/]/g, '').trim()
+  const name = sanitizeFileNameComponent(value)
   if (!name) return 'untitled.md'
   return isMarkdown(name) ? name : `${name}.md`
 }

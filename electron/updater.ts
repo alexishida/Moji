@@ -57,6 +57,7 @@ export function createUpdateController(notify: StateListener): UpdateController 
   // electron-updater is CommonJS; default import avoids ESM interop failures in packaged builds.
   const updater: AppUpdater = electronUpdater.autoUpdater
   updater.allowPrerelease = false
+  updater.autoDownload = false
 
   updater.on('checking-for-update', () => {
     publish({ status: 'checking', error: undefined })
@@ -71,12 +72,28 @@ export function createUpdateController(notify: StateListener): UpdateController 
     publish({ status: 'error', error: errorMessage(error) })
   })
 
+  /**
+   * Upper bound on a check, so a hung network request cannot leave `status: 'checking'`
+   * forever — the guard below would otherwise refuse every later check indefinitely, and
+   * the settings screen would show its spinner with no way out of it.
+   */
+  const CHECK_TIMEOUT_MS = 20_000
+
   const check = async (): Promise<UpdateState> => {
     if (state.status === 'checking') return state
+    let settled = false
+    const timeout = setTimeout(() => {
+      if (!settled && state.status === 'checking') {
+        publish({ status: 'error', error: 'Update check timed out.' })
+      }
+    }, CHECK_TIMEOUT_MS)
     try {
       await updater.checkForUpdates()
     } catch (error) {
       publish({ status: 'error', error: errorMessage(error as Error) })
+    } finally {
+      settled = true
+      clearTimeout(timeout)
     }
     return state
   }

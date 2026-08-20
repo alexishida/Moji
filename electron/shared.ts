@@ -82,10 +82,6 @@ export interface DocumentMetadata {
   sizeProfile: DocumentSizeProfile
 }
 
-export interface DocumentPayload extends DocumentMetadata {
-  content: string
-}
-
 /**
  * Chunked document delivery over a `MessagePort`. Content crosses the process boundary as UTF-8
  * bytes, so main never materializes the UTF-16 string that `invoke` would have to clone, and its
@@ -150,12 +146,19 @@ export type OpenDialogResult =
   | { ok: true; sessionId: string; total: number }
   | { ok: false; canceled?: boolean; error?: string }
 
-/** One file finishing (successfully or not) within an open-many session. */
+/**
+ * One file finishing (successfully or not) within an open-many session.
+ *
+ * Only metadata: content crosses the process boundary in exactly one place, the streamed
+ * `readPathStream` read every other open already uses. The renderer pulls each file's bytes
+ * through that same path once it sees the metadata here, instead of a second copy riding
+ * along this push.
+ */
 export interface OpenManyProgress {
   sessionId: string
   completed: number
   total: number
-  document?: DocumentPayload
+  document?: DocumentMetadata
   error?: string
 }
 
@@ -262,6 +265,8 @@ export const IPC = {
   getUpdateState: 'update:get-state',
   checkForUpdate: 'update:check',
   getPerformanceReport: 'performance:get-report',
+  /** Renderer -> main: the app-shell effect that listens for pushed documents is mounted. */
+  rendererReady: 'app:renderer-ready',
   // main -> renderer push channels
   requestClose: 'app:request-close',
   openDocument: 'doc:open',

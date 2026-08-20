@@ -13,24 +13,8 @@
     "closeSaved": "Cerrar guardadas",
     "closeAll": "Cerrar todas"
   },
-  "menu": {
-    "file": "Archivo",
-    "open": "Abrir…",
-    "save": "Guardar",
-    "saveAs": "Guardar como…",
-    "export": "Exportar",
-    "exportHtml": "Exportar como HTML…",
-    "exportPdf": "Exportar como PDF…",
-    "quit": "Salir",
-    "view": "Ver",
-    "toggleEdit": "Alternar edición",
-    "toggleTheme": "Alternar tema",
-    "language": "Idioma"
-  },
   "toolbar": {
     "open": "Abrir",
-    "edit": "Editar",
-    "view": "Ver",
     "preview": "Vista previa",
     "editor": "Editor",
     "viewMode": "Modo de vista",
@@ -46,8 +30,6 @@
     "occurrences": "Coincidencias",
     "close": "Cerrar",
     "export": "Exportar",
-    "exportHtml": "Exportar como HTML",
-    "exportPdf": "Exportar como PDF",
     "theme": "Tema",
     "themeLight": "Modo claro",
     "themeDark": "Modo oscuro",
@@ -65,15 +47,10 @@
     "resizeSplit": "Redimensionar los paneles",
     "settings": "Ajustes",
     "about": "Acerca de",
-    "more": "Más acciones",
     "language": "Idioma"
   },
   "sidebar": {
-    "library": "Biblioteca",
-    "localStorage": "Almacenamiento local",
-    "documents": "Documentos",
     "outline": "Esquema",
-    "help": "Ayuda",
     "expand": "Expandir",
     "collapse": "Contraer",
     "expandAll": "Expandir todo",
@@ -84,13 +61,9 @@
   "statusbar": {
     "brand": "Moji v{{version}}",
     "guide": "Guía de Markdown",
-    "exportPdf": "Exportar PDF",
     "lineCount": "Líneas: {{count}}",
     "tokenCount": "Tokens: {{count}}",
     "wordCount": "Palabras: {{count}}"
-  },
-  "help": {
-    "hint": "Abre o suelta un archivo .md, cambia entre Vista previa/Editor en las pestañas superiores y usa el esquema para saltar entre encabezados."
   },
   "preview": {
     "copyCode": "Copiar código",
@@ -131,7 +104,6 @@
   "welcome": {
     "tagline": "Un lector de Markdown ligero y sencillo",
     "title": "Moji v{{version}}",
-    "subtitle": "Abre un archivo Markdown para leerlo de forma limpia.",
     "openButton": "Abrir archivo",
     "newButton": "Nuevo archivo",
     "dropHint": "o suelta un archivo .md en cualquier parte de esta ventana",
@@ -168,6 +140,7 @@
     "general": "General",
     "preview": "Vista previa",
     "editor": "Editor",
+    "shortcutOr": "o",
     "shortcuts": "Atajos",
     "fontFamily": "Fuente",
     "fontSize": "Tamaño de fuente",
@@ -212,7 +185,8 @@
       "checklist": "Alternar checklist",
       "codeBlock": "Insertar bloque de código",
       "indent": "Aumentar sangría",
-      "outdent": "Reducir sangría"
+      "outdent": "Reducir sangría",
+      "exitFocus": "Salir del foco del editor"
     }
   },
   "aboutDialog": {

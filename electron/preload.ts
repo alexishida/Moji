@@ -111,6 +111,9 @@ const api = {
   exportDiagramPng: (request: DiagramPngRequest): Promise<WriteResult> =>
     ipcRenderer.invoke(IPC.exportDiagramPng, request),
   confirmClose: (shouldClose: boolean): Promise<void> => ipcRenderer.invoke(IPC.confirmClose, shouldClose),
+  /** Tells main the `onOpenDocument` listener is live, so a document opened by the OS while
+   *  the window was still loading is delivered instead of silently dropped. */
+  notifyReady: (): void => ipcRenderer.send(IPC.rendererReady),
   getUpdateState: (): Promise<UpdateState> => ipcRenderer.invoke(IPC.getUpdateState),
   checkForUpdate: (): Promise<UpdateState> => ipcRenderer.invoke(IPC.checkForUpdate),
   getPerformanceReport: (): Promise<PerformanceReport> => ipcRenderer.invoke(IPC.getPerformanceReport),

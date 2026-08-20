@@ -109,6 +109,7 @@ export async function createPngFileWriter(
     await handle.write(imageHeader(0, 0))
 
     const deflate = createDeflate()
+    let pumpError: Error | null = null
 
     // Consuming the stream with `for await` applies backpressure and keeps the IDAT
     // chunks in order: the next compressed block is only pulled once the previous one
@@ -120,11 +121,43 @@ export async function createPngFileWriter(
     })()
 
     // A rejected pump with no attached handler would surface as an unhandled rejection
-    // before `finish` gets to await it.
-    pump.catch(() => undefined)
+    // before `finish` gets to await it. Destroying `deflate` with the error also wakes any
+    // `write()` still waiting on `drain`: breaking out of `for await` on a write failure
+    // (e.g. disk full) does not by itself make the writable side emit anything, so without
+    // this a pending slice would hang forever instead of failing the export.
+    pump.catch((err: Error) => {
+      pumpError = err
+      if (!deflate.destroyed) deflate.destroy(err)
+    })
 
-    const write = (bytes: Buffer): Promise<void> =>
-      deflate.write(bytes) ? Promise.resolve() : new Promise((resolve) => deflate.once('drain', () => resolve()))
+    const write = (bytes: Buffer): Promise<void> => {
+      if (deflate.destroyed) return Promise.reject(pumpError ?? new Error('PNG export stream closed'))
+      if (deflate.write(bytes)) return Promise.resolve()
+      return new Promise((resolve, reject) => {
+        const cleanup = (): void => {
+          deflate.off('drain', onDrain)
+          deflate.off('error', onError)
+          deflate.off('close', onClose)
+        }
+        const onDrain = (): void => {
+          cleanup()
+          resolve()
+        }
+        const onError = (err: Error): void => {
+          cleanup()
+          reject(err)
+        }
+        // `destroy()` without a synchronous listener error can settle as `close` alone on
+        // some Node versions; either event must resolve this promise.
+        const onClose = (): void => {
+          cleanup()
+          reject(pumpError ?? new Error('PNG export stream closed'))
+        }
+        deflate.once('drain', onDrain)
+        deflate.once('error', onError)
+        deflate.once('close', onClose)
+      })
+    }
 
     return {
       async addSlice(bgra, width, height) {

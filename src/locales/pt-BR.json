@@ -13,24 +13,8 @@
     "closeSaved": "Fechar Salvos",
     "closeAll": "Fechar Tudo"
   },
-  "menu": {
-    "file": "Arquivo",
-    "open": "Abrir…",
-    "save": "Salvar",
-    "saveAs": "Salvar como…",
-    "export": "Exportar",
-    "exportHtml": "Exportar como HTML…",
-    "exportPdf": "Exportar como PDF…",
-    "quit": "Sair",
-    "view": "Exibir",
-    "toggleEdit": "Alternar edição",
-    "toggleTheme": "Alternar tema",
-    "language": "Idioma"
-  },
   "toolbar": {
     "open": "Abrir",
-    "edit": "Editar",
-    "view": "Visualizar",
     "preview": "Visualizar",
     "editor": "Editar",
     "viewMode": "Modo de exibição",
@@ -46,8 +30,6 @@
     "occurrences": "Ocorrências",
     "close": "Fechar",
     "export": "Exportar",
-    "exportHtml": "Exportar como HTML",
-    "exportPdf": "Exportar como PDF",
     "theme": "Tema",
     "themeLight": "Modo claro",
     "themeDark": "Modo escuro",
@@ -65,15 +47,10 @@
     "resizeSplit": "Redimensionar os painéis",
     "settings": "Configurações",
     "about": "Sobre",
-    "more": "Mais ações",
     "language": "Idioma"
   },
   "sidebar": {
-    "library": "Biblioteca",
-    "localStorage": "Armazenamento local",
-    "documents": "Documentos",
     "outline": "Sumário",
-    "help": "Ajuda",
     "expand": "Expandir",
     "collapse": "Recolher",
     "expandAll": "Expandir tudo",
@@ -84,13 +61,9 @@
   "statusbar": {
     "brand": "Moji v{{version}}",
     "guide": "Guia de Markdown",
-    "exportPdf": "Exportar PDF",
     "lineCount": "Linhas: {{count}}",
     "tokenCount": "Tokens: {{count}}",
     "wordCount": "Palavras: {{count}}"
-  },
-  "help": {
-    "hint": "Abra ou solte um arquivo .md, alterne entre Visualizar/Editor nas abas superiores e use o sumário para navegar entre os títulos."
   },
   "preview": {
     "copyCode": "Copiar código",
@@ -131,7 +104,6 @@
   "welcome": {
     "tagline": "Um leitor de Markdown leve e simples",
     "title": "Moji v{{version}}",
-    "subtitle": "Abra um Markdown para ler com clareza, sem distrações.",
     "openButton": "Abrir arquivo",
     "newButton": "Novo Arquivo",
     "dropHint": "ou arraste um arquivo .md para esta janela",
@@ -168,6 +140,7 @@
     "general": "Geral",
     "preview": "Visualizar",
     "editor": "Editar",
+    "shortcutOr": "ou",
     "shortcuts": "Atalhos",
     "fontFamily": "Fonte",
     "fontSize": "Tamanho da fonte",
@@ -212,7 +185,8 @@
       "checklist": "Alternar checklist",
       "codeBlock": "Inserir bloco de código",
       "indent": "Aumentar recuo",
-      "outdent": "Diminuir recuo"
+      "outdent": "Diminuir recuo",
+      "exitFocus": "Sair do foco do editor"
     }
   },
   "aboutDialog": {

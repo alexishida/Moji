@@ -77,10 +77,11 @@ function texmathWithoutFallbackKatex(): Plugin {
 
 /**
  * Exposes `virtual:katex-fonts-css`: KaTeX's stylesheet with every woff2 font
- * inlined as a base64 data URI. The export path loads its HTML from a `data:`
- * URL, where KaTeX's relative `url(fonts/…)` references cannot resolve, so the
- * fonts must travel inside the CSS for exported HTML/PDF/PNG to render math
- * faithfully. The woff/ttf fallbacks are dropped (Chromium always picks woff2).
+ * inlined as a base64 data URI. HTML/PDF/PNG export writes a standalone document to a
+ * temporary file and loads that, so it carries no reference back to the app's own asset
+ * directory — KaTeX's relative `url(fonts/…)` references would have nothing to resolve
+ * against there, so the fonts must travel inside the CSS itself for exported math to
+ * render faithfully. The woff/ttf fallbacks are dropped (Chromium always picks woff2).
  */
 function katexEmbeddedFonts(): Plugin {
   const virtualId = 'virtual:katex-fonts-css'

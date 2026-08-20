@@ -201,9 +201,16 @@ function localAssetUrl(fileUrl: string): string {
   return `moji-asset://local/${encodeURIComponent(fileUrlToPath(fileUrl))}`
 }
 
+/** `C:\...` or `C:/...` — an absolute Windows path, not a URL with scheme `c:`. */
+const WINDOWS_ABSOLUTE_PATH = /^[A-Za-z]:[\\/]/
+
 function resolveLocalUrl(source: string, documentPath: string | null | undefined): string | null {
   const baseUrl = documentAssetBaseUrl(documentPath)
   if (!baseUrl) return null
+  // Checked first: the generic scheme test below matches "C:" as if it were a URL scheme
+  // (like "http:"), so an absolute Windows path would otherwise be returned untouched
+  // instead of becoming a `file:` URL, and the image would never resolve.
+  if (WINDOWS_ABSOLUTE_PATH.test(source)) return filePathToFileUrl(source)
   if (/^[a-z][a-z\d+.-]*:/i.test(source)) return source
 
   try {

@@ -13,24 +13,8 @@
     "closeSaved": "Закрыть сохранённые",
     "closeAll": "Закрыть все"
   },
-  "menu": {
-    "file": "Файл",
-    "open": "Открыть…",
-    "save": "Сохранить",
-    "saveAs": "Сохранить как…",
-    "export": "Экспорт",
-    "exportHtml": "Экспорт в HTML…",
-    "exportPdf": "Экспорт в PDF…",
-    "quit": "Выход",
-    "view": "Вид",
-    "toggleEdit": "Переключить редактирование",
-    "toggleTheme": "Переключить тему",
-    "language": "Язык"
-  },
   "toolbar": {
     "open": "Открыть",
-    "edit": "Правка",
-    "view": "Вид",
     "preview": "Просмотр",
     "editor": "Редактор",
     "viewMode": "Режим просмотра",
@@ -46,8 +30,6 @@
     "occurrences": "Совпадения",
     "close": "Закрыть",
     "export": "Экспорт",
-    "exportHtml": "Экспорт в HTML",
-    "exportPdf": "Экспорт в PDF",
     "theme": "Тема",
     "themeLight": "Светлая тема",
     "themeDark": "Тёмная тема",
@@ -65,15 +47,10 @@
     "resizeSplit": "Изменить размер панелей",
     "settings": "Настройки",
     "about": "О программе",
-    "more": "Другие действия",
     "language": "Язык"
   },
   "sidebar": {
-    "library": "Библиотека",
-    "localStorage": "Локальное хранилище",
-    "documents": "Документы",
     "outline": "Структура",
-    "help": "Справка",
     "expand": "Развернуть",
     "collapse": "Свернуть",
     "expandAll": "Развернуть все",
@@ -84,13 +61,9 @@
   "statusbar": {
     "brand": "Moji v{{version}}",
     "guide": "Руководство по Markdown",
-    "exportPdf": "Экспорт в PDF",
     "lineCount": "Строк: {{count}}",
     "tokenCount": "Токенов: {{count}}",
     "wordCount": "Слов: {{count}}"
-  },
-  "help": {
-    "hint": "Откройте или перетащите файл .md, переключайте Просмотр/Редактор через верхние вкладки и используйте структуру для перехода между заголовками."
   },
   "preview": {
     "copyCode": "Копировать код",
@@ -131,7 +104,6 @@
   "welcome": {
     "tagline": "Лёгкая и простая программа для чтения Markdown",
     "title": "Moji v{{version}}",
-    "subtitle": "Откройте файл Markdown, чтобы читать его в удобном виде.",
     "openButton": "Открыть файл",
     "newButton": "Новый файл",
     "dropHint": "или перетащите файл .md в это окно",
@@ -168,6 +140,7 @@
     "general": "Общие",
     "preview": "Просмотр",
     "editor": "Редактор",
+    "shortcutOr": "или",
     "shortcuts": "Горячие клавиши",
     "fontFamily": "Шрифт",
     "fontSize": "Размер шрифта",
@@ -212,7 +185,8 @@
       "checklist": "Переключить чеклист",
       "codeBlock": "Вставить блок кода",
       "indent": "Увеличить отступ",
-      "outdent": "Уменьшить отступ"
+      "outdent": "Уменьшить отступ",
+      "exitFocus": "Снять фокус с редактора"
     }
   },
   "aboutDialog": {

@@ -101,6 +101,28 @@ interface DocumentInput {
   sizeProfile?: DocumentSizeProfile
 }
 
+/**
+ * State for one open-dialog batch. Main only ever pushes metadata (`IPC.openManyProgress`); the
+ * queue below holds paths waiting for their content to be pulled through the same streamed
+ * `readPath` a single open uses, one at a time, so a huge selection never opens dozens of
+ * concurrent reads.
+ */
+interface OpenManySessionState {
+  showProgress: boolean
+  /** Paths successfully opened so far, for `rememberRecent` once the session finishes. */
+  paths: string[]
+  /** Metadata received from main but not yet read for content. */
+  queue: string[]
+  /** True while `drainOpenManyQueue` is already working through this session's queue. */
+  draining: boolean
+  /** True once main's own pass (`IPC.openManyDone`) is over — nothing more will be queued. */
+  metaDone: boolean
+  /** Documents actually opened (content delivered) or confirmed failed; drives the progress bar. */
+  delivered: number
+  total: number
+  errors: string[]
+}
+
 // `draftSavedRevision === null` means no draft snapshot exists on disk yet; that is only
 // dirty once the document has actually been edited (revision > 0). A freshly created or
 // just-restored draft with revision 0 has nothing to flush.
@@ -162,6 +184,17 @@ function markdownFileName(name: string): string {
   return /\.(md|markdown)$/i.test(name) ? name : `${name}.md`
 }
 
+/**
+ * True only when a path is confirmed gone or never was a document — not for a permission
+ * error, a busy/locked file, a network share timing out, or the IPC read itself timing out.
+ * Only this case should drop a path from the recent-files list; anything else is transient
+ * and the entry should survive to be tried again.
+ */
+function isMissingDocumentError(error: string | undefined): boolean {
+  if (!error) return false
+  return error === 'unsupported' || /\bENOENT\b|\bENOTDIR\b/.test(error)
+}
+
 function replaceTextLiteral(
   text: string,
   search: string,
@@ -198,6 +231,15 @@ export function App(): JSX.Element {
 
   const { settings, setSettings, mdTheme, setMdTheme } = useSettingsState()
   const { documents, setDocuments, activeDocId, setActiveDocId, mode, setMode, activeDoc } = useDocumentState()
+  // `documents` gets a new array reference on every keystroke (content/revision changes), but
+  // the *set* of open ids rarely does. Editor's cache-eviction effect keys off this array, so
+  // keeping its reference stable when only unrelated fields changed saves it from re-running
+  // (and rebuilding a Set from it) on every edit.
+  const documentIdsKey = documents.map((doc) => doc.id).join(' ')
+  const documentIds = useMemo(
+    () => (documentIdsKey ? documentIdsKey.split(' ') : []),
+    [documentIdsKey]
+  )
   const { searchTerm, setSearchTerm, activeSearchIndex, setActiveSearchIndex, editorSearchMatchCount, setEditorSearchMatchCount, previewSearchMatchCount, setPreviewSearchMatchCount } = useSearchState()
   const [editorOutline, setEditorOutline] = useState<OutlineItem[]>([])
   const [previewState, setPreviewState] = useState<{
@@ -209,7 +251,11 @@ export function App(): JSX.Element {
   const [notice, setNotice] = useState<{ text: string; error?: boolean } | null>(null)
   const [openProgress, setOpenProgress] = useState<{ completed: number; total: number; canceling: boolean } | null>(null)
   const [exportProgress, setExportProgress] = useState<{ progress: ExportProgressState; canceling: boolean } | null>(null)
-  const openSessionRef = useRef<{ sessionId: string; showProgress: boolean; paths: string[] } | null>(null)
+  // Keyed by sessionId: a new batch opened while a previous one is still delivering files must
+  // not drop that batch's remaining documents, so every in-flight session is tracked, not just
+  // the latest.
+  const openSessionsRef = useRef<Map<string, OpenManySessionState>>(new Map())
+  const activeOpenSessionIdRef = useRef<string | null>(null)
   const { updateState, setUpdateState, dismissedUpdate, setDismissedUpdate } = useUpdateState()
   const [activeHeadingId, setActiveHeadingId] = useState<string | null>(null)
   const [editorHeadingRequest, setEditorHeadingRequest] = useState<{ line: number; request: number } | null>(null)
@@ -246,8 +292,11 @@ export function App(): JSX.Element {
   const panelOpen = exportDialogFormat !== null || settingsOpen || aboutOpen
   /** Two panes below this width leave neither of them readable. */
   const splitFits = workspaceWidth >= SPLIT_MIN_WIDTH_PX
-  const canToggleSplit = hasDoc && activeDoc?.readOnly !== true && !panelOpen && splitFits && mode === 'edit'
-  const splitActive = canToggleSplit && settings.splitView
+  // Deliberately independent of `mode`: the split toggle stays enabled while viewing so it can
+  // be turned on from there (see `toggleSplitView`), instead of only working after the user has
+  // already discovered they need to switch to edit mode first.
+  const canToggleSplit = hasDoc && activeDoc?.readOnly !== true && !panelOpen && splitFits
+  const splitActive = mode === 'edit' && canToggleSplit && settings.splitView
   const previewVisible = mode === 'view' || splitActive
 
   const debouncedContent = useDebounced(content, previewSchedule.debounceMs)
@@ -568,6 +617,26 @@ export function App(): JSX.Element {
         setMdTheme(s.previewTheme)
         void i18n.changeLanguage(s.language)
         if (drafts.length > 0) {
+          // `doNew` numbers new untitled documents from `nextUntitledSeq`; a restored draft
+          // named "Untitled" or "Untitled N" must push that counter past N, or the next new
+          // document reuses a name already on screen. `i18n.changeLanguage` above is async and
+          // has not resolved yet, so `t()` would still answer in the language active before
+          // this load — `getFixedT` reads the saved language's resources directly instead.
+          const untitledBase = i18n.getFixedT(s.language)('app.untitled')
+          let maxRestoredSeq = 0
+          for (const draft of drafts) {
+            let seq = 0
+            if (draft.title === untitledBase) seq = 1
+            else if (draft.title.startsWith(`${untitledBase} `)) {
+              const parsed = Number(draft.title.slice(untitledBase.length + 1))
+              if (Number.isInteger(parsed) && parsed > 0) seq = parsed
+            }
+            if (seq > maxRestoredSeq) maxRestoredSeq = seq
+          }
+          if (maxRestoredSeq > 0) {
+            nextUntitledSeq.current = Math.max(nextUntitledSeq.current, maxRestoredSeq + 1)
+          }
+
           addDocuments(
             drafts.map((draft) => ({
               path: null,
@@ -862,7 +931,17 @@ export function App(): JSX.Element {
     }
     materializeEditorContent()
     const showProgress = res.total >= LARGE_OPEN_SELECTION_THRESHOLD
-    openSessionRef.current = { sessionId: res.sessionId, showProgress, paths: [] }
+    openSessionsRef.current.set(res.sessionId, {
+      showProgress,
+      paths: [],
+      queue: [],
+      draining: false,
+      metaDone: false,
+      delivered: 0,
+      total: res.total,
+      errors: []
+    })
+    activeOpenSessionIdRef.current = res.sessionId
     setOpenProgress(showProgress ? { completed: 0, total: res.total, canceling: false } : null)
   }, [flash, materializeEditorContent, t])
 
@@ -872,16 +951,16 @@ export function App(): JSX.Element {
   }, [])
 
   const cancelOpenMany = useCallback(() => {
-    const session = openSessionRef.current
-    if (!session) return
+    const sessionId = activeOpenSessionIdRef.current
+    if (!sessionId) return
     setOpenProgress((prev) => (prev ? { ...prev, canceling: true } : prev))
-    void window.api.cancelOpenMany(session.sessionId)
+    void window.api.cancelOpenMany(sessionId)
   }, [])
 
   const openPaths = useCallback(
     async (paths: string[]) => {
       const opened: DocumentInput[] = []
-      const failed: string[] = []
+      const missing: string[] = []
       for (const path of paths) {
         // Covers the whole delivery: main's chunked read, IPC, and streaming UTF-8 decode.
         const finishMeasure = beginRendererMeasure('document:ipc-delivery')
@@ -889,19 +968,63 @@ export function App(): JSX.Element {
         finishMeasure({ sizeBytes: res.ok ? res.sizeBytes : 0 })
         if (res.ok) opened.push({ path: res.path, content: res.content, sizeProfile: res.sizeProfile })
         else {
-          failed.push(path)
           if (res.error === 'unsupported') flash(t('notice.unsupported'), true)
           else flash(t('notice.openFailed', { error: res.error }), true)
+          // A transient failure (permission, a network share timing out, the IPC read's own
+          // timeout) must not remove the path — only a file confirmed gone or never a document.
+          if (isMissingDocumentError(res.error)) missing.push(path)
         }
       }
       materializeEditorContent()
       addDocuments(opened)
       rememberRecent(opened.map((doc) => doc.path))
-      // Drop paths that no longer open (e.g. a recent file that was moved/deleted).
-      forgetRecent(failed)
+      forgetRecent(missing)
     },
     [addDocuments, flash, forgetRecent, materializeEditorContent, rememberRecent, t]
   )
+
+  /** Ends and clears one open-many session once main is done and its content queue is drained. */
+  const finishOpenManySession = useCallback((sessionId: string) => {
+    const session = openSessionsRef.current.get(sessionId)
+    if (!session || !session.metaDone || session.draining || session.queue.length > 0) return
+    openSessionsRef.current.delete(sessionId)
+    if (activeOpenSessionIdRef.current === sessionId) {
+      activeOpenSessionIdRef.current = null
+      setOpenProgress(null)
+    }
+    if (session.paths.length > 0) rememberRecent(session.paths)
+    if (session.errors.length > 0) flash(t('notice.openFailed', { error: session.errors[0] }), true)
+  }, [flash, rememberRecent, t])
+
+  /**
+   * Pulls one open-many session's queued paths one at a time through the streamed `readPath`
+   * a single open already uses — the only place document content crosses into the renderer.
+   * Serialized per session so a huge selection never opens many concurrent streamed reads at once.
+   */
+  const drainOpenManyQueue = useCallback(async (sessionId: string) => {
+    const session = openSessionsRef.current.get(sessionId)
+    if (!session || session.draining) return
+    session.draining = true
+    try {
+      while (session.queue.length > 0) {
+        const path = session.queue.shift() as string
+        const res = await window.api.readPath(path)
+        if (res.ok) {
+          addDocuments([{ path: res.path, content: res.content, sizeProfile: res.sizeProfile }])
+          session.paths.push(res.path)
+        } else if (res.error) {
+          session.errors.push(res.error)
+        }
+        session.delivered += 1
+        if (session.showProgress && activeOpenSessionIdRef.current === sessionId) {
+          setOpenProgress((prev) => (prev ? { ...prev, completed: session.delivered, total: session.total } : prev))
+        }
+      }
+    } finally {
+      session.draining = false
+      finishOpenManySession(sessionId)
+    }
+  }, [addDocuments, finishOpenManySession])
 
   const openRecent = useCallback((path: string) => void openPaths([path]), [openPaths])
 
@@ -1265,8 +1388,16 @@ export function App(): JSX.Element {
   const toggleSplitView = useCallback(() => {
     const s = stateRef.current
     if (!s.canToggleSplit) return
+    // Turning split on from view mode switches to edit in the same action: split view has
+    // nothing to show without the editor pane, so a bare toggle there would do nothing and
+    // leave the user to discover the mode switch is required on their own.
+    if (s.mode !== 'edit') {
+      setModeSafe('edit')
+      if (!s.splitView) changeSettings({ splitView: true })
+      return
+    }
     changeSettings({ splitView: !s.splitView })
-  }, [changeSettings])
+  }, [changeSettings, setModeSafe])
 
   const changeSplitRatio = useCallback(
     (ratio: number) => changeSettings({ splitRatio: ratio }),
@@ -1551,6 +1682,15 @@ export function App(): JSX.Element {
         focusReplace()
         return
       }
+      // Alternate binding for the same find next/previous F3 already drives. CodeMirror's own
+      // search keymap claims Mod-g, so the editor drops that binding (see Editor.tsx's
+      // `appOwnedSearchKeys`) and this handler is what actually answers it.
+      if (key === 'g') {
+        event.preventDefault()
+        if (event.shiftKey) doFindPrevious()
+        else doFindNext()
+        return
+      }
       if (key === 'e' && event.shiftKey) {
         event.preventDefault()
         openExportDialog('pdf')
@@ -1629,15 +1769,24 @@ export function App(): JSX.Element {
     const offDoc = window.api.onOpenDocument((doc) => {
       void openPaths([doc.path])
     })
+    // Tells main this listener is live: a document opened by the OS while the window was
+    // still loading is held there until this fires, instead of being sent into the void.
+    window.api.notifyReady()
     const offProgress = window.api.onOpenManyProgress((progress) => {
-      const session = openSessionRef.current
-      if (!session || session.sessionId !== progress.sessionId) return
+      const session = openSessionsRef.current.get(progress.sessionId)
+      if (!session) return
       if (progress.document) {
-        addDocuments([{ path: progress.document.path, content: progress.document.content, sizeProfile: progress.document.sizeProfile }])
-        session.paths.push(progress.document.path)
+        // Metadata only; queue it so `drainOpenManyQueue` pulls the actual bytes one at a time.
+        session.queue.push(progress.document.path)
+        void drainOpenManyQueue(progress.sessionId)
+        return
       }
-      if (session.showProgress) {
-        setOpenProgress((prev) => (prev ? { ...prev, completed: progress.completed, total: progress.total } : prev))
+      if (progress.error) session.errors.push(progress.error)
+      // A file main could not even stat never reaches the queue, so it has to bump the
+      // progress bar here or it would stall short of `total`.
+      session.delivered += 1
+      if (session.showProgress && activeOpenSessionIdRef.current === progress.sessionId) {
+        setOpenProgress((prev) => (prev ? { ...prev, completed: session.delivered, total: session.total } : prev))
       }
     })
     const offExport = window.api.onExportProgress((progress) => {
@@ -1645,12 +1794,13 @@ export function App(): JSX.Element {
       setExportProgress((prev) => (prev ? { ...prev, progress } : prev))
     })
     const offDone = window.api.onOpenManyDone((done) => {
-      const session = openSessionRef.current
-      if (!session || session.sessionId !== done.sessionId) return
-      openSessionRef.current = null
-      setOpenProgress(null)
-      if (session.paths.length > 0) rememberRecent(session.paths)
-      if (done.errors.length > 0) flash(t('notice.openFailed', { error: done.errors[0] }), true)
+      const session = openSessionsRef.current.get(done.sessionId)
+      if (!session) return
+      session.metaDone = true
+      session.errors.push(...done.errors)
+      // The queue may still hold entries whose content hasn't been pulled yet — this only
+      // finalizes the session once `drainOpenManyQueue` has actually emptied it.
+      finishOpenManySession(done.sessionId)
     })
     return () => {
       offExport()
@@ -1659,7 +1809,7 @@ export function App(): JSX.Element {
       offProgress()
       offDone()
     }
-  }, [confirmAnyUnsaved, addDocuments, openPaths, rememberRecent, flash, t])
+  }, [confirmAnyUnsaved, drainOpenManyQueue, finishOpenManySession, openPaths])
 
   // --- Drag & drop -------------------------------------------------------
   const onDrop = useCallback(
@@ -1734,8 +1884,8 @@ export function App(): JSX.Element {
         activeSearchIndex={activeSearchIndex}
         canToggleTheme={canToggleMdTheme()}
         fontSize={activeFontSize}
-        minFontSize={mode === 'edit' ? MIN_EDITOR_FONT_SIZE : MIN_PREVIEW_FONT_SIZE}
-        maxFontSize={mode === 'edit' ? MAX_EDITOR_FONT_SIZE : MAX_PREVIEW_FONT_SIZE}
+        minFontSize={fontTarget === 'editor' ? MIN_EDITOR_FONT_SIZE : MIN_PREVIEW_FONT_SIZE}
+        maxFontSize={fontTarget === 'editor' ? MAX_EDITOR_FONT_SIZE : MAX_PREVIEW_FONT_SIZE}
         defaultFontSize={defaultFontSize}
         canAdjustFontSize={canAdjustFontSize()}
         onFontSizeChange={changeFontSize}
@@ -1831,7 +1981,7 @@ export function App(): JSX.Element {
                     <Editor
                       ref={editorRef}
                       documentId={activeDoc.id}
-                      documentIds={documents.map((doc) => doc.id)}
+                      documentIds={documentIds}
                       value={content}
                       theme={'dark'}
                       fontSize={settings.editorFontSize}
