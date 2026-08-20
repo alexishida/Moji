@@ -18,6 +18,7 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ### Fixed
 
 - PDF export no longer passes `marginType`, dropped from Electron's `printToPDF` API; margins keep the same 1cm default.
+- `npm install` downloads the Electron binary again. Electron removed its own `postinstall` hook in 42.0.0, so a fresh install left `node_modules/electron` without a `dist/` and `npm run dev` died with `Error: Electron uninstall`.
 
 ## [1.0.5] - 2026-08-05
 
