@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { PREVIEW_WIDTH_DEFAULT, type DocumentSizeProfile, type ExportFormat, type Settings, type Theme, type UpdateState } from '../../electron/shared'
+import { PREVIEW_WIDTH_DEFAULT, SPLIT_RATIO_DEFAULT, type DocumentSizeProfile, type ExportFormat, type Settings, type Theme, type UpdateState } from '../../electron/shared'
 import packageJson from '../../package.json'
 
 export interface WorkspaceDocument {
@@ -19,7 +19,7 @@ export interface WorkspaceDocument {
 export function useSettingsState() {
   const [settings, setSettings] = useState<Settings>({
     theme: 'dark', previewTheme: 'dark', language: 'en', previewFontFamily: 'Inter', previewFontSize: 16, editorFontSize: 14,
-    previewLineHeight: 1.7, previewFluidWidth: false, previewWidth: PREVIEW_WIDTH_DEFAULT, autoSave: true, recentFiles: []
+    previewLineHeight: 1.7, previewFluidWidth: false, splitView: false, splitRatio: SPLIT_RATIO_DEFAULT, previewWidth: PREVIEW_WIDTH_DEFAULT, autoSave: true, recentFiles: []
   })
   const [mdTheme, setMdTheme] = useState<Theme>('dark')
   return { settings, setSettings, mdTheme, setMdTheme }

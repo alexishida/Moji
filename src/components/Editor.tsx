@@ -1,4 +1,4 @@
-import { forwardRef, useEffect, useImperativeHandle, useRef, type CSSProperties } from 'react'
+import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, type CSSProperties } from 'react'
 import { Decoration, type Command, type DecorationSet, EditorView, keymap, lineNumbers } from '@codemirror/view'
 import { Annotation, EditorSelection, EditorState, Compartment, RangeSetBuilder, StateEffect, StateField } from '@codemirror/state'
 import { defaultKeymap, history, historyKeymap } from '@codemirror/commands'
@@ -30,11 +30,15 @@ interface EditorProps {
   onIdleStatsChange: (documentId: string, stats: EditorIdleStats) => void
   onOutlineChange: (documentId: string, outline: OutlineItem[]) => void
   onBlur: () => void
+  /** First source line showing in the viewport, used to follow along in the live preview. */
+  onVisibleLineChange?: (line: number) => void
 }
 
 export interface EditorHandle {
   getContent: () => string
   replaceContent: (content: string) => void
+  /** Zero-based source line at the top of the viewport. */
+  getTopVisibleLine: () => number
 }
 
 export interface EditorDocumentStats {
@@ -240,6 +244,13 @@ const externalSearchHighlight = StateField.define<{
   provide: (field) => EditorView.decorations.from(field, (value) => value.decorations)
 })
 
+/** Reads layout, so it must never run while CodeMirror is applying an update. */
+function topVisibleLine(view: EditorView): number {
+  const rect = view.scrollDOM.getBoundingClientRect()
+  const position = view.posAtCoords({ x: rect.left + 1, y: rect.top + 1 }, false)
+  return view.state.doc.lineAt(position).number - 1
+}
+
 function activeElementAcceptsText(): boolean {
   const element = document.activeElement
   if (!(element instanceof HTMLElement)) return false
@@ -272,7 +283,7 @@ function countIdleStats(state: EditorState): EditorIdleStats {
 }
 
 /** CodeMirror 6 Markdown source editor with theme-aware styling. */
-export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor({ documentId, value, theme, fontSize, searchTerm, activeSearchIndex, highlightActive, headingToReveal, outlineVisible, onSearchMatchCountChange, onChange, onEdits, onIdleStatsChange, onOutlineChange, onBlur }, ref): JSX.Element {
+export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor({ documentId, value, theme, fontSize, searchTerm, activeSearchIndex, highlightActive, headingToReveal, outlineVisible, onSearchMatchCountChange, onChange, onEdits, onIdleStatsChange, onOutlineChange, onBlur, onVisibleLineChange }, ref): JSX.Element {
   const hostRef = useRef<HTMLDivElement>(null)
   const viewRef = useRef<EditorView | null>(null)
   const stateCacheRef = useRef(new Map<string, EditorState>())
@@ -294,6 +305,20 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor({ do
   onIdleStatsChangeRef.current = onIdleStatsChange
   const onOutlineChangeRef = useRef(onOutlineChange)
   onOutlineChangeRef.current = onOutlineChange
+  const onVisibleLineChangeRef = useRef(onVisibleLineChange)
+  onVisibleLineChangeRef.current = onVisibleLineChange
+  const visibleLineFrame = useRef(0)
+
+  // Deferred to the next frame: the editor refuses layout reads inside an update, and a
+  // scroll can fire many times per frame.
+  const notifyVisibleLine = useCallback(() => {
+    if (visibleLineFrame.current !== 0 || !onVisibleLineChangeRef.current) return
+    visibleLineFrame.current = window.requestAnimationFrame(() => {
+      visibleLineFrame.current = 0
+      const view = viewRef.current
+      if (view) onVisibleLineChangeRef.current?.(topVisibleLine(view))
+    })
+  }, [])
 
   useImperativeHandle(ref, () => ({
     getContent: () => viewRef.current?.state.doc.toString() ?? value,
@@ -303,6 +328,10 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor({ do
       const current = view.state.doc.toString()
       if (current === content) return
       view.dispatch({ changes: { from: 0, to: current.length, insert: content } })
+    },
+    getTopVisibleLine: () => {
+      const view = viewRef.current
+      return view ? topVisibleLine(view) : 0
     }
   }), [value])
 
@@ -324,6 +353,7 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor({ do
         themeCompartment.current.of(theme === 'dark' ? oneDarkProExtensions : []),
         EditorView.updateListener.of((update) => {
           const externalSync = update.transactions.some((transaction) => transaction.annotation(externalContentSync))
+          if (update.docChanged || update.viewportChanged) notifyVisibleLine()
           if (update.docChanged && !externalSync) {
             const stats = { length: update.state.doc.length, lines: update.state.doc.lines }
             measureRendererNextFrame('editor:transaction-to-frame', stats)
@@ -365,11 +395,20 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor({ do
     return () => {
       if (idleStatsTimerRef.current !== null) window.clearTimeout(idleStatsTimerRef.current)
       if (outlineTimerRef.current !== null) window.clearTimeout(outlineTimerRef.current)
+      if (visibleLineFrame.current !== 0) window.cancelAnimationFrame(visibleLineFrame.current)
       view.destroy()
       viewRef.current = null
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+
+  // Scroll does not bubble, so it is observed on the scroller CodeMirror owns.
+  useEffect(() => {
+    const scroller = viewRef.current?.scrollDOM
+    if (!scroller) return
+    scroller.addEventListener('scroll', notifyVisibleLine, { passive: true })
+    return () => scroller.removeEventListener('scroll', notifyVisibleLine)
+  }, [notifyVisibleLine])
 
   // Keep one CodeMirror state per tab. State carries history, selection and
   // cursor, so moving between tabs does not replay another tab's editor state.
@@ -451,7 +490,9 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor({ do
     const position = view.state.doc.line(headingToReveal.line + 1).from
     view.dispatch({
       selection: { anchor: position },
-      effects: EditorView.scrollIntoView(position, { y: 'center' }),
+      // Top, not centre: it matches where the preview puts a heading picked from the outline,
+      // and it is the line the live preview follows.
+      effects: EditorView.scrollIntoView(position, { y: 'start' }),
       userEvent: 'select.outline'
     })
     view.focus()

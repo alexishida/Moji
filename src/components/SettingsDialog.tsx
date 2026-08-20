@@ -47,6 +47,7 @@ const SHORTCUT_SECTIONS = [
     key: 'view',
     items: [
       { action: 'toggleEdit', keys: ['Ctrl', 'E'] },
+      { action: 'toggleSplit', keys: ['Ctrl', '\\'] },
       { action: 'export', keys: ['Ctrl', 'Shift', 'E'] },
       { action: 'settings', keys: ['Ctrl', ','] },
       { action: 'fullscreen', keys: ['F11'] },

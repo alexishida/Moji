@@ -40,6 +40,7 @@
 - **Outline navigation**: collapsible heading tree available in Preview and Editor modes. Preview uses scroll-spy; clicking any heading scrolls preview or moves editor cursor to its Markdown source.
 - **Search and replace**: top-bar search finds visible Markdown text even across inline formatting, distinguishes the active match, and shows the active/total occurrence count. Preview offers previous/next navigation; Editor separates navigation from replace-one/replace-all controls.
 - **Editor mode**: CodeMirror 6 Markdown editor with line numbers, history, wrapping, localized untitled document names, Markdown formatting shortcuts, and save/save as flows.
+- **Live preview**: toggle a resizable split view from the top bar (or `Ctrl`+`\`) to keep the rendered preview beside the source editor. The preview follows the part of the document being edited, and the pane ratio is remembered. The toggle is disabled when the workspace is too narrow for two readable panes.
 - **Untitled document recovery**: documents without a filesystem path are saved as internal recovery drafts and reopened after restarting Moji. Saving as a real file or closing the tab removes the recovery draft.
 - **Export mode**: export the active document as HTML, PDF, or PNG. PDF supports A4, Letter, Legal, portrait, and landscape; long code lines wrap in PDF and PNG exports.
 - **Diagram exports**: rendered Mermaid diagrams are embedded as self-contained SVG in HTML, PDF, and PNG exports.
@@ -47,7 +48,7 @@
 - **About view**: in-workspace panel showing app name, version (from `package.json`), author, repository link, and the story behind the name.
 - **Markdown guide**: bundled localized reference documents (`samples/markdown-guide.<locale>.md`) opened from the status bar.
 - **Recent files**: Welcome screen shows recently opened Markdown files and lets you reopen or remove entries.
-- **Remembered app state**: window size/position, recent files, last used folder, language, preview typography, reading width, Markdown preview theme, and untitled-document recovery preference are persisted in user settings.
+- **Remembered app state**: window size/position, recent files, last used folder, language, preview typography, reading width, Markdown preview theme, live preview split and pane ratio, and untitled-document recovery preference are persisted in user settings.
 - **Update checks**: installed Windows NSIS and Linux AppImage builds check GitHub Releases and link to the release page when a newer version is available, so you can choose the correct artifact.
 - **Markdown themes**: dark/light toggle for rendered Markdown. App chrome remains dark; exports always use the light theme.
 - **Internationalization**: English, Portuguese (Brazil), Spanish, Japanese, Chinese, and Russian. Initial language follows the OS when possible and user choice is persisted.

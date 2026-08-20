@@ -6,6 +6,7 @@ import { StatusBar } from './components/StatusBar'
 import { Preview } from './components/Preview'
 import { Welcome } from './components/Welcome'
 import { DocumentTabs, type DocumentTabItem } from './components/DocumentTabs'
+import { SplitView } from './components/SplitView'
 import { ConfirmDialog, type ConfirmChoice } from './components/ConfirmDialog'
 import type { ExportDialogOptions } from './components/ExportDialog'
 import type { EditorDocumentStats, EditorHandle, EditorIdleStats } from './components/Editor'
@@ -21,9 +22,11 @@ import {
   renderMarkdownInWorker,
   type MarkdownRenderResult
 } from './lib/markdown'
-import { scrollPreviewHeadingIntoView } from './lib/previewScroll'
+import { getHeadingTopInScroller, scrollPreviewHeadingIntoView } from './lib/previewScroll'
+import { buildSplitAnchors, headingIdForLine, previewTopForEditorLine } from './lib/splitScroll'
 import { useDebounced } from './lib/useDebounced'
 import { useDocumentState, usePanelState, useSearchState, useSettingsState, useUpdateState, type WorkspaceDocument } from './hooks/useAppState'
+import { useElementWidth } from './hooks/useElementWidth'
 import { getPreviewSchedule } from './lib/previewSchedule'
 import { beginRendererMeasure } from './lib/performanceMetrics'
 import { findLiteralMatches } from './lib/search'
@@ -34,6 +37,7 @@ import { renderMermaidFlowcharts } from './lib/mermaid'
 import {
   AUTO_SAVE_DELAY_MS,
   MAX_RECENT_FILES,
+  SPLIT_MIN_WIDTH_PX,
   type DocumentSizeProfile,
   type DraftEditPayload,
   type ExportFormat,
@@ -210,6 +214,12 @@ export function App(): JSX.Element {
   const pendingDraftEdits = useRef(new Map<string, DraftEditPayload[][]>())
   const previewHeadingsRef = useRef<HTMLElement[]>([])
   const editorRef = useRef<EditorHandle | null>(null)
+  const mainRef = useRef<HTMLElement>(null)
+  const previewPaneRef = useRef<HTMLDivElement | null>(null)
+  /** Pane the font-size control acts on while both are visible. */
+  const [splitFocus, setSplitFocus] = useState<'editor' | 'preview'>('editor')
+  const editorTopLineRef = useRef(0)
+  const syncedHeadingRef = useRef<string | null>(null)
 
   const hasDoc = activeDoc !== null
   const content = activeDoc?.content ?? ''
@@ -217,6 +227,13 @@ export function App(): JSX.Element {
   const hasDirtyDocs = documents.some((doc) => needsUnsavedConfirmation(doc, settings.autoSave))
   const previewSchedule = getPreviewSchedule(activeDoc?.stats.length ?? 0)
   const virtualizedPreview = activeDoc?.sizeProfile === 'very-large'
+  const workspaceWidth = useElementWidth(mainRef)
+  const panelOpen = exportDialogFormat !== null || settingsOpen || aboutOpen
+  /** Two panes below this width leave neither of them readable. */
+  const splitFits = workspaceWidth >= SPLIT_MIN_WIDTH_PX
+  const canToggleSplit = hasDoc && activeDoc?.readOnly !== true && !panelOpen && splitFits
+  const splitActive = canToggleSplit && settings.splitView && mode === 'edit'
+  const previewVisible = mode === 'view' || splitActive
 
   const debouncedContent = useDebounced(content, previewSchedule.debounceMs)
   const debouncedSearchTerm = useDebounced(searchTerm, 200)
@@ -225,7 +242,7 @@ export function App(): JSX.Element {
   useEffect(() => {
     // With no document open the preview is not mounted at all — the welcome screen is —
     // so rendering here would be work nothing displays.
-    if (!activeDoc || mode !== 'view' || debouncedContent !== content) {
+    if (!activeDoc || !previewVisible || debouncedContent !== content) {
       return
     }
 
@@ -249,8 +266,8 @@ export function App(): JSX.Element {
     return () => {
       canceled = true
     }
-  }, [activeDoc?.id, activeDoc?.path, content, debouncedContent, mode, virtualizedPreview])
-  const preview = mode === 'view' && previewState.documentId === (activeDoc?.id ?? null)
+  }, [activeDoc?.id, activeDoc?.path, content, debouncedContent, previewVisible, virtualizedPreview])
+  const preview = previewVisible && previewState.documentId === (activeDoc?.id ?? null)
     ? previewState.result
     : EMPTY_MARKDOWN_RESULT
   const html = preview.html
@@ -262,8 +279,23 @@ export function App(): JSX.Element {
   outlineRef.current = outline
   const stats = activeDoc?.stats ?? { length: 0, lines: 0, tokens: 0, words: 0 }
   const searchMatchCount = mode === 'view' ? previewSearchMatchCount : editorSearchMatchCount
-  const activeFontSize = mode === 'edit' ? settings.editorFontSize : settings.previewFontSize
-  const defaultFontSize = mode === 'edit' ? DEFAULT_EDITOR_FONT_SIZE : DEFAULT_PREVIEW_FONT_SIZE
+  // Live snapshot: the sync callback is stable but has to read the current render.
+  const splitSyncRef = useRef({
+    active: splitActive,
+    virtualized: virtualizedPreview,
+    headingLines: preview.headingLines,
+    totalLines: stats.lines
+  })
+  splitSyncRef.current = {
+    active: splitActive,
+    virtualized: virtualizedPreview,
+    headingLines: preview.headingLines,
+    totalLines: stats.lines
+  }
+  // With both panes on screen the font control follows the pane last touched.
+  const fontTarget: 'editor' | 'preview' = splitActive ? splitFocus : mode === 'edit' ? 'editor' : 'preview'
+  const activeFontSize = fontTarget === 'editor' ? settings.editorFontSize : settings.previewFontSize
+  const defaultFontSize = fontTarget === 'editor' ? DEFAULT_EDITOR_FONT_SIZE : DEFAULT_PREVIEW_FONT_SIZE
   const tabs = useMemo<DocumentTabItem[]>(
     () =>
       documents.map((doc) => ({
@@ -288,7 +320,11 @@ export function App(): JSX.Element {
     searchMatchCount,
     exportDialogOpen: false,
     settingsOpen: false,
-    aboutOpen: false
+    aboutOpen: false,
+    canToggleSplit,
+    splitView: settings.splitView,
+    splitActive,
+    fontTarget
   })
   stateRef.current = {
     documents,
@@ -303,7 +339,11 @@ export function App(): JSX.Element {
     searchMatchCount,
     exportDialogOpen: exportDialogFormat !== null,
     settingsOpen,
-    aboutOpen
+    aboutOpen,
+    canToggleSplit,
+    splitView: settings.splitView,
+    splitActive,
+    fontTarget
   }
 
   const flash = useCallback((text: string, error = false) => {
@@ -439,6 +479,19 @@ export function App(): JSX.Element {
         : doc
     )))
   }, [])
+
+  /**
+   * Feed the live preview while typing.
+   *
+   * Between saves the editor owns the text — keystrokes only bump the revision — so the split
+   * view has to pull it out on idle. The document schedule sets the pace, which keeps large
+   * documents from re-rendering faster than they can.
+   */
+  useEffect(() => {
+    if (!splitActive) return
+    const timer = window.setTimeout(() => materializeEditorContent(), previewSchedule.debounceMs)
+    return () => window.clearTimeout(timer)
+  }, [activeDoc?.revision, materializeEditorContent, previewSchedule.debounceMs, splitActive])
 
   /**
    * Queues one transaction for the next autosave. Batches stay separate because each is expressed
@@ -1132,7 +1185,7 @@ export function App(): JSX.Element {
 
   const canToggleMdTheme = useCallback(() => {
     const s = stateRef.current
-    return s.hasDoc && s.mode === 'view' && !s.exportDialogOpen && !s.settingsOpen && !s.aboutOpen
+    return s.hasDoc && (s.mode === 'view' || s.splitActive) && !s.exportDialogOpen && !s.settingsOpen && !s.aboutOpen
   }, [])
 
   const canAdjustFontSize = useCallback(() => {
@@ -1181,6 +1234,71 @@ export function App(): JSX.Element {
     () => changeSettings({ previewFluidWidth: !settings.previewFluidWidth }),
     [changeSettings, settings.previewFluidWidth]
   )
+
+  const toggleSplitView = useCallback(() => {
+    const s = stateRef.current
+    if (!s.canToggleSplit) return
+    const next = !s.splitView
+    changeSettings({ splitView: next })
+    // Turning it on from the preview is a request to edit with the preview beside it.
+    if (next && s.mode !== 'edit') setModeSafe('edit')
+  }, [changeSettings, setModeSafe])
+
+  const changeSplitRatio = useCallback(
+    (ratio: number) => changeSettings({ splitRatio: ratio }),
+    [changeSettings]
+  )
+
+  const setPreviewPane = useCallback((element: HTMLDivElement | null) => {
+    previewPaneRef.current = element
+  }, [])
+
+  /**
+   * Move the live preview to the part of the document the editor is showing.
+   *
+   * A virtualized preview only keeps the visible blocks in the DOM, so there are no heading
+   * offsets to interpolate between; it falls back to jumping to the enclosing heading.
+   */
+  const syncPreviewToEditorLine = useCallback((line: number) => {
+    editorTopLineRef.current = line
+    const { active, virtualized, headingLines, totalLines } = splitSyncRef.current
+    if (!active) return
+
+    if (virtualized) {
+      const id = headingIdForLine(line, headingLines)
+      if (!id || id === syncedHeadingRef.current) return
+      syncedHeadingRef.current = id
+      setPreviewHeadingRequest((previous) => ({ id, request: (previous?.request ?? 0) + 1 }))
+      return
+    }
+
+    const pane = previewPaneRef.current
+    if (!pane) return
+    const anchors = buildSplitAnchors(
+      previewHeadingsRef.current.map((heading) => ({ id: heading.id, top: getHeadingTopInScroller(pane, heading) })),
+      headingLines
+    )
+    const top = previewTopForEditorLine(line, anchors, {
+      contentHeight: pane.scrollHeight,
+      maxScrollTop: Math.max(0, pane.scrollHeight - pane.clientHeight),
+      totalLines
+    })
+    if (Math.abs(pane.scrollTop - top) > 1) pane.scrollTo({ top, behavior: 'auto' })
+  }, [])
+
+  // Another tab starts from an unknown position in the preview.
+  useEffect(() => {
+    syncedHeadingRef.current = null
+  }, [activeDocId])
+
+  // Re-align after the preview re-renders: new content shifts every offset below the edit.
+  useEffect(() => {
+    if (!splitActive) return
+    const frame = window.requestAnimationFrame(() => {
+      syncPreviewToEditorLine(editorRef.current?.getTopVisibleLine() ?? editorTopLineRef.current)
+    })
+    return () => window.cancelAnimationFrame(frame)
+  }, [html, settings.previewFluidWidth, settings.previewFontSize, settings.previewWidth, splitActive, syncPreviewToEditorLine])
 
   const openSettings = useCallback(() => {
     setExportDialogFormat(null)
@@ -1261,11 +1379,12 @@ export function App(): JSX.Element {
     return false
   }, [])
 
-  // Font size follows the active mode: preview in view mode, source editor in edit mode.
+  // Font size follows the visible pane: preview in view mode, source editor in edit mode, and
+  // the pane last touched while the split view shows both.
   const changeFontSize = useCallback(
     (next: number) => {
       if (!canAdjustFontSize()) return
-      if (stateRef.current.mode === 'edit') {
+      if (stateRef.current.fontTarget === 'editor') {
         changeSettings({ editorFontSize: Math.min(MAX_EDITOR_FONT_SIZE, Math.max(MIN_EDITOR_FONT_SIZE, next)) })
         return
       }
@@ -1362,6 +1481,11 @@ export function App(): JSX.Element {
         toggleMode()
         return
       }
+      if (key === '\\') {
+        event.preventDefault()
+        toggleSplitView()
+        return
+      }
       if (key === ',') {
         event.preventDefault()
         openSettings()
@@ -1411,7 +1535,8 @@ export function App(): JSX.Element {
     selectAdjacentDocument,
     t,
     toggleFullscreen,
-    toggleMode
+    toggleMode,
+    toggleSplitView
   ])
 
   // --- Wire main-process requests + pushed documents --------------------
@@ -1474,6 +1599,25 @@ export function App(): JSX.Element {
     ? `${dirty ? `${t('app.modifiedMarker')} ` : ''}${activeDoc ? documentName(activeDoc, t('app.untitled')) : ''}`
     : ''
 
+  const previewPane = activeDoc ? (
+    <Preview
+      html={html}
+      blocks={preview.blocks}
+      virtualized={virtualizedPreview}
+      headingRequest={previewHeadingRequest}
+      documentName={documentName(activeDoc, t('app.untitled'))}
+      mdTheme={mdTheme}
+      searchTerm={debouncedSearchTerm}
+      activeSearchIndex={activeSearchIndex}
+      onSearchMatchCountChange={setPreviewSearchMatchCount}
+      onActiveHeadingChange={setActiveHeadingId}
+      settings={settings}
+      onOpenLocalPath={(fileUrl) => void openLocalPath(fileUrl)}
+      onPreviewHeadingsChange={setPreviewHeadings}
+      onPaneElement={setPreviewPane}
+    />
+  ) : null
+
   return (
     <div
       className="app"
@@ -1521,6 +1665,10 @@ export function App(): JSX.Element {
         outlineVisible={outlineVisible}
         canToggleOutline={canToggleOutline()}
         onToggleOutline={toggleOutline}
+        splitView={settings.splitView}
+        canToggleSplit={canToggleSplit}
+        splitFits={splitFits}
+        onToggleSplit={toggleSplitView}
         onToggleTheme={toggleMdTheme}
         onExport={openExportDialog}
         onOpenSettings={toggleSettings}
@@ -1554,7 +1702,7 @@ export function App(): JSX.Element {
           />
         )}
 
-        <main className="main">
+        <main className="main" ref={mainRef}>
           <div className="workspace">
             {settingsOpen ? (
               <div className="export-workspace export-workspace--settings">
@@ -1592,42 +1740,38 @@ export function App(): JSX.Element {
                 </Suspense>
               </div>
             ) : mode === 'edit' ? (
-              <Suspense fallback={null}>
-                <Editor
-                  ref={editorRef}
-                  documentId={activeDoc.id}
-                  value={content}
-                  theme={'dark'}
-                  fontSize={settings.editorFontSize}
-                  searchTerm={debouncedSearchTerm}
-                  activeSearchIndex={activeSearchIndex}
-                  highlightActive={activeSearchIndex !== null}
-                  headingToReveal={editorHeadingRequest}
-                  outlineVisible={outlineVisible}
-                  onSearchMatchCountChange={setEditorSearchMatchCount}
-                  onChange={updateActiveRevision}
-                  onEdits={recordEditorEdits}
-                  onIdleStatsChange={updateIdleStats}
-                  onOutlineChange={updateEditorOutline}
-                  onBlur={() => void persistDraftDocument(activeDoc.id)}
-                />
-              </Suspense>
-            ) : (
-              <Preview
-                html={html}
-                blocks={preview.blocks}
-                virtualized={virtualizedPreview}
-                headingRequest={previewHeadingRequest}
-                documentName={activeDoc ? documentName(activeDoc, t('app.untitled')) : t('app.untitled')}
-                mdTheme={mdTheme}
-                searchTerm={debouncedSearchTerm}
-                activeSearchIndex={activeSearchIndex}
-                onSearchMatchCountChange={setPreviewSearchMatchCount}
-                onActiveHeadingChange={setActiveHeadingId}
-                settings={settings}
-                onOpenLocalPath={(fileUrl) => void openLocalPath(fileUrl)}
-                onPreviewHeadingsChange={setPreviewHeadings}
+              <SplitView
+                split={splitActive}
+                ratio={settings.splitRatio}
+                onRatioChange={changeSplitRatio}
+                onFocusPane={setSplitFocus}
+                editor={
+                  <Suspense fallback={null}>
+                    <Editor
+                      ref={editorRef}
+                      documentId={activeDoc.id}
+                      value={content}
+                      theme={'dark'}
+                      fontSize={settings.editorFontSize}
+                      searchTerm={debouncedSearchTerm}
+                      activeSearchIndex={activeSearchIndex}
+                      highlightActive={activeSearchIndex !== null}
+                      headingToReveal={editorHeadingRequest}
+                      outlineVisible={outlineVisible}
+                      onSearchMatchCountChange={setEditorSearchMatchCount}
+                      onChange={updateActiveRevision}
+                      onEdits={recordEditorEdits}
+                      onIdleStatsChange={updateIdleStats}
+                      onOutlineChange={updateEditorOutline}
+                      onBlur={() => void persistDraftDocument(activeDoc.id)}
+                      onVisibleLineChange={syncPreviewToEditorLine}
+                    />
+                  </Suspense>
+                }
+                preview={splitActive ? previewPane : null}
               />
+            ) : (
+              previewPane
             )}
           </div>
         </main>
