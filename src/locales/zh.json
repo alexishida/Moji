@@ -205,7 +205,9 @@
       "link": "插入链接",
       "list": "切换列表",
       "checklist": "切换任务列表",
-      "codeBlock": "插入代码块"
+      "codeBlock": "插入代码块",
+      "indent": "增加缩进",
+      "outdent": "减少缩进"
     }
   },
   "aboutDialog": {

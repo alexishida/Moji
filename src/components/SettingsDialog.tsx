@@ -77,7 +77,9 @@ const SHORTCUT_SECTIONS = [
       { action: 'link', keys: ['Ctrl', 'K'] },
       { action: 'list', keys: ['Ctrl', 'L'] },
       { action: 'checklist', keys: ['Ctrl', 'Shift', 'L'] },
-      { action: 'codeBlock', keys: ['Ctrl', 'Shift', 'K'] }
+      { action: 'codeBlock', keys: ['Ctrl', 'Shift', 'K'] },
+      { action: 'indent', keys: ['Tab'] },
+      { action: 'outdent', keys: ['Shift', 'Tab'] }
     ]
   }
 ] as const

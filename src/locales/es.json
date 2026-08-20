@@ -205,7 +205,9 @@
       "link": "Insertar enlace",
       "list": "Alternar lista",
       "checklist": "Alternar checklist",
-      "codeBlock": "Insertar bloque de código"
+      "codeBlock": "Insertar bloque de código",
+      "indent": "Aumentar sangría",
+      "outdent": "Reducir sangría"
     }
   },
   "aboutDialog": {

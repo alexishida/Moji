@@ -205,7 +205,9 @@
       "link": "Inserir link",
       "list": "Alternar lista",
       "checklist": "Alternar checklist",
-      "codeBlock": "Inserir bloco de código"
+      "codeBlock": "Inserir bloco de código",
+      "indent": "Aumentar recuo",
+      "outdent": "Diminuir recuo"
     }
   },
   "aboutDialog": {

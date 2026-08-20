@@ -3,13 +3,14 @@ import { Decoration, type Command, type DecorationSet, EditorView, keymap, lineN
 import { Annotation, EditorSelection, EditorState, Compartment, RangeSetBuilder, StateEffect, StateField } from '@codemirror/state'
 import { defaultKeymap, history, historyKeymap } from '@codemirror/commands'
 import { markdown } from '@codemirror/lang-markdown'
-import { HighlightStyle, syntaxHighlighting, defaultHighlightStyle } from '@codemirror/language'
+import { HighlightStyle, syntaxHighlighting, defaultHighlightStyle, indentUnit } from '@codemirror/language'
 import { search, searchKeymap, SearchQuery } from '@codemirror/search'
 import { tags } from '@lezer/highlight'
 import type { DraftEditPayload, Theme } from '../../electron/shared'
 import { extractMarkdownOutline } from '../lib/markdown'
 import { measureRendererNextFrame } from '../lib/performanceMetrics'
 import { collectDraftEdits } from '../lib/draftEdits'
+import { EDITOR_INDENT_UNIT, indentWithTab, outdentWithShiftTab } from '../lib/editorIndent'
 import type { OutlineItem } from '../lib/outline'
 
 interface EditorProps {
@@ -166,6 +167,8 @@ const markdownKeymap = [
   { key: 'Mod-k', run: insertLink },
   { key: 'Mod-l', run: toggleLinePrefix('- ') },
   { key: 'Mod-Shift-l', run: toggleLinePrefix('- [ ] ') },
+  { key: 'Tab', run: indentWithTab, preventDefault: true },
+  { key: 'Shift-Tab', run: outdentWithShiftTab, preventDefault: true },
   { key: 'Mod-Shift-k', run: wrapMarkdown('```\n', '\n```', 'code') }
 ]
 
@@ -310,6 +313,7 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor({ do
         history(),
         keymap.of([...markdownKeymap, ...defaultKeymap, ...historyKeymap, ...searchKeymap]),
         markdown(),
+        indentUnit.of(EDITOR_INDENT_UNIT),
         search(),
         externalSearchHighlight,
         syntaxHighlighting(defaultHighlightStyle, { fallback: true }),

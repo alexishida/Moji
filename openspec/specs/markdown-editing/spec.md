@@ -73,3 +73,22 @@ The system SHALL persist documents without a filesystem path as internal recover
 #### Scenario: Recovery storage is unavailable
 - **WHEN** a recovery draft cannot be written because the memory budget or the free disk space is insufficient
 - **THEN** the application reports how much was needed and how much was available, keeps the previously stored draft unchanged, and never stores a shortened copy of the document
+
+### Requirement: Indent and outdent in the source editor
+The system SHALL indent with Tab and outdent with Shift+Tab inside the source editor, using two spaces per level, instead of moving focus to the next control.
+
+#### Scenario: Nest a list item
+- **WHEN** the cursor is on the leading whitespace of a list item and the user presses Tab
+- **THEN** the line receives one more indent level, nesting it under the item above
+
+#### Scenario: Indent inside a line
+- **WHEN** the cursor sits after text on a line and the user presses Tab
+- **THEN** one indent unit is inserted at the cursor
+
+#### Scenario: Indent a selection
+- **WHEN** text spanning one or more lines is selected and the user presses Tab
+- **THEN** every selected line receives one more indent level
+
+#### Scenario: Outdent
+- **WHEN** the user presses Shift+Tab
+- **THEN** every touched line loses one indent level, and lines with no leading whitespace stay unchanged
