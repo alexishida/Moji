@@ -1,6 +1,6 @@
 {
   "app": {
-    "name": "Moji v1.0.5",
+    "name": "Moji v{{version}}",
     "untitled": "Untitled",
     "modifiedMarker": "•"
   },
@@ -78,7 +78,7 @@
     "noDocument": "Open or create a document to see its outline."
   },
   "statusbar": {
-    "brand": "Moji v1.0.5",
+    "brand": "Moji v{{version}}",
     "guide": "Markdown Guide",
     "exportPdf": "Export PDF",
     "lineCount": "Lines: {{count}}",
@@ -126,7 +126,7 @@
   },
   "welcome": {
     "tagline": "A lightweight, simple Markdown reader",
-    "title": "Moji v1.0.5",
+    "title": "Moji v{{version}}",
     "subtitle": "Open a Markdown file to read it cleanly.",
     "openButton": "Open File",
     "newButton": "New File",

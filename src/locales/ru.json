@@ -1,6 +1,6 @@
 {
   "app": {
-    "name": "Moji v1.0.5",
+    "name": "Moji v{{version}}",
     "untitled": "Без названия",
     "modifiedMarker": "•"
   },
@@ -79,7 +79,7 @@
     "noDocument": "Откройте или создайте документ, чтобы увидеть его структуру."
   },
   "statusbar": {
-    "brand": "Moji v1.0.5",
+    "brand": "Moji v{{version}}",
     "guide": "Руководство по Markdown",
     "exportPdf": "Экспорт в PDF",
     "lineCount": "Строк: {{count}}",
@@ -127,7 +127,7 @@
   },
   "welcome": {
     "tagline": "Лёгкая и простая программа для чтения Markdown",
-    "title": "Moji v1.0.5",
+    "title": "Moji v{{version}}",
     "subtitle": "Откройте файл Markdown, чтобы читать его в удобном виде.",
     "openButton": "Открыть файл",
     "newButton": "Новый файл",

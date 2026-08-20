@@ -1,6 +1,6 @@
 {
   "app": {
-    "name": "Moji v1.0.5",
+    "name": "Moji v{{version}}",
     "untitled": "Sem título",
     "modifiedMarker": "•"
   },
@@ -78,7 +78,7 @@
     "noDocument": "Abra ou crie um documento para ver o sumário."
   },
   "statusbar": {
-    "brand": "Moji v1.0.5",
+    "brand": "Moji v{{version}}",
     "guide": "Guia de Markdown",
     "exportPdf": "Exportar PDF",
     "lineCount": "Linhas: {{count}}",
@@ -126,7 +126,7 @@
   },
   "welcome": {
     "tagline": "Um leitor de Markdown leve e simples",
-    "title": "Moji v1.0.5",
+    "title": "Moji v{{version}}",
     "subtitle": "Abra um Markdown para ler com clareza, sem distrações.",
     "openButton": "Abrir arquivo",
     "newButton": "Novo Arquivo",
