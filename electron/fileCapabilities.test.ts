@@ -28,6 +28,13 @@ describe('FileCapabilities', () => {
     expect(capabilities.allows(join('docs', '..', 'notes.md'))).toBe(false)
   })
 
+  it.runIf(process.platform === 'win32')('allows case variants on Windows', () => {
+    const capabilities = new FileCapabilities()
+    capabilities.grant(join('Docs', 'Notes.md'))
+
+    expect(capabilities.allows(join('docs', 'notes.MD'))).toBe(true)
+  })
+
   it('refuses anything that is not a string', () => {
     const capabilities = new FileCapabilities()
     capabilities.grant(join('docs', 'notes.md'))

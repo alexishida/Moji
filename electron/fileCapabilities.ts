@@ -1,5 +1,10 @@
 import { dirname, resolve } from 'node:path'
 
+function capabilityPath(filePath: string): string {
+  const resolved = resolve(filePath)
+  return process.platform === 'win32' ? resolved.toLowerCase() : resolved
+}
+
 /**
  * What the renderer is allowed to touch on disk.
  *
@@ -24,14 +29,14 @@ export class FileCapabilities {
    */
   grant(filePath: string): string {
     const resolved = resolve(filePath)
-    this.files.add(resolved)
+    this.files.add(capabilityPath(filePath))
     this.assetDirectories.add(dirname(resolved))
     return resolved
   }
 
   /** True when this exact file was granted. Symlinks are resolved by the caller. */
   allows(filePath: unknown): filePath is string {
-    return typeof filePath === 'string' && this.files.has(resolve(filePath))
+    return typeof filePath === 'string' && this.files.has(capabilityPath(filePath))
   }
 
   /** Directories an asset may be read from, for `authorizedAsset`. */

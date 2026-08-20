@@ -21,6 +21,9 @@ import {
 } from './shared'
 import { DocumentTextDecoder } from './documentDecoder'
 
+/** No message (not even progress on a large file) for this long means main is never going to answer. */
+const READ_STREAM_INACTIVITY_TIMEOUT_MS = 15_000
+
 /**
  * Pulls a document from main as UTF-8 chunks and decodes them as they arrive.
  *
@@ -33,15 +36,28 @@ function readDocumentStream(filePath: string): Promise<OpenResult> {
     const decoder = new DocumentTextDecoder()
     let metadata: DocumentMetadata | null = null
     let settled = false
+    let inactivityTimer: ReturnType<typeof setTimeout>
 
     const settle = (result: OpenResult): void => {
       if (settled) return
       settled = true
+      clearTimeout(inactivityTimer)
       port1.close()
       resolve(result)
     }
 
+    // Main never replies if the port went missing or the sender was rejected (e.g. `openDocument`
+    // failing before it reaches `streamDocumentToPort`); without this, the caller waits forever.
+    const resetInactivityTimer = (): void => {
+      clearTimeout(inactivityTimer)
+      inactivityTimer = setTimeout(
+        () => settle({ ok: false, error: 'Timed out waiting for the file to open.' }),
+        READ_STREAM_INACTIVITY_TIMEOUT_MS
+      )
+    }
+
     port1.onmessage = (event: MessageEvent): void => {
+      resetInactivityTimer()
       const message = event.data as DocumentStreamMessage
       switch (message.type) {
         case 'meta':
@@ -66,6 +82,7 @@ function readDocumentStream(filePath: string): Promise<OpenResult> {
     // that can no longer be trusted.
     port1.onmessageerror = (): void => settle({ ok: false, error: 'open failed' })
     port1.start()
+    resetInactivityTimer()
 
     ipcRenderer.postMessage(IPC.readPathStream, filePath, [port2])
   })

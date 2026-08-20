@@ -1,3 +1,5 @@
+import { createCaseInsensitiveMatcher } from './search'
+
 interface TextSegment {
   node: Text
   start: number
@@ -191,4 +193,3 @@ export function activatePreviewSearchMatch(root: HTMLElement, activeIndex: numbe
 
   return activeMatch
 }
-import { createCaseInsensitiveMatcher } from './search'

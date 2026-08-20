@@ -5,6 +5,8 @@ import { SPLIT_RATIO_DEFAULT, SPLIT_RATIO_MAX, SPLIT_RATIO_MIN, normalizeSplitRa
 interface SplitViewProps {
   /** When false only the editor pane is rendered, in the same tree position. */
   split: boolean
+  /** Keep editor mounted but show only the preview. */
+  viewOnly?: boolean
   /** Editor share of the width, as a percentage. */
   ratio: number
   editor: ReactNode
@@ -21,7 +23,7 @@ const KEYBOARD_STEP = 2
  * The editor keeps the same position in the tree whether or not the preview is showing, so
  * toggling the split never remounts CodeMirror and never drops undo history or the caret.
  */
-export function SplitView({ split, ratio, editor, preview, onRatioChange, onFocusPane }: SplitViewProps): JSX.Element {
+export function SplitView({ split, viewOnly = false, ratio, editor, preview, onRatioChange, onFocusPane }: SplitViewProps): JSX.Element {
   const { t } = useTranslation()
   const containerRef = useRef<HTMLDivElement>(null)
   const [dragRatio, setDragRatio] = useState<number | null>(null)
@@ -68,16 +70,16 @@ export function SplitView({ split, ratio, editor, preview, onRatioChange, onFocu
   return (
     <div
       ref={containerRef}
-      className={`split ${split ? 'split--active' : ''} ${dragRatio !== null ? 'split--dragging' : ''}`}
+      className={`split ${split ? 'split--active' : ''} ${viewOnly ? 'split--view-only' : ''} ${dragRatio !== null ? 'split--dragging' : ''}`}
       style={{ '--split-ratio': `${current}%` } as CSSProperties}
     >
       <div className="split__pane split__pane--editor" onPointerDownCapture={() => onFocusPane('editor')}>
         {editor}
       </div>
 
-      {split && (
+      {(split || viewOnly) && (
         <>
-          <div
+          {split && <div
             className="split__divider"
             role="separator"
             aria-orientation="vertical"
@@ -93,7 +95,7 @@ export function SplitView({ split, ratio, editor, preview, onRatioChange, onFocu
             onPointerCancel={endDrag}
             onKeyDown={onKeyDown}
             onDoubleClick={() => onRatioChange(SPLIT_RATIO_DEFAULT)}
-          />
+          />}
           <div className="split__pane split__pane--preview" onPointerDownCapture={() => onFocusPane('preview')}>
             {preview}
           </div>

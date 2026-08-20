@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type PointerEvent, type WheelEvent } from 'react'
+import { useEffect, useMemo, useRef, useState, type PointerEvent } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { Theme } from '../../electron/shared'
 import { IconChevronRight, IconDownload, IconFitToView, IconImage, IconMinus, IconPlus, IconX } from './icons'
@@ -65,6 +65,38 @@ function diagramSize(svgMarkup: string): DiagramSize {
     width: Number.isFinite(width) && width > 0 ? width : 1000,
     height: Number.isFinite(height) && height > 0 ? height : 700
   }
+}
+
+function namespaceSvgIds(svgMarkup: string, namespace: string): string {
+  const doc = new DOMParser().parseFromString(svgMarkup, 'image/svg+xml')
+  const root = doc.documentElement
+  const idMap = new Map<string, string>()
+  root.querySelectorAll('[id]').forEach((element) => {
+    const oldId = element.getAttribute('id')
+    if (!oldId) return
+    const newId = `${namespace}-${oldId}`
+    idMap.set(oldId, newId)
+    element.setAttribute('id', newId)
+  })
+  if (idMap.size === 0) return svgMarkup
+
+  const rewriteUrlRefs = (value: string): string =>
+    value.replace(/url\(#([^)"']+)\)/g, (match, id: string) => (idMap.has(id) ? `url(#${idMap.get(id)})` : match))
+
+  const walker = doc.createTreeWalker(root, NodeFilter.SHOW_ELEMENT)
+  let node: Element | null = walker.currentNode as Element
+  while (node) {
+    for (const attr of Array.from(node.attributes)) {
+      if (attr.name === 'href' || attr.name === 'xlink:href') {
+        const refId = attr.value.startsWith('#') ? attr.value.slice(1) : null
+        if (refId && idMap.has(refId)) node.setAttribute(attr.name, `#${idMap.get(refId)}`)
+      } else if (attr.value.includes('url(#')) {
+        node.setAttribute(attr.name, rewriteUrlRefs(attr.value))
+      }
+    }
+    node = walker.nextNode() as Element | null
+  }
+  return new XMLSerializer().serializeToString(root)
 }
 
 function exportNamePart(value: string, fallback: string): string {
@@ -140,10 +172,20 @@ export function MermaidDiagramDialog({
   const [view, setView] = useState<DiagramView>({ zoom: 1, x: 0, y: 0 })
   const [exportError, setExportError] = useState<string | null>(null)
   const [exporting, setExporting] = useState(false)
+  const viewRef = useRef(view)
+  viewRef.current = view
 
   const sourceSize = useMemo(() => {
     if (!content) return null
     return content.type === 'svg' ? diagramSize(content.svgMarkup) : content.imageSize
+  }, [content])
+  const canvasSvgMarkup = useMemo(() => {
+    if (!content || content.type !== 'svg') return null
+    return namespaceSvgIds(content.svgMarkup, 'diagram-canvas')
+  }, [content])
+  const minimapSvgMarkup = useMemo(() => {
+    if (!content || content.type !== 'svg') return null
+    return namespaceSvgIds(content.svgMarkup, 'diagram-minimap')
   }, [content])
   const contentSize = useMemo<DiagramSize>(() => {
     if (!sourceSize || !stageSize.width || !stageSize.height) return { width: 0, height: 0 }
@@ -177,6 +219,50 @@ export function MermaidDiagramDialog({
     const observer = new ResizeObserver(update)
     observer.observe(stage)
     return () => observer.disconnect()
+  }, [content])
+
+  useEffect(() => {
+    const stage = stageRef.current
+    if (!stage || !content) return
+    // React registers `onWheel` as a passive listener, so `preventDefault` there is a no-op;
+    // a native listener with `passive: false` is required to stop page scroll on zoom.
+    const handleWheelNative = (event: WheelEvent): void => {
+      event.preventDefault()
+      const currentZoom = viewRef.current.zoom
+      const currentIndex = ZOOM_LEVELS.indexOf(currentZoom)
+      const nearestIndex = currentIndex >= 0
+        ? currentIndex
+        : ZOOM_LEVELS.findIndex((zoom) => zoom >= currentZoom)
+      const nextIndex = clamp(nearestIndex + (event.deltaY < 0 ? 1 : -1), 0, ZOOM_LEVELS.length - 1)
+      const nextZoom = clamp(ZOOM_LEVELS[nextIndex], MIN_ZOOM, MAX_ZOOM)
+      setView((current) => {
+        const zoomRatio = nextZoom / current.zoom
+        return { zoom: nextZoom, x: current.x * zoomRatio, y: current.y * zoomRatio }
+      })
+    }
+    stage.addEventListener('wheel', handleWheelNative, { passive: false })
+    return () => stage.removeEventListener('wheel', handleWheelNative)
+  }, [content])
+
+  useEffect(() => {
+    if (!content) return
+    const handleWindowResize = (): void => {
+      setModalBounds((current) => {
+        if (!current) return current
+        const maxWidth = Math.max(MODAL_MIN_WIDTH, window.innerWidth - MODAL_WINDOW_GUTTER)
+        const maxHeight = Math.max(MODAL_MIN_HEIGHT, window.innerHeight - MODAL_WINDOW_GUTTER)
+        const width = clamp(current.width, MODAL_MIN_WIDTH, maxWidth)
+        const height = clamp(current.height, MODAL_MIN_HEIGHT, maxHeight)
+        const left = clamp(current.left, 0, Math.max(0, window.innerWidth - width))
+        const top = clamp(current.top, 0, Math.max(0, window.innerHeight - height))
+        if (width === current.width && height === current.height && left === current.left && top === current.top) {
+          return current
+        }
+        return { left, top, width, height }
+      })
+    }
+    window.addEventListener('resize', handleWindowResize)
+    return () => window.removeEventListener('resize', handleWindowResize)
   }, [content])
 
   if (!content || !sourceSize) return null
@@ -233,11 +319,6 @@ export function MermaidDiagramDialog({
     if (dragRef.current?.pointerId !== event.pointerId) return
     dragRef.current = null
     if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId)
-  }
-
-  const handleWheel = (event: WheelEvent<HTMLDivElement>): void => {
-    event.preventDefault()
-    stepZoom(event.deltaY < 0 ? 1 : -1)
   }
 
   const handleResizePointerDown = (direction: ResizeDirection, event: PointerEvent<HTMLDivElement>): void => {
@@ -440,7 +521,6 @@ export function MermaidDiagramDialog({
           onPointerMove={handlePointerMove}
           onPointerUp={handlePointerEnd}
           onPointerCancel={handlePointerEnd}
-          onWheel={handleWheel}
         >
           <div
             className="diagram-modal__canvas"
@@ -451,7 +531,7 @@ export function MermaidDiagramDialog({
             }}
           >
             {content.type === 'svg'
-              ? <div dangerouslySetInnerHTML={{ __html: content.svgMarkup }} />
+              ? <div dangerouslySetInnerHTML={{ __html: canvasSvgMarkup ?? content.svgMarkup }} />
               : <img src={content.imageSrc} alt="" draggable={false} />}
           </div>
           {view.zoom > 1 && (
@@ -474,7 +554,7 @@ export function MermaidDiagramDialog({
                 }}
               >
                 {content.type === 'svg'
-                  ? <div dangerouslySetInnerHTML={{ __html: content.svgMarkup }} />
+                  ? <div dangerouslySetInnerHTML={{ __html: minimapSvgMarkup ?? content.svgMarkup }} />
                   : <img src={content.imageSrc} alt="" draggable={false} />}
               </div>
               <div className="diagram-minimap__viewport" style={{ left: viewportX, top: viewportY, width: viewportWidth, height: viewportHeight }} />

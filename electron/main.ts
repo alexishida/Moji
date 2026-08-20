@@ -571,7 +571,7 @@ function registerIpc(): void {
     }
   })
 
-  ipcMain.handle(
+  handleFromRenderer(
     IPC.appendDraftEdits,
     async (_e, id: unknown, batches: unknown, expectedLength: unknown): Promise<DraftAppendResult> => {
       if (!isDraftId(id) || !areDraftEditBatches(batches)) return { ok: false, reason: 'error', error: 'invalid-draft' }
@@ -671,16 +671,18 @@ function registerIpc(): void {
   handleFromRenderer(IPC.export, (event, request: unknown): Promise<WriteResult> =>
     exportDocument(request, (progress) => {
       if (!event.sender.isDestroyed()) event.sender.send(IPC.exportProgress, progress)
-    })
+    }, BrowserWindow.fromWebContents(event.sender) ?? undefined)
   )
   handleFromRenderer(IPC.cancelExport, (): void => cancelExport())
-  handleFromRenderer(IPC.exportDiagramPng, (_e, request: unknown): Promise<WriteResult> => exportDiagramPng(request))
+  handleFromRenderer(IPC.exportDiagramPng, (event, request: unknown): Promise<WriteResult> =>
+    exportDiagramPng(request, BrowserWindow.fromWebContents(event.sender) ?? undefined)
+  )
 
   handleFromRenderer(IPC.getUpdateState, (): UpdateState => updateController?.getState() ?? unavailableUpdateState())
 
   handleFromRenderer(IPC.getPerformanceReport, () => getMainPerformanceReport())
 
-  ipcMain.handle(
+  handleFromRenderer(
     IPC.checkForUpdate,
     (): Promise<UpdateState> => updateController?.check() ?? Promise.resolve(unavailableUpdateState())
   )

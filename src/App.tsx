@@ -101,8 +101,16 @@ interface DocumentInput {
   sizeProfile?: DocumentSizeProfile
 }
 
+// `draftSavedRevision === null` means no draft snapshot exists on disk yet; that is only
+// dirty once the document has actually been edited (revision > 0). A freshly created or
+// just-restored draft with revision 0 has nothing to flush.
+function draftIsDirty(doc: Pick<DocumentState, 'draftSavedRevision' | 'revision'>): boolean {
+  if (doc.draftSavedRevision === doc.revision) return false
+  return !(doc.draftSavedRevision === null && doc.revision === 0)
+}
+
 function needsUnsavedConfirmation(doc: DocumentState, autoSave: boolean): boolean {
-  if (autoSave && !doc.path && doc.draftId) return doc.draftSavedRevision !== doc.revision
+  if (autoSave && !doc.path && doc.draftId) return draftIsDirty(doc)
   return doc.savedRevision !== doc.revision
 }
 
@@ -210,6 +218,8 @@ export function App(): JSX.Element {
   const { dialogOpen, setDialogOpen, exportDialogFormat, setExportDialogFormat, settingsOpen, setSettingsOpen, aboutOpen, setAboutOpen, outlineVisible, setOutlineVisible, searchFocusRequest, setSearchFocusRequest, replaceFocusRequest, setReplaceFocusRequest, topBarDismissRequest, setTopBarDismissRequest } = usePanelState()
   const dialogResolver = useRef<((c: ConfirmChoice) => void) | null>(null)
   const nextDocSeq = useRef(1)
+  const nextUntitledSeq = useRef(1)
+  const noticeTimerRef = useRef<number | null>(null)
   const draftsLoaded = useRef(false)
   const draftSavesInFlight = useRef(new Map<string, Promise<boolean>>())
   /** Editor transactions awaiting autosave, per draft, kept as ordered batches. */
@@ -352,8 +362,16 @@ export function App(): JSX.Element {
   }
 
   const flash = useCallback((text: string, error = false) => {
+    if (noticeTimerRef.current !== null) window.clearTimeout(noticeTimerRef.current)
     setNotice({ text, error })
-    window.setTimeout(() => setNotice(null), 2600)
+    noticeTimerRef.current = window.setTimeout(() => {
+      setNotice(null)
+      noticeTimerRef.current = null
+    }, 2600)
+  }, [])
+
+  useEffect(() => () => {
+    if (noticeTimerRef.current !== null) window.clearTimeout(noticeTimerRef.current)
   }, [])
 
   const openLocalPath = useCallback(async (fileUrl: string): Promise<void> => {
@@ -434,16 +452,19 @@ export function App(): JSX.Element {
           continue
         }
 
+        const revision = item.savedContent === undefined || item.savedContent === item.content ? 0 : 1
         const doc: DocumentState = {
           id: newDocumentId(),
           path: item.path,
           title: item.title ?? null,
           content: item.content,
           stats: getDocumentStats(item.content),
-          revision: item.savedContent === undefined || item.savedContent === item.content ? 0 : 1,
+          revision,
           savedRevision: 0,
           draftId: item.draftId ?? (item.path ? null : `draft-${newDocumentId()}`),
-          draftSavedRevision: item.draftSavedContent === undefined ? null : 1,
+          // A restored draft already has an on-disk snapshot matching `content`, so it starts
+          // in sync with `revision`; a brand-new document has no snapshot yet (`null`).
+          draftSavedRevision: item.draftSavedContent === undefined ? null : revision,
           readOnly: item.readOnly === true,
           sizeProfile: item.sizeProfile
          }
@@ -585,7 +606,7 @@ export function App(): JSX.Element {
       if (!stateRef.current.autoSave) return false
 
       const doc = stateRef.current.documents.find((item) => item.id === docId)
-      if (!doc || doc.path || doc.readOnly || !doc.draftId || doc.draftSavedRevision === doc.revision) {
+      if (!doc || doc.path || doc.readOnly || !doc.draftId || !draftIsDirty(doc)) {
         return false
       }
 
@@ -661,7 +682,7 @@ export function App(): JSX.Element {
   useEffect(() => {
     if (!settings.autoSave) return
     const pending = documents.filter(
-      (doc) => !doc.path && !doc.readOnly && doc.draftId && doc.draftSavedRevision !== doc.revision
+      (doc) => !doc.path && !doc.readOnly && doc.draftId && draftIsDirty(doc)
     )
     if (pending.length === 0) return
 
@@ -680,7 +701,7 @@ export function App(): JSX.Element {
   const flushPendingDrafts = useCallback(async (): Promise<void> => {
     if (!stateRef.current.autoSave) return
     const pending = stateRef.current.documents.filter(
-      (doc) => !doc.path && !doc.readOnly && doc.draftId && doc.draftSavedRevision !== doc.revision
+      (doc) => !doc.path && !doc.readOnly && doc.draftId && draftIsDirty(doc)
     )
     await Promise.all(pending.map((doc) => persistDraftDocument(doc.id)))
   }, [persistDraftDocument])
@@ -954,8 +975,8 @@ export function App(): JSX.Element {
   }, [materializeEditorContent])
 
   const doNew = useCallback(() => {
-    const documentCount = stateRef.current.documents.length
-    const title = documentCount === 0 ? t('app.untitled') : `${t('app.untitled')} ${documentCount + 1}`
+    const sequence = nextUntitledSeq.current++
+    const title = sequence === 1 ? t('app.untitled') : `${t('app.untitled')} ${sequence}`
     materializeEditorContent()
     addDocuments([{ path: null, title, content: '' }], 'edit')
   }, [addDocuments, materializeEditorContent, t])
@@ -1210,16 +1231,14 @@ export function App(): JSX.Element {
 
   const toggleMdTheme = useCallback(() => {
     if (!canToggleMdTheme()) return
-    setMdTheme((prev) => {
-      const next = prev === 'dark' ? 'light' : 'dark'
-      setSettings((current) => ({ ...current, previewTheme: next }))
-      void window.api.setSettings({ previewTheme: next }).then((saved) => {
-        setSettings(saved)
-        setMdTheme(saved.previewTheme)
-      })
-      return next
+    const next = mdTheme === 'dark' ? 'light' : 'dark'
+    setMdTheme(next)
+    setSettings((current) => ({ ...current, previewTheme: next }))
+    void window.api.setSettings({ previewTheme: next }).then((saved) => {
+      setSettings(saved)
+      setMdTheme(saved.previewTheme)
     })
-  }, [canToggleMdTheme])
+  }, [canToggleMdTheme, mdTheme])
 
   const changeSettings = useCallback(
     (patch: Partial<Settings>) => {
@@ -1666,7 +1685,7 @@ export function App(): JSX.Element {
       documentName={documentName(activeDoc, t('app.untitled'))}
       mdTheme={mdTheme}
       searchTerm={debouncedSearchTerm}
-      activeSearchIndex={activeSearchIndex}
+      activeSearchIndex={mode === 'view' ? activeSearchIndex : null}
       onSearchMatchCountChange={setPreviewSearchMatchCount}
       onActiveHeadingChange={setActiveHeadingId}
       settings={settings}
@@ -1797,9 +1816,10 @@ export function App(): JSX.Element {
                   />
                 </Suspense>
               </div>
-            ) : mode === 'edit' ? (
+            ) : (
               <SplitView
-                split={splitActive}
+                split={mode === 'edit' && splitActive}
+                viewOnly={mode === 'view'}
                 ratio={settings.splitRatio}
                 onRatioChange={changeSplitRatio}
                 onFocusPane={setSplitFocus}
@@ -1808,6 +1828,7 @@ export function App(): JSX.Element {
                     <Editor
                       ref={editorRef}
                       documentId={activeDoc.id}
+                      documentIds={documents.map((doc) => doc.id)}
                       value={content}
                       theme={'dark'}
                       fontSize={settings.editorFontSize}
@@ -1826,10 +1847,8 @@ export function App(): JSX.Element {
                     />
                   </Suspense>
                 }
-                preview={splitActive ? previewPane : null}
+                preview={previewPane}
               />
-            ) : (
-              previewPane
             )}
           </div>
         </main>

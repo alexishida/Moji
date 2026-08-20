@@ -4,13 +4,17 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 const USER_DATA = 'C:/test-user-data'
 const SETTINGS_FILE = join(USER_DATA, 'settings.json')
 
-const state = vi.hoisted(() => ({ files: new Map<string, string>() }))
+const state = vi.hoisted(() => ({
+  files: new Map<string, string>(),
+  displays: [{ workArea: { x: 0, y: 0, width: 1920, height: 1080 } }]
+}))
 
 vi.mock('electron', () => ({
   app: {
     getLocale: () => 'pt-PT',
     getPath: () => 'C:/test-user-data'
-  }
+  },
+  screen: { getAllDisplays: () => state.displays }
 }))
 
 vi.mock('node:fs', () => ({
@@ -24,6 +28,7 @@ vi.mock('node:fs', () => ({
 
 beforeEach(() => {
   state.files.clear()
+  state.displays = [{ workArea: { x: 0, y: 0, width: 1920, height: 1080 } }]
   vi.resetModules()
 })
 
@@ -72,6 +77,15 @@ describe('settings', () => {
     expect(persisted.editorFontSize).toBe(12)
     expect(persisted).not.toHaveProperty('previewFluidWidth')
     expect(persisted.previewWidth).toBe(100)
+  })
+
+  it('drops restored coordinates outside every active display', async () => {
+    state.files.set(SETTINGS_FILE, JSON.stringify({
+      windowBounds: { x: 3000, y: 200, width: 1000, height: 760 }
+    }))
+    const { getSettings } = await import('./settings')
+
+    expect(getSettings().windowBounds).toEqual({ width: 1000, height: 760 })
   })
 
   it('normalizes reading width to five-percent steps', async () => {
