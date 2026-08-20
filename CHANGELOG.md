@@ -9,6 +9,15 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ### Added
 
 - Font size can now be adjusted in Editor mode, from the same top-bar control and the Ctrl+Plus / Ctrl+Minus / Ctrl+0 shortcuts already available in view mode. Editor and preview keep separate sizes (12px-24px), the editor resetting to 14px and the preview to 16px.
+- Settings now has a dedicated Editor tab to set the editor's default font size, alongside the existing Preview tab for the preview's font size.
+
+### Changed
+
+- Preview and editor font sizes now persist across launches instead of resetting every session. The full-width reading toggle stays session-only.
+
+### Fixed
+
+- PDF export no longer passes `marginType`, dropped from Electron's `printToPDF` API; margins keep the same 1cm default.
 
 ## [1.0.5] - 2026-08-05
 

@@ -90,8 +90,8 @@ export function getSettings(): Settings {
       previewTheme: raw.previewTheme === 'light' || raw.previewTheme === 'dark' ? raw.previewTheme : base.previewTheme,
       language: raw.language && SUPPORTED_LANGUAGES.includes(raw.language) ? raw.language : base.language,
       previewFontFamily: typeof raw.previewFontFamily === 'string' ? raw.previewFontFamily : base.previewFontFamily,
-      previewFontSize: base.previewFontSize,
-      editorFontSize: base.editorFontSize,
+      previewFontSize: boundedNumber(raw.previewFontSize, base.previewFontSize, 12, 24),
+      editorFontSize: boundedNumber(raw.editorFontSize, base.editorFontSize, 12, 24),
       previewLineHeight: boundedNumber(raw.previewLineHeight, base.previewLineHeight, 1.2, 2.4),
       previewFluidWidth: base.previewFluidWidth,
       previewWidth: normalizePreviewWidth(raw.previewWidth, base.previewWidth),
@@ -126,8 +126,7 @@ export function updateSettings(patch: Partial<Settings>): Settings {
   cache = next
   try {
     const persisted: Partial<Settings> = { ...next }
-    delete persisted.previewFontSize
-    delete persisted.editorFontSize
+    // Full-width stays a per-session toggle; font sizes are configured in Settings and persist.
     delete persisted.previewFluidWidth
     writeFileSync(settingsFile(), JSON.stringify(persisted, null, 2), 'utf-8')
   } catch {

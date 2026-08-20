@@ -82,7 +82,7 @@ const SHORTCUT_SECTIONS = [
   }
 ] as const
 
-type SettingsTab = 'general' | 'preview' | 'shortcuts'
+type SettingsTab = 'general' | 'preview' | 'editor' | 'shortcuts'
 
 export function SettingsDialog({ settings, onClose, onChange }: SettingsDialogProps): JSX.Element {
   const { t } = useTranslation()
@@ -102,7 +102,7 @@ export function SettingsDialog({ settings, onClose, onChange }: SettingsDialogPr
 
       <div className="settings-dialog__body">
         <div className="settings-tabs" role="tablist" aria-label={t('settingsDialog.title')}>
-          {(['general', 'preview', 'shortcuts'] as const).map((tab) => (
+          {(['general', 'preview', 'editor', 'shortcuts'] as const).map((tab) => (
             <button
               key={tab}
               className={`settings-tabs__button ${activeTab === tab ? 'settings-tabs__button--active' : ''}`}
@@ -220,6 +220,33 @@ export function SettingsDialog({ settings, onClose, onChange }: SettingsDialogPr
                     </option>
                   ))}
                 </select>
+              </label>
+            </div>
+          </section>
+        )}
+
+        {activeTab === 'editor' && (
+          <section className="settings-section" aria-labelledby="settings-editor-heading">
+            <h3 className="settings-section__heading" id="settings-editor-heading">
+              {t('settingsDialog.editor')}
+            </h3>
+
+            <div className="settings-field-list">
+              <label className="settings-field">
+                <span className="settings-field__label">{t('settingsDialog.fontSize')}</span>
+                <input
+                  className="input settings-field__control"
+                  type="number"
+                  min={12}
+                  max={24}
+                  step={1}
+                  value={settings.editorFontSize}
+                  onChange={(e) => {
+                    if (Number.isFinite(e.currentTarget.valueAsNumber)) {
+                      onChange({ editorFontSize: e.currentTarget.valueAsNumber })
+                    }
+                  }}
+                />
               </label>
             </div>
           </section>
