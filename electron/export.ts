@@ -428,9 +428,10 @@ async function htmlToPdf(
     const finishMeasure = beginMainMeasure('export:pdf-render', { htmlChars: html.length })
     try {
       session.report({ phase: 'capture' })
+      // Omitting `margins` keeps Electron's 1cm (~0.4in) default on all sides. The old
+      // `marginType: 'default'` spelling was dropped when printToPDF moved to CDP.
       return await win.webContents.printToPDF({
         printBackground: true,
-        margins: { marginType: 'default' },
         pageSize,
         landscape: pageOrientation === 'landscape'
       })
