@@ -4,23 +4,48 @@ All notable changes to this project will be documented in this file.
 
 Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
-## [Unreleased]
-
 ## [1.0.6] - 2026-08-19
 
 ### Added
 
 - Font size can now be adjusted in Editor mode, from the same top-bar control and the Ctrl+Plus / Ctrl+Minus / Ctrl+0 shortcuts already available in view mode. Editor and preview keep separate sizes (12px-24px), the editor resetting to 14px and the preview to 16px.
 - Settings now has a dedicated Editor tab to set the editor's default font size, alongside the existing Preview tab for the preview's font size.
+- Split view that renders the live preview beside the CodeMirror editor, toggled from the top bar or with Ctrl+\. A draggable divider sets the pane ratio (20%–80%), and both the toggle and the ratio persist in settings. The toggle is disabled below a 700px-wide workspace and explains why in its tooltip. In view mode the toggle switches straight to edit mode in the same action, and a view-only split mode keeps the editor mounted while showing only the preview pane.
+- Ctrl+G and Ctrl+Shift+G jump to the next and previous search match; Ctrl+M leaves editor focus.
+- Ctrl+Q now goes through a real `requestQuit` IPC path, so the shortcut behaves like the native Quit menu and still runs the unsaved-changes guard (previously it only closed the window and did not quit on macOS).
 
 ### Changed
 
 - Preview and editor font sizes now persist across launches instead of resetting every session. The full-width reading toggle stays session-only.
+- Scrolling the source editor now moves the preview to the matching part of the document, and scrolling the preview moves the editor in turn; only one pane owns the sync while it is being scrolled, so the two cannot bounce off each other.
+- Shortcut handling is more robust: AltGr keyboard layouts (such as pt-BR ABNT2) no longer drop Ctrl+\ and similar primary chords, Escape now prevents default when closing a panel, and the macOS Window menu drops Miniaturize (Cmd+M) so the editor's exit-focus binding (Mod+M) works as advertised.
+- A `.tmp` file left over by a failed `settings.json` atomic write is now cleaned up instead of lingering.
 
 ### Fixed
 
 - PDF export no longer passes `marginType`, dropped from Electron's `printToPDF` API; margins keep the same 1cm default.
 - `npm install` downloads the Electron binary again. Electron removed its own `postinstall` hook in 42.0.0, so a fresh install left `node_modules/electron` without a `dist/` and `npm run dev` died with `Error: Electron uninstall`.
+- Switching the reading theme no longer drops the preview's imperative patches. The preview body is keyed by the theme, so changing it used to remount from pristine HTML and discard local image sources, copy buttons, search marks, and scroll-sync state; effects now track the mounted body instead of a patch counter.
+- The reading position stays anchored on the visible heading across the theme remount, so toggling light/dark no longer drifts the preview scroll.
+- Unsaved work can no longer be lost. Close/quit is only forced through Chromium's own `unresponsive` hang detector instead of a fixed 5-second timer that could close while the confirm dialog was still open, and it only forces through a close/quit already in flight.
+- A crashed renderer reloads the window with a warning dialog instead of silently discarding unsaved edits; launch-failed and integrity-failure events quit with an error instead of reload-looping.
+- A draft journal now records the base snapshot's SHA-256, so a crash between the snapshot rename and its journal cleanup is detected as stale on load (the old length-only check could collide on an equal-length edit) and is no longer replayed and duplicated.
+- An untouched new or restored document is no longer born "dirty", eliminating a spurious close-confirmation and an empty draft written to disk before any typing. Restored untitled documents resume their sequential numbering, tombstoned draft ids can't be resurrected by a late autosave, and empty draft-queue entries are dropped.
+- The close guard, `render-process-gone`, and runtime errors no longer restart or force-quit when nothing is being closed, and a hung or gone renderer that never answers `requestClose` is still forced through.
+- Opening on startup is hardened: OS-opened documents are held until the renderer confirms its listener is mounted (instead of being dropped during window boot), every markdown path from `argv`/second-instance is collected (not just the first), and opening many files streams only metadata while the renderer pulls content through the same chunked read used by a single open.
+- `cancelOpenMany` now actually stops the renderer's queue drain instead of only aborting main's scan, overlapping batches no longer lose documents, and open-many failures are collected once rather than duplicated through progress events.
+- A failed document lookup now keeps the reason it failed, so the app can tell a missing file from a transient error; recently opened files that failed transiently are kept, and only genuinely missing ones are forgotten.
+- Export and save dialogs attach as sheets to the owning window instead of floating free, window bounds that fall outside every connected display are discarded on restore, and granted file paths compare case-insensitively on Windows.
+- PNG/PDF/HTML export is hardened: a PNG capture rejects a slice whose width changes mid-capture instead of producing a broken image, PNG height is measured only after the content area settles, a leftover PNG `.tmp` is cleaned up when the final rename fails, export ships without a misleading numeric suffix when the preview is virtualized, and drawing a local `moji-asset://` image into the export canvas no longer taints it (CORS).
+- Writing to disk and storage is more robust: `settings.json` is written atomically (temp file + rename), and common filesystem errors map to friendly, localized messages instead of raw Node errors with full paths in toasts.
+- Draught data is safer: a stale journal can't resurrect a removed draft, pending deflate writes fail instead of hanging when the write pump dies, and storage of draft/order maps no longer leaks removed or empty entries.
+- The Mermaid diagram viewer is fixed: zoom uses a non-passive wheel listener so `preventDefault` actually blocks page scroll, SVG ids are namespaced so canvas and minimap copies don't collide on markers/gradients, custom modal bounds are reclamped on window resize, and the copy action no longer leaves an unhandled clipboard rejection.
+- The preview virtualization now binary-searches the active block instead of scanning from the start on every scroll, and the split-scroll mapping reaches the last source line when the preview is scrolled to the bottom with a trailing heading or an end-of-document hit.
+- Parsing and editor state are pruned: CodeMirror state for documents that are no longer open is discarded and heading-reveal requests are clamped to the document's line count, keeping large sessions responsive.
+- Updater reliability: an update check races its network call against a timeout instead of hanging forever, retries can't start a second concurrent check, and `autoDownload` is disabled.
+- The bundled guide and locales are tidied: guides only ever grant read access to their own asset directory, the window title matches the app version, and the missing Settings > Shortcuts tab text is restored in Spanish, Japanese, Chinese, and Russian.
+
+## [1.0.5] - 2026-08-05
 
 ## [1.0.5] - 2026-08-05
 
