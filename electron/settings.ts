@@ -1,5 +1,5 @@
 import { app, screen } from 'electron'
-import { readFileSync, renameSync, writeFileSync } from 'node:fs'
+import { readFileSync, renameSync, unlinkSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import {
   DEFAULT_LANGUAGE,
@@ -31,8 +31,24 @@ function settingsFile(): string {
  */
 function writeFileAtomicSync(file: string, data: string): void {
   const temporary = `${file}.tmp`
-  writeFileSync(temporary, data, 'utf-8')
-  renameSync(temporary, file)
+  let wrote = false
+  try {
+    writeFileSync(temporary, data, 'utf-8')
+    wrote = true
+    renameSync(temporary, file)
+  } catch (err) {
+    // A failed write (disk full) or a failed rename over a locked destination must not leave
+    // a sibling `.tmp` behind in the user-data directory; the next write would overwrite it,
+    // but that is cleanup-by-accident, not by design.
+    if (wrote) {
+      try {
+        unlinkSync(temporary)
+      } catch {
+        // Already gone.
+      }
+    }
+    throw err
+  }
 }
 
 /** Pick the closest shipped language for an OS locale like "pt-BR" or "es-419". */

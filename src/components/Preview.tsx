@@ -2,7 +2,7 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, typ
 import { useTranslation } from 'react-i18next'
 import type { Settings, Theme } from '../../electron/shared'
 import type { MarkdownRenderBlock } from '../lib/markdown'
-import { findPreviewHeadingTarget, getActivePreviewHeadingId, scrollPreviewHeadingIntoView } from '../lib/previewScroll'
+import { findPreviewHeadingTarget, getActivePreviewHeadingId, getHeadingTopInScroller, scrollPreviewHeadingIntoView } from '../lib/previewScroll'
 import { activatePreviewSearchMatch, highlightPreviewSearchMatchesIncremental } from '../lib/previewSearch'
 import { collectPreviewBlockMetrics } from '../lib/previewLayoutMetrics'
 import { selectionTouchesCodeBlock } from '../lib/previewSelection'
@@ -104,6 +104,18 @@ export function Preview({
   const [domPatchVersion, setDomPatchVersion] = useState(0)
   const [searchScanVersion, setSearchScanVersion] = useState(0)
   const virtualScrollAnchor = useRef<{ index: number; distance: number } | null>(null)
+  /**
+   * Content anchor that preserves the reading position across the theme remount.
+   *
+   * The body is keyed by theme, so toggling light/dark remounts it from pristine HTML. The
+   * browser keeps `scrollTop` in pixels across that swap, but it is not a stable anchor: on the
+   * fresh body a `content-visibility` block is unmeasured until it nears the viewport, and
+   * diagrams/images re-render at (possibly different) sizes, all of which changes the content
+   * height and drifts the visible text. Holding the id of the heading nearest the viewport top
+   * plus its pixel gap to the pane top lets the restore effect below re-anchor on that same
+   * heading once the new body is mounted.
+   */
+  const readingAnchorRef = useRef<{ id: string; gap: number } | null>(null)
   const virtualBlocks = virtualized ? blocks : EMPTY_MARKDOWN_BLOCKS
   const virtualOffsets = useMemo(
     () => buildVirtualOffsets(virtualBlocks, measuredBlockHeights),
@@ -534,6 +546,30 @@ export function Preview({
     virtualized
   ])
 
+  // Theme changes remount the body (`key={...mdTheme}`), so the pane's preserved `scrollTop`
+  // no longer corresponds to the same content — blocks collapse to their unmeasured/intrinsic
+  // size and diagrams/images re-render at potentially different heights. Re-anchor on the
+  // heading `readingAnchorRef` captured before the swap, putting it back at the same visual
+  // offset instead of letting the reflow drag the reading position.
+  //
+  // Declared before the scroll-spy effect below: that effect also re-runs on `bodyVersion`
+  // (which includes the theme) and would overwrite `readingAnchorRef` with measurements from
+  // the *new* body before this restore could use the capture from the old one.
+  useLayoutEffect(() => {
+    if (virtualized) return
+    const pane = paneRef.current
+    const body = bodyRef.current
+    const anchor = readingAnchorRef.current
+    if (!pane || !body || !anchor) return
+    const element = Array.from(body.querySelectorAll<HTMLElement>('h1, h2, h3, h4, h5, h6'))
+      .find((heading) => heading.id === anchor.id)
+    if (!element) return
+    const top = getHeadingTopInScroller(pane, element) - anchor.gap
+    const maxScrollTop = Math.max(0, pane.scrollHeight - pane.clientHeight)
+    const next = Math.min(Math.max(0, top), maxScrollTop)
+    if (Math.abs(pane.scrollTop - next) > 1) pane.scrollTop = next
+  }, [mdTheme, virtualized])
+
   // Keep outline state tied to preview DOM currently displayed.
   useEffect(() => {
     const body = bodyRef.current
@@ -548,9 +584,23 @@ export function Preview({
     }
 
     const updateActiveHeading = (): void => {
-      onActiveHeadingChange(virtualized
-        ? getVirtualActiveHeadingId(virtualBlocks, virtualOffsetsRef.current, scroller.scrollTop)
-        : getActivePreviewHeadingId(scroller, headings))
+      if (virtualized) {
+        onActiveHeadingChange(getVirtualActiveHeadingId(virtualBlocks, virtualOffsetsRef.current, scroller.scrollTop))
+        return
+      }
+      const activeId = getActivePreviewHeadingId(scroller, headings)
+      onActiveHeadingChange(activeId)
+      // Record where this heading sits in the viewport so a theme remount can restore it
+      // (see the `mdTheme` layout effect below). `scrollTop` alone would be no anchor at all.
+      if (activeId) {
+        const element = headings.find((heading) => heading.id === activeId)
+        if (element) {
+          readingAnchorRef.current = {
+            id: activeId,
+            gap: getHeadingTopInScroller(scroller, element) - scroller.scrollTop
+          }
+        }
+      }
     }
 
     updateActiveHeading()
