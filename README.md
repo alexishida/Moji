@@ -11,7 +11,7 @@
 <p align="center"><strong>Current version:</strong> v1.0.6</p>
 
 <p align="center">
-  <img src="docs/repository-open-graph.png" alt="reposytory-open-graph" width="100%" />
+  <img src="docs/repository-open-graph.png" alt="repository-open-graph" width="100%" />
 </p>
 
 <p align="center">
@@ -48,16 +48,16 @@
 - **Export progress**: HTML, PDF, and PNG exports report their current phase and can be cancelled; a cancelled or failed export never leaves a partial file behind.
 - **Diagram exports**: rendered Mermaid diagrams are embedded as self-contained SVG in HTML, PDF, and PNG exports.
 - **Local images**: images referenced relative to the document are served through an authorized `moji-asset://` protocol, restricted to directories of documents you actually opened, loaded lazily and cached in memory.
-- **Settings view**: centered in-workspace panel for language, untitled-document recovery, preview typography, reading width, and a localized shortcut reference.
+- **Settings view**: centered in-workspace panel for language, untitled-document recovery, preview typography, editor and preview font sizes, reading width, and a localized shortcut reference.
 - **About view**: in-workspace panel showing app name, version (from `package.json`), author, repository link, and the story behind the name.
 - **Markdown guide**: bundled localized reference documents (`samples/markdown-guide.<locale>.md`) opened from the status bar.
 - **Recent files**: Welcome screen shows recently opened Markdown files and lets you reopen or remove entries.
-- **Remembered app state**: window size/position, recent files, last used folder, language, preview typography, reading width, Markdown preview theme, live preview split and pane ratio, and untitled-document recovery preference are persisted in user settings.
+- **Remembered app state**: window size/position, recent files, last used folder, language, preview typography, editor and preview font sizes, reading width, Markdown preview theme, live preview split and pane ratio, and untitled-document recovery preference are persisted in user settings.
 - **Update checks**: installed Windows NSIS and Linux AppImage builds check GitHub Releases and link to the release page when a newer version is available, so you can choose the correct artifact.
 - **Markdown themes**: dark/light toggle for rendered Markdown. App chrome remains dark; exports always use the light theme.
 - **Internationalization**: English, Portuguese (Brazil), Spanish, Japanese, Chinese, and Russian. Initial language follows the OS when possible and user choice is persisted.
 - **Security**: sandboxed renderer, context isolation, `nodeIntegration: false`, DOMPurify sanitization, and external links opened in the OS browser.
-- **Keyboard shortcuts**: common file, search, replace, tab, preview, export, fullscreen, and font-size actions; Settings lists every available shortcut.
+- **Keyboard shortcuts**: common file, search (Ctrl+G / Ctrl+Shift+G for next and previous match), replace, tab, preview, split view, export, fullscreen, and font-size (Ctrl+Plus / Ctrl+Minus / Ctrl+0, in Editor mode too) actions, plus Ctrl+M to leave editor focus and Ctrl+Q to quit through the unsaved-changes guard; Settings lists every available shortcut.
 
 ## Screenshots
 
@@ -74,6 +74,10 @@
 <p align="center">
   <img src="docs/scr-mermaid.jpg" alt="Mermaid diagrams" width="45%" />
   <img src="docs/scr-mermaid-dialog.jpg" alt="Mermaid diagram viewer" width="45%" />
+</p>
+
+<p align="center">
+  <img src="docs/scr-split.jpg" alt="Split view" width="45%" />
 </p>
 
 

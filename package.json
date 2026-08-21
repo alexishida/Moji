@@ -85,6 +85,7 @@
     "electron": "^43.1.0",
     "electron-builder": "^26.15.6",
     "electron-vite": "^5.0.0",
+    "playwright": "^1.62.1",
     "typescript": "^5.7.2",
     "vite": "^7.3.6"
   }

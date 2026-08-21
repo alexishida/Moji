@@ -9,8 +9,9 @@
  * controls, while this preserves minimize, maximize, and close buttons.
  */
 
-const { existsSync, readFileSync } = require('node:fs')
+const { existsSync, readFileSync, rmSync } = require('node:fs')
 const { spawn, execFileSync } = require('node:child_process')
+const os = require('node:os')
 const path = require('node:path')
 const { chromium } = require('playwright')
 
@@ -56,10 +57,15 @@ async function connect() {
 }
 
 ;(async () => {
-  const app = spawn(electron, [`--remote-debugging-port=${debugPort}`, main, guide], {
+  const env = { ...process.env }
+  delete env.ELECTRON_RUN_AS_NODE
+  const profile = path.join(os.tmpdir(), 'moji-capture-profile')
+  rmSync(profile, { recursive: true, force: true })
+  const app = spawn(electron, [`--remote-debugging-port=${debugPort}`, `--user-data-dir=${profile}`, main, guide], {
     cwd: root,
     detached: false,
-    stdio: 'ignore'
+    stdio: 'ignore',
+    env
   })
 
   try {
@@ -79,8 +85,20 @@ async function connect() {
     await page.locator('.cm-content').fill(readFileSync(guide, 'utf8'))
     capture(app.pid, 'scr-edit.jpg')
 
+    // Split view: keep the guide in the editor with the live preview beside it.
+    await page.locator('.topbar__right .iconbtn').nth(2).click()
+    await page.locator('.split--active').waitFor()
+    await page.waitForTimeout(500)
+    capture(app.pid, 'scr-split.jpg')
+
+    await page.locator('.topbar__right .iconbtn').nth(2).click()
+    await page.locator('.split--active').waitFor({ state: 'detached' })
+
     await page.locator('.document-tab').last().locator('.document-tab__close').click()
-    await page.locator('.dialog-backdrop .btn').nth(1).click() // Discard unsaved copy.
+    if (await page.locator('.dialog-backdrop').count()) {
+      await page.locator('.dialog-backdrop .btn').nth(1).click() // Discard unsaved copy.
+      await page.locator('.dialog-backdrop').waitFor({ state: 'detached' })
+    }
     await page.locator('.segment__btn').first().click()
     await page.locator('.mermaid-diagram').first().scrollIntoViewIfNeeded()
     await page.waitForTimeout(300)
@@ -108,3 +126,4 @@ async function connect() {
   console.error(error)
   process.exitCode = 1
 })
+
