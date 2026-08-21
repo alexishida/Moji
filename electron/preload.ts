@@ -114,6 +114,9 @@ const api = {
   /** Tells main the `onOpenDocument` listener is live, so a document opened by the OS while
    *  the window was still loading is delivered instead of silently dropped. */
   notifyReady: (): void => ipcRenderer.send(IPC.rendererReady),
+  /** Ends the whole app through the unsaved-changes guard, not just this window — closing the
+   *  window alone never quits on macOS, where the app stays running in the dock. */
+  requestQuit: (): void => ipcRenderer.send(IPC.requestQuit),
   getUpdateState: (): Promise<UpdateState> => ipcRenderer.invoke(IPC.getUpdateState),
   checkForUpdate: (): Promise<UpdateState> => ipcRenderer.invoke(IPC.checkForUpdate),
   getPerformanceReport: (): Promise<PerformanceReport> => ipcRenderer.invoke(IPC.getPerformanceReport),

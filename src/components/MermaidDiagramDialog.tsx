@@ -457,7 +457,12 @@ export function MermaidDiagramDialog({
         : await imageToPngDataUrl(content.imageSrc, content.imageSize)
       const fileName = exportNamePart(documentName.replace(/\.[^.]+$/, ''), 'document')
       const name = exportNamePart(diagramName, 'diagram')
-      const result = await window.api.exportDiagramPng({ dataUrl, baseName: `${fileName}-${name}-${diagramIndex}` })
+      // `diagramIndex` only counts diagrams currently mounted in a virtualized preview, not the
+      // diagram's real position in the document (`showNavigation` is the same signal that hides
+      // the on-screen "n/total" for the same reason) — appending it to the file name here would
+      // be actively misleading rather than merely absent.
+      const suggestedName = showNavigation ? `${fileName}-${name}-${diagramIndex}` : `${fileName}-${name}`
+      const result = await window.api.exportDiagramPng({ dataUrl, baseName: suggestedName })
       if (!result.ok && !result.canceled) setExportError(result.error ?? t('preview.diagramExportFailed'))
     } catch (error) {
       setExportError(error instanceof Error ? error.message : t('preview.diagramExportFailed'))

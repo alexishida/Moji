@@ -66,6 +66,10 @@ export function sanitizeDraft(value: unknown): AutoSaveDraft | null {
  *  escape it. */
 const INVALID_FILENAME_CHARS = /[<>:"/\\|?*\x00-\x1f]/g
 
+/** Windows reserves these for device files, with or without an extension: `CON.md` is exactly
+ *  as unwritable as `CON`. Case-insensitive, and only `COM0`/`LPT0` through `COM9`/`LPT9`. */
+const RESERVED_WINDOWS_NAME = /^(con|prn|aux|nul|com[0-9]|lpt[0-9])$/i
+
 /**
  * Makes `name` safe to use as a file name on Windows, macOS and Linux.
  *
@@ -73,7 +77,11 @@ const INVALID_FILENAME_CHARS = /[<>:"/\\|?*\x00-\x1f]/g
  * trailing run of dots is stripped separately.
  */
 export function sanitizeFileNameComponent(name: string): string {
-  return name.replace(INVALID_FILENAME_CHARS, '').trim().replace(/\.+$/, '')
+  const cleaned = name.replace(INVALID_FILENAME_CHARS, '').trim().replace(/\.+$/, '')
+  if (!cleaned) return cleaned
+  const dot = cleaned.indexOf('.')
+  const base = dot < 0 ? cleaned : cleaned.slice(0, dot)
+  return RESERVED_WINDOWS_NAME.test(base) ? `_${cleaned}` : cleaned
 }
 
 /** Turns a renderer-supplied document title into a file name for the native save dialog. */

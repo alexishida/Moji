@@ -1,5 +1,5 @@
 import { app, screen } from 'electron'
-import { readFileSync, writeFileSync } from 'node:fs'
+import { readFileSync, renameSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import {
   DEFAULT_LANGUAGE,
@@ -18,6 +18,21 @@ let cache: Settings | null = null
 
 function settingsFile(): string {
   return join(app.getPath('userData'), 'settings.json')
+}
+
+/**
+ * Write to a sibling temporary file, then rename over the destination.
+ *
+ * `writeFileSync` straight to `settings.json` leaves a truncated file if the process dies mid
+ * write — a real risk here, since a resize or move schedules a write on every settle — and the
+ * next launch would fall back to defaults, losing language, recent files and window bounds. The
+ * rename is what makes the swap atomic: the file on disk is always either the old settings or
+ * the new ones, never a partial write of either.
+ */
+function writeFileAtomicSync(file: string, data: string): void {
+  const temporary = `${file}.tmp`
+  writeFileSync(temporary, data, 'utf-8')
+  renameSync(temporary, file)
 }
 
 /** Pick the closest shipped language for an OS locale like "pt-BR" or "es-419". */
@@ -145,9 +160,10 @@ export function updateSettings(patch: Partial<Settings>): Settings {
     const persisted: Partial<Settings> = { ...next }
     // Full-width stays a per-session toggle; font sizes are configured in Settings and persist.
     delete persisted.previewFluidWidth
-    writeFileSync(settingsFile(), JSON.stringify(persisted, null, 2), 'utf-8')
+    writeFileAtomicSync(settingsFile(), JSON.stringify(persisted, null, 2))
   } catch {
-    // Non-fatal: preference simply won't persist this session.
+    // Non-fatal: preference simply won't persist this session. Any temporary file this attempt
+    // left behind is swept up (or simply overwritten) the next time a write succeeds.
   }
   return next
 }

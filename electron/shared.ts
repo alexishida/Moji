@@ -267,6 +267,10 @@ export const IPC = {
   getPerformanceReport: 'performance:get-report',
   /** Renderer -> main: the app-shell effect that listens for pushed documents is mounted. */
   rendererReady: 'app:renderer-ready',
+  /** Renderer -> main: end the whole app through the unsaved-changes guard, not just this
+   *  window — `window.close()` alone never quits on macOS, where closing the last window
+   *  keeps the app running in the dock. */
+  requestQuit: 'app:request-quit',
   // main -> renderer push channels
   requestClose: 'app:request-close',
   openDocument: 'doc:open',

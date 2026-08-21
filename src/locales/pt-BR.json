@@ -251,6 +251,7 @@
     "autoSaveCleanupFailed": "Falha ao remover rascunho de recuperação: {{error}}",
     "draftRestoreFailed": "Falha ao restaurar rascunhos de recuperação: {{error}}",
     "openFailed": "Não foi possível abrir o arquivo: {{error}}",
+    "errorReason": { "notFound": "Arquivo não encontrado.", "permissionDenied": "Permissão negada.", "busy": "Arquivo em uso." },
     "noDocument": "Abra um documento primeiro.",
     "readOnlyGuide": "O guia Markdown incluído é somente leitura e não pode ser salvo.",
     "replaceNeedsSearch": "Digite um termo para buscar.",

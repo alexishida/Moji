@@ -81,19 +81,25 @@ export function createUpdateController(notify: StateListener): UpdateController 
 
   const check = async (): Promise<UpdateState> => {
     if (state.status === 'checking') return state
-    let settled = false
-    const timeout = setTimeout(() => {
-      if (!settled && state.status === 'checking') {
-        publish({ status: 'error', error: 'Update check timed out.' })
-      }
-    }, CHECK_TIMEOUT_MS)
-    try {
-      await updater.checkForUpdates()
-    } catch (error) {
-      publish({ status: 'error', error: errorMessage(error as Error) })
-    } finally {
-      settled = true
-      clearTimeout(timeout)
+    let timer: NodeJS.Timeout
+    const timeout = new Promise<'timed-out'>((resolve) => {
+      timer = setTimeout(() => resolve('timed-out'), CHECK_TIMEOUT_MS)
+    })
+    // A rejection here already reaches the `error` listener registered above, which publishes
+    // its own state; catching it a second time here only keeps a check that loses the race
+    // against `timeout` from surfacing as an unhandled rejection.
+    const request = updater.checkForUpdates().then(
+      () => 'done' as const,
+      () => 'done' as const
+    )
+    const outcome = await Promise.race([request, timeout])
+    clearTimeout(timer!)
+    // Read through a function boundary: TS narrows `state.status` from the early-return guard
+    // above across the whole rest of this function, and does not know `publish` (a separate
+    // closure) can reassign `state` out from under that narrowing while this awaits.
+    const isChecking = (): boolean => state.status === 'checking'
+    if (outcome === 'timed-out' && isChecking()) {
+      publish({ status: 'error', error: 'Update check timed out.' })
     }
     return state
   }

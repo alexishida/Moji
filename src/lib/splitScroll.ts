@@ -103,7 +103,7 @@ export function editorLineForPreviewTop(
   anchors: readonly SplitAnchor[],
   geometry: PreviewScrollGeometry
 ): number {
-  const { contentHeight, maxScrollTop, totalLines } = geometry
+  const { maxScrollTop, totalLines } = geometry
   if (maxScrollTop <= 0) return 0
 
   const lines = Math.max(1, totalLines)
@@ -121,7 +121,16 @@ export function editorLineForPreviewTop(
   }
 
   const start = index < 0 ? { line: 0, top: 0 } : anchors[index]
-  const end = index + 1 < anchors.length ? anchors[index + 1] : { line: lines, top: contentHeight }
+  // `target` is clamped to `maxScrollTop` above, which is normally well short of
+  // `contentHeight` (the preview can never scroll the last screenful of content to the top).
+  // Closing the last segment at `contentHeight` therefore left `progress` short of 1 even when
+  // the preview was scrolled all the way down, so the editor never reached its last line.
+  // Closing it at `maxScrollTop` instead — the largest `target` this function ever receives —
+  // lets that case reach `lines` exactly. `Math.max` guards a heading anchor within one
+  // viewport of the end, whose own `top` can already exceed `maxScrollTop`.
+  const end = index + 1 < anchors.length
+    ? anchors[index + 1]
+    : { line: lines, top: Math.max(maxScrollTop, start.top) }
   const span = end.top - start.top
   const progress = span > 0 ? (target - start.top) / span : 0
 

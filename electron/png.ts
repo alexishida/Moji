@@ -185,7 +185,15 @@ export async function createPngFileWriter(
           await converter.close()
         }
 
-        await rename(temporary, destination)
+        try {
+          await rename(temporary, destination)
+        } catch (err) {
+          // The handle is already closed at this point; only the sibling `.tmp` is left to
+          // clean up, or a failed rename (destination locked, read-only, wrong volume) would
+          // leave it behind in the directory the user picked for the export.
+          await unlink(temporary).catch(() => undefined)
+          throw err
+        }
       },
 
       async abort() {

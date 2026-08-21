@@ -92,11 +92,14 @@ export function getVirtualActiveHeadingId(
   scrollTop: number,
   offset = 88
 ): string | null {
-  let active: string | null = null
   const probe = scrollTop + offset
-  for (let index = 0; index < blocks.length && offsets[index] <= probe; index += 1) {
+  // `blockAtOffset` jumps straight to the block at `probe` in O(log n) instead of walking every
+  // block from the start on every scroll event; only the backward scan for the nearest heading
+  // (typically short — headings are not one per block) still runs linearly.
+  const startIndex = Math.min(blockAtOffset(offsets, probe), blocks.length - 1)
+  for (let index = startIndex; index >= 0; index -= 1) {
     const headings = blocks[index].headingIds
-    if (headings.length > 0) active = headings[headings.length - 1]
+    if (headings.length > 0) return headings[headings.length - 1]
   }
-  return active ?? blocks.find((block) => block.headingIds.length > 0)?.headingIds[0] ?? null
+  return blocks.find((block) => block.headingIds.length > 0)?.headingIds[0] ?? null
 }
