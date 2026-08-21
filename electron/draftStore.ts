@@ -2,7 +2,14 @@ import { appendFile, mkdir, readFile, readdir, rename, stat, unlink, writeFile }
 import { join } from 'node:path'
 import type { AutoSaveDraft } from './shared'
 import { stripLeadingBom } from './documentDecoder'
-import { applyDraftEditBatches, encodeJournalEntries, replayJournal, type DraftEdit } from './draftJournal'
+import {
+  applyDraftEditBatches,
+  encodeJournalEntries,
+  encodeJournalHeader,
+  replayJournal,
+  splitJournalHeader,
+  type DraftEdit
+} from './draftJournal'
 import {
   defaultMemoryBudgetBytes,
   diskSpaceErrorFrom,
@@ -122,6 +129,13 @@ export class DraftStore {
    * sessions.
    */
   private readonly order = new Map<string, number>()
+  /**
+   * Ids `removeDraft` has retired. A draft id is never reused, so once removed it must stay
+   * gone: without this, a debounced autosave issued just before the removal but only reaching
+   * the front of this id's queue afterward would resurrect the draft on disk — claiming a fresh
+   * position at the end of the tab order in the process, since its old one was already freed.
+   */
+  private readonly retired = new Set<string>()
   private nextOrder = 0
   /** Bytes each cached draft currently costs, so the memory budget never rescans every draft. */
   private readonly bytes = new Map<string, number>()
@@ -179,11 +193,20 @@ export class DraftStore {
       return null
     }
 
+    let journalRaw: string
     try {
-      return replayJournal(snapshot, await readFile(this.journalFile(id), 'utf-8'))
+      journalRaw = await readFile(this.journalFile(id), 'utf-8')
     } catch {
       return snapshot
     }
+
+    const { baseLength, body } = splitJournalHeader(journalRaw)
+    // `writeSnapshot` writes the snapshot before removing the journal it superseded; a crash
+    // between those two steps leaves a journal whose edits `snapshot` already contains. Its
+    // header still names the *pre-edit* length, which the current snapshot no longer has —
+    // replaying it here would duplicate every edit it holds, so it is discarded instead.
+    if (baseLength !== null && baseLength !== snapshot.length) return snapshot
+    return replayJournal(snapshot, body)
   }
 
   /** Writes the snapshot and drops the journal it superseded. */
@@ -360,9 +383,11 @@ export class DraftStore {
   }
 
   saveDraft(draft: AutoSaveDraft): Promise<void> {
+    if (this.retired.has(draft.id)) return Promise.resolve()
     // Claimed before queuing, so position follows the order saves were requested in.
     this.reserveOrder(draft.id)
     return this.enqueue(draft.id, async () => {
+      if (this.retired.has(draft.id)) return
       await this.ensureLoaded()
 
       const bytes = draftBytes(draft.content)
@@ -399,7 +424,9 @@ export class DraftStore {
     batches: readonly (readonly DraftEdit[])[],
     expectedLength: number
   ): Promise<AppendEditsOutcome> {
+    if (this.retired.has(id)) return Promise.resolve('unknown-draft')
     return this.enqueue(id, async () => {
+      if (this.retired.has(id)) return 'unknown-draft'
       await this.ensureLoaded()
       const current = (this.cache ?? []).find((draft) => draft.id === id)
       if (!current) return 'unknown-draft'
@@ -420,7 +447,7 @@ export class DraftStore {
 
       if (compacting) await this.writeSnapshot(id, content)
       // One write for the whole batch: a crash can tear the tail, never the middle.
-      else if (encoded) await this.appendJournal(id, encoded)
+      else if (encoded) await this.appendJournal(id, current.content, encoded)
       this.bytes.set(id, contentBytes)
 
       this.mutateCache((drafts) =>
@@ -430,11 +457,26 @@ export class DraftStore {
     })
   }
 
-  private async appendJournal(id: string, encoded: string): Promise<void> {
+  /**
+   * `baseContent` is the draft content the journal is being appended against — the whole
+   * snapshot's content the first time (right after a fresh snapshot or compaction), just this
+   * batch's edits every time after. Only the first append after a fresh snapshot stamps a
+   * header, so `readContent` can tell a journal apart from one a crash left behind mid-compaction.
+   */
+  private async appendJournal(id: string, baseContent: string, encoded: string): Promise<void> {
+    const journalFile = this.journalFile(id)
+    let isFreshJournal: boolean
     try {
-      await appendFile(this.journalFile(id), encoded, 'utf-8')
+      await stat(journalFile)
+      isFreshJournal = false
+    } catch {
+      isFreshJournal = true
+    }
+    const payload = isFreshJournal ? encodeJournalHeader(baseContent.length) + encoded : encoded
+    try {
+      await appendFile(journalFile, payload, 'utf-8')
     } catch (err) {
-      throw diskSpaceErrorFrom(err, draftBytes(encoded)) ?? err
+      throw diskSpaceErrorFrom(err, draftBytes(payload)) ?? err
     }
   }
 
@@ -448,6 +490,7 @@ export class DraftStore {
   }
 
   removeDraft(id: string): Promise<void> {
+    this.retired.add(id)
     return this.enqueue(id, async () => {
       await this.ensureLoaded()
       if (!(this.cache ?? []).some((draft) => draft.id === id)) return

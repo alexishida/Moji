@@ -3,6 +3,13 @@ export interface MapWithConcurrencyOptions<Result> {
   signal?: AbortSignal
   /** Invoked as soon as each item settles, in completion order (not input order). */
   onResult?: (result: Result, index: number) => void
+  /**
+   * Invoked when the mapper throws for one item; the rest of the batch still runs, and that
+   * item is simply missing from the returned array. Without this, one rejection would abort
+   * every other worker mid-flight via `Promise.all` — fine for a mapper documented never to
+   * throw, but fragile for the next caller that assumes otherwise. Omit to keep that behavior.
+   */
+  onError?: (error: unknown, index: number) => void
 }
 
 /** Maps work with a fixed upper bound on simultaneously active operations. */
@@ -24,9 +31,14 @@ export async function mapWithConcurrency<T, Result>(
       if (options?.signal?.aborted) return
       const index = nextIndex
       nextIndex += 1
-      const result = await mapper(items[index], index)
-      results[index] = result
-      options?.onResult?.(result, index)
+      try {
+        const result = await mapper(items[index], index)
+        results[index] = result
+        options?.onResult?.(result, index)
+      } catch (error) {
+        if (!options?.onError) throw error
+        options.onError(error, index)
+      }
     }
   }
 

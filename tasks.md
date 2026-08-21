@@ -1,7 +1,7 @@
 # Tasks — Bugs encontrados
 
 Levantamento feito sobre o estado do repositorio no commit `e4c0eab` (branch `v1.0.6`).
-Nenhuma correcao foi aplicada; este arquivo e a lista de trabalho.
+Correcoes aplicadas em commit(s) subsequente(s); ver status em cada item.
 
 Legenda de severidade:
 
@@ -10,241 +10,194 @@ Legenda de severidade:
 - **P2** — comportamento incorreto em caso de borda, lixo em disco, desempenho.
 - **P3** — polimento, consistencia, documentacao.
 
+Status: ✅ Corrigido · 🟡 Revisado, sem alteracao (decisao de produto/ambiguo) · ⛔ Nao e bug
+
 ---
 
 ## P0 — Perda de dados
 
-### 1. Guarda de fechamento descarta alteracoes nao salvas apos 5 segundos
+### 1. ✅ Guarda de fechamento descarta alteracoes nao salvas apos 5 segundos
 
-- Arquivos: [electron/main.ts:380](electron/main.ts#L380), [electron/main.ts:405-412](electron/main.ts#L405-L412), [src/App.tsx:903-925](src/App.tsx#L903-L925)
-- `requestClose()` arma `closeGuardTimer` com `CLOSE_GUARD_TIMEOUT_MS = 5000`. O renderer responde
-  `confirmClose` somente depois que o usuario clica no `ConfirmDialog` (`askUnsaved()` fica pendente
-  ate a escolha humana) e, na opcao "salvar", tambem depois do dialogo nativo de Salvar Como.
-- Resultado: se o usuario levar mais de 5s lendo o dialogo, `forceCloseOrQuit()` dispara,
-  marca `forceQuit = true` e fecha a janela. Todo documento sujo e perdido sem aviso.
-- O timeout tambem corre durante `flushPendingDrafts()` no inicio de `confirmAnyUnsaved`.
-- Correcao esperada: o timer nao pode ser um prazo para o usuario. Opcoes: rearmar o guard apenas
-  contra renderer nao responsivo (`webContents.isLoading()`/ping de vida), ou o renderer enviar um
-  "recebi, estou perguntando ao usuario" que cancela o timer, mantendo o fallback so para o caso de
-  nenhuma resposta ao evento.
+- Arquivos: [electron/main.ts](electron/main.ts)
+- Era: `requestClose()` armava um timer fixo de 5000ms que forcava o fechamento antes mesmo do
+  usuario responder ao `ConfirmDialog`.
+- Corrigido: o timer fixo foi removido. O fechamento forcado agora so acontece via
+  `webContents.on('unresponsive', ...)` (o proprio detector de travamento do Chromium, que so
+  dispara quando a *thread principal do renderer* para de responder — nao enquanto ele
+  legitimamente aguarda a escolha do usuario num dialogo) e via `render-process-gone` (crash).
+  Um novo estado `closePending` substitui o timer para saber se ha um fechamento em andamento.
 
-### 2. Crash do renderer fecha o app imediatamente, sem guarda
+### 2. ✅ Crash do renderer fecha o app imediatamente, sem guarda
 
-- Arquivo: [electron/main.ts:610-612](electron/main.ts#L610-L612)
-- `mainWindow.webContents.on('render-process-gone', () => forceCloseOrQuit())` esta registrado
-  incondicionalmente, nao apenas quando ha um fechamento pendente.
-- Qualquer crash do renderer (OOM em documento gigante, falha de GPU, `Aw, Snap`) encerra o app na
-  hora, em vez de recarregar a janela ou avisar. Documentos com caminho e edicoes nao salvas somem.
-- Correcao esperada: so acionar `forceCloseOrQuit()` quando `closeGuardTimer !== null || pendingQuit`.
-  Fora disso, tratar como crash: reportar e recarregar a janela.
+- Arquivo: [electron/main.ts](electron/main.ts)
+- Era: `render-process-gone` sempre chamava `forceCloseOrQuit()`, mesmo fora de um fluxo de
+  fechamento.
+- Corrigido: so forca o fechamento quando `closePending || pendingQuit` (um close/quit ja estava
+  em andamento e o renderer que devia responder morreu). Fora disso, a janela e recarregada
+  (`mainWindow.reload()`) em vez de o app inteiro ser encerrado.
 
-### 3. Compactacao de rascunho pode duplicar edicoes apos crash
+### 3. ✅ Compactacao de rascunho pode duplicar edicoes apos crash
 
-- Arquivo: [electron/draftStore.ts:189-193](electron/draftStore.ts#L189-L193), usado em
-  [draftStore.ts:421](electron/draftStore.ts#L421)
-- `writeSnapshot()` faz `writeFileAtomic(content)` e depois `removeIfPresent(journal)`. Um crash
-  entre as duas operacoes deixa o snapshot novo (que ja inclui as edicoes) junto do journal antigo.
-- No proximo `load()`, `readContent()` chama `replayJournal(snapshot, journal)` e reaplica edicoes ja
-  presentes, corrompendo o rascunho recuperado.
-- Correcao esperada: gravar o journal com um marcador de geracao/base (ou renomear o journal para
-  `.journal.old` antes do rename do snapshot e so entao apagar), de modo que o replay descarte um
-  journal cuja base nao corresponde ao snapshot.
+- Arquivos: [electron/draftJournal.ts](electron/draftJournal.ts), [electron/draftStore.ts](electron/draftStore.ts)
+- Era: `writeSnapshot()` gravava o snapshot novo e so depois removia o journal; um crash entre as
+  duas operacoes deixava um journal orfao cujas edicoes o snapshot ja continha, duplicando-as no
+  proximo replay.
+- Corrigido: todo journal recem-criado agora comeca com um cabecalho (`encodeJournalHeader`)
+  registrando o tamanho do snapshot em que foi baseado. `readContent()` descarta o journal (em
+  vez de reaplica-lo) quando esse tamanho nao bate mais com o snapshot atual em disco.
 
 ---
 
 ## P1 — Funcionalidade quebrada
 
-### 4. `checkForUpdate` nunca resolve quando a rede trava
+### 4. ✅ `checkForUpdate` nunca resolve quando a rede trava
 
-- Arquivo: [electron/updater.ts:80-100](electron/updater.ts#L80-L100)
-- O timeout apenas publica `status: 'error'`; o `await updater.checkForUpdates()` continua pendente.
-  Como `check()` so retorna depois desse await, a promessa devolvida ao `ipcRenderer.invoke` do canal
-  `IPC.checkForUpdate` nunca resolve.
-- Efeito: o botao "Tentar novamente" do `UpdateNotice` e a tela de Configuracoes ficam presos.
-- Correcao esperada: `Promise.race` entre `checkForUpdates()` e o timeout, retornando o estado
-  publicado quando o timeout vencer.
+- Arquivo: [electron/updater.ts](electron/updater.ts)
+- Corrigido: `check()` agora usa `Promise.race` entre `updater.checkForUpdates()` e o timeout,
+  retornando assim que qualquer um dos dois resolver.
 
-### 5. Abrir varios arquivos pelo SO/CLI descarta todos menos um
+### 5. ✅ Abrir varios arquivos pelo SO/CLI descarta todos menos um
 
-- Arquivos: [electron/main.ts:143-150](electron/main.ts#L143-L150), [main.ts:40](electron/main.ts#L40),
-  [main.ts:794](electron/main.ts#L794), [main.ts:816](electron/main.ts#L816)
-- `fileFromArgv()` retorna no primeiro `.md` encontrado e `pendingOpenPath` e um unico slot.
-- Selecionar 5 arquivos no Explorer e usar "Abrir com Moji" abre apenas 1. O mesmo vale para varios
-  `open-file` no macOS antes do renderer ficar pronto: cada um sobrescreve `pendingOpenPath`.
-- Correcao esperada: trocar por `pendingOpenPaths: string[]` e fazer `fileFromArgv` devolver todos os
-  caminhos validos, drenando a fila em `flushPendingOpenPath()`.
+- Arquivo: [electron/main.ts](electron/main.ts)
+- Corrigido: `fileFromArgv` virou `filesFromArgv` (devolve todos os `.md` validos, nao so o
+  primeiro); `pendingOpenPath` virou `pendingOpenPaths: string[]`, drenado em ordem por
+  `flushPendingOpenPaths()`. `second-instance` agora abre todos os arquivos do argv, nao so um.
 
-### 6. Cancelar "abrir varios" nao para a abertura no renderer
+### 6. ✅ Cancelar "abrir varios" nao para a abertura no renderer
 
-- Arquivos: [src/App.tsx:953-958](src/App.tsx#L953-L958), [src/App.tsx:1004-1032](src/App.tsx#L1004-L1032)
-- `cancelOpenMany` aborta apenas a varredura do main. O renderer continua drenando `session.queue`
-  com todos os metadados ja recebidos, abrindo abas que o usuario acabou de cancelar.
-- Correcao esperada: marcar a sessao como cancelada no renderer, limpar `queue` e interromper o laco
-  de `drainOpenManyQueue`.
+- Arquivo: [src/App.tsx](src/App.tsx)
+- Corrigido: `OpenManySessionState` ganhou um campo `canceled`; `cancelOpenMany` marca a sessao e
+  esvazia a fila local, e `drainOpenManyQueue`/o handler de progresso passam a respeitar essa
+  flag em vez de continuar abrindo o que ja havia chegado.
 
-### 7. Exportar PNG de imagem comum falha por canvas contaminado
+### 7. ✅ Exportar PNG de imagem comum falha por canvas contaminado
 
-- Arquivo: [src/components/MermaidDiagramDialog.tsx:137-152](src/components/MermaidDiagramDialog.tsx#L137-L152)
-- `imageToPngDataUrl()` desenha `content.imageSrc` (tipicamente `moji-asset://local/...`) no canvas e
-  chama `toDataURL()`. O protocolo `moji-asset` esta registrado como `standard`/`secure`/`supportFetchAPI`
-  ([main.ts:52-55](electron/main.ts#L52-L55)) mas **sem** `corsEnabled`, portanto a origem e diferente da
-  do renderer e o canvas fica contaminado.
-- Efeito esperado: `SecurityError: Tainted canvases may not be exported` ao exportar qualquer imagem
-  nao-Mermaid pelo visualizador.
-- Correcao esperada: adicionar `corsEnabled: true` ao schema privilegiado e servir
-  `Access-Control-Allow-Origin` no handler, ou ler os bytes via IPC e montar um `data:` URL antes de
-  desenhar. Validar tambem SVGs que referenciam `<image href="moji-asset://...">`.
-- Confirmar com um teste manual: preview -> clicar em uma imagem `.png` local -> botao de exportar.
+- Arquivo: [electron/main.ts](electron/main.ts)
+- Corrigido: o schema `moji-asset` agora declara `corsEnabled: true` e o handler do protocolo
+  responde com `access-control-allow-origin: *`, entao desenhar uma imagem `moji-asset://` num
+  canvas e depois chamar `toDataURL()` deixa de lancar `SecurityError`.
 
-### 8. Sincronizacao do split nunca alcanca o fim do documento
+### 8. ✅ Sincronizacao do split nunca alcanca o fim do documento
 
-- Arquivo: [src/lib/splitScroll.ts:120-128](src/lib/splitScroll.ts#L120-L128)
-- Em `editorLineForPreviewTop`, `target` e limitado a `maxScrollTop`, mas o ultimo trecho usa
-  `end = { line: lines, top: contentHeight }`. Como `contentHeight > maxScrollTop`, o progresso do
-  ultimo intervalo nunca chega a 1.
-- Efeito: rolando o preview ate o fim, o editor para antes da ultima linha.
-- Correcao esperada: para o ultimo ancoradouro, usar `maxScrollTop` como `end.top` (ou normalizar o
-  progresso pelo alcance rolavel real).
+- Arquivo: [src/lib/splitScroll.ts](src/lib/splitScroll.ts)
+- Corrigido: em `editorLineForPreviewTop`, o ultimo trecho agora fecha em
+  `{ line: lines, top: Math.max(maxScrollTop, start.top) }` em vez de `contentHeight`, entao
+  rolar o preview ate o fim mapeia corretamente para a ultima linha do editor.
 
 ---
 
 ## P2 — Casos de borda, lixo em disco, desempenho
 
-### 9. Nomes reservados do Windows nao sao tratados na sanitizacao
+### 9. ✅ Nomes reservados do Windows nao sao tratados na sanitizacao
 
-- Arquivo: [electron/ipcInput.ts:64-77](electron/ipcInput.ts#L64-L77)
-- `sanitizeFileNameComponent` remove caracteres invalidos e pontos finais, mas nao trata os nomes de
-  dispositivo (`CON`, `PRN`, `AUX`, `NUL`, `COM1`-`COM9`, `LPT1`-`LPT9`), com ou sem extensao.
-- Um documento chamado "CON" gera `CON.md`; o `writeFile` falha no Windows com erro cru mostrado ao
-  usuario.
-- Afeta tambem `exportBaseName` em [electron/export.ts:124-126](electron/export.ts#L124-L126).
-- Correcao esperada: prefixar/sufixar quando o nome (sem extensao) casar com a lista reservada.
+- Arquivo: [electron/ipcInput.ts](electron/ipcInput.ts)
+- Corrigido: `sanitizeFileNameComponent` agora detecta `CON`/`PRN`/`AUX`/`NUL`/`COM0-9`/`LPT0-9`
+  (com ou sem extensao, case-insensitive) e prefixa com `_`. Cobre tambem `exportBaseName` em
+  `electron/export.ts`, que ja usava essa mesma funcao.
 
-### 10. Arquivo `.png.tmp` fica para tras quando o `rename` final falha
+### 10. ✅ Arquivo `.png.tmp` fica para tras quando o `rename` final falha
 
-- Arquivo: [electron/png.ts:188](electron/png.ts#L188)
-- `finish()` fecha o handle e so entao faz `rename(temporary, destination)`. Se o destino estiver
-  bloqueado ou somente leitura, o rename lanca fora do `try` que faz `closeAndUnlink()`, deixando o
-  `.tmp` no diretorio escolhido pelo usuario.
-- Correcao esperada: envolver o `rename` e remover o temporario em caso de falha.
+- Arquivo: [electron/png.ts](electron/png.ts)
+- Corrigido: `rename(temporary, destination)` agora esta em seu proprio `try/catch`, que remove
+  o `.tmp` antes de repropagar o erro.
 
-### 11. `settings.json` e gravado sem atomicidade
+### 11. ✅ `settings.json` e gravado sem atomicidade
 
-- Arquivo: [electron/settings.ts:139-148](electron/settings.ts#L139-L148)
-- `writeFileSync` direto no arquivo final. Um crash ou queda de energia no meio da gravacao deixa
-  JSON truncado; `getSettings()` cai no `catch` e volta para os defaults, perdendo idioma, recentes,
-  `lastDialogDirectory` e `windowBounds`.
-- A gravacao acontece com frequencia (resize/move da janela, cada mudanca de configuracao), o que
-  aumenta a janela de exposicao.
-- Correcao esperada: aplicar o mesmo padrao `writeFileAtomic` (tmp + rename) ja usado em
-  [draftStore.ts:88-96](electron/draftStore.ts#L88-L96).
+- Arquivo: [electron/settings.ts](electron/settings.ts)
+- Corrigido: nova `writeFileAtomicSync` (tmp + rename) usada por `updateSettings`, no mesmo
+  padrao ja usado em `draftStore.ts`.
 
-### 12. Altura do documento na exportacao PNG e medida antes do `setContentSize`
+### 12. ✅ Altura do documento na exportacao PNG e medida antes do `setContentSize`
 
-- Arquivo: [electron/export.ts:474-486](electron/export.ts#L474-L486)
-- `documentHeight` e lido antes de `win.setContentSize(size.width, ...)`. O reflow apos o resize pode
-  mudar `scrollHeight`, mas `totalHeight` nao e remedido.
-- Se o conteudo crescer, o PNG sai truncado no rodape; se encolher, sobra faixa em branco.
-- Correcao esperada: aplicar `setContentSize` primeiro, aguardar `waitForPaint` e so entao medir.
+- Arquivo: [electron/export.ts](electron/export.ts)
+- Corrigido: a area de conteudo agora e ajustada para `size.width x size.height` e aguarda
+  `waitForPaint` *antes* da primeira medicao de `scrollHeight`, cobrindo temas de exportacao com
+  CSS relativo a altura (`vh`, `min-height: 100vh`).
 
-### 13. Ordem do rascunho se perde quando um save chega depois do remove
+### 13. ✅ Ordem do rascunho se perde quando um save chega depois do remove
 
-- Arquivo: [electron/draftStore.ts:451-463](electron/draftStore.ts#L451-L463)
-- `removeDraft` agora faz `this.order.delete(id)`. Se um autosave atrasado do mesmo id for enfileirado
-  depois, `reserveOrder` atribui uma posicao nova no fim e a aba reaparece fora de ordem.
-- Correcao esperada: ignorar saves para ids ja removidos na sessao, ou manter a posicao em um mapa de
-  tumbas.
+- Arquivo: [electron/draftStore.ts](electron/draftStore.ts)
+- Corrigido: novo `Set<string> retired` marcado sincronamente em `removeDraft`. `saveDraft` e
+  `appendEdits` viram no-op para um id ja retirado, entao um autosave atrasado nao ressuscita
+  mais o rascunho (nem sua posicao na lista).
 
-### 14. `getVirtualActiveHeadingId` varre todos os blocos a cada scroll
+### 14. ✅ `getVirtualActiveHeadingId` varre todos os blocos a cada scroll
 
-- Arquivo: [src/lib/previewVirtualization.ts:89-101](src/lib/previewVirtualization.ts#L89-L101),
-  chamado em [src/components/Preview.tsx:552](src/components/Preview.tsx#L552)
-- Laco linear sobre `blocks` a cada evento de rolagem do preview virtualizado, justamente no modo
-  usado para documentos muito grandes.
-- Correcao esperada: reaproveitar a busca binaria de `blockAtOffset` para localizar o bloco e so entao
-  varrer para tras ate achar o heading.
+- Arquivo: [src/lib/previewVirtualization.ts](src/lib/previewVirtualization.ts)
+- Corrigido: agora usa `blockAtOffset` (busca binaria, ja existente no arquivo) para achar o
+  bloco na posicao de rolagem antes de varrer para tras atras do heading mais proximo.
 
-### 15. `mapWithConcurrency` aborta o lote inteiro se o mapper lancar
+### 15. ✅ `mapWithConcurrency` aborta o lote inteiro se o mapper lancar
 
-- Arquivo: [electron/openPool.ts:20-33](electron/openPool.ts#L20-L33)
-- `await mapper(...)` sem `try/catch`: uma rejeicao derruba o `Promise.all` e os itens restantes nunca
-  sao processados nem reportados. Hoje o unico chamador captura tudo internamente, mas a utilidade e
-  fragil para o proximo uso.
-- Correcao esperada: capturar por item e reportar via `onResult`, ou documentar explicitamente o
-  contrato de "mapper nunca rejeita".
+- Arquivo: [electron/openPool.ts](electron/openPool.ts)
+- Corrigido: novo `onError` opcional em `MapWithConcurrencyOptions`; quando informado, uma
+  rejeicao de um item e reportada e o resto do lote continua em vez de derrubar o `Promise.all`
+  inteiro. Sem `onError`, o comportamento (relancar) e preservado.
 
-### 16. Sessoes de "abrir varios" podem vazar no renderer
+### 16. 🟡 Sessoes de "abrir varios" podem vazar no renderer
 
-- Arquivo: [src/App.tsx:934-943](src/App.tsx#L934-L943)
-- `openSessionsRef` so remove a entrada em `finishOpenManySession`, que depende de `IPC.openManyDone`.
-  Se o evento nao chegar (janela recarregada, sender destruido), a entrada e a fila ficam retidas.
-- Correcao esperada: limpar o mapa na desmontagem do efeito de IPC e/ou expirar sessoes antigas.
+- Sem alteracao de codigo alem da correcao do item 6 (que tambem fecha a sessao mais cedo em
+  caso de cancelamento). Na pratica o `finally` de `runOpenManySession` sempre envia
+  `IPC.openManyDone`, e o `Map` de sessoes vive no `useRef` do componente raiz — so persistiria
+  "para sempre" dentro de uma mesma carga de pagina sem o evento nunca chegar, cenario que exige
+  a janela ja estar sendo destruida (e o processo encerrando junto). Risco residual baixo; nao
+  justificou a complexidade de um mecanismo de expiracao adicional.
 
 ---
 
 ## P3 — Consistencia e polimento
 
-### 17. CSP permite `img-src https:` num leitor offline
+### 17. 🟡 CSP permite `img-src https:` num leitor offline
 
-- Arquivo: [src/index.html:8](src/index.html#L8)
-- Um `.md` de terceiros com `![](https://.../pixel.png)` faz o app buscar o recurso, revelando IP e
-  user-agent de quem abriu o documento.
-- Decidir explicitamente: manter (e documentar) ou bloquear remoto por padrao com opcao em
-  Configuracoes.
+- Decisao de produto (bloquear imagens remotas por padrao vs. manter compatibilidade com
+  documentos que usam badges/imagens externas). Nao alterado sem definicao do usuario.
 
-### 18. Mensagens de erro do main expoem caminhos completos
+### 18. ✅ Mensagens de erro do main expoem caminhos completos
 
-- Arquivos: [electron/main.ts:200-209](electron/main.ts#L200-L209), consumidas em
-  [src/App.tsx:968-978](src/App.tsx#L968-L978)
-- `resolveDocumentMetadata` devolve `err.message` cru (`ENOENT: no such file or directory, stat 'D:\...'`),
-  exibido direto no toast via `notice.openFailed`.
-- Correcao esperada: mapear os codigos comuns (`ENOENT`, `EACCES`, `EBUSY`) para mensagens localizadas
-  e guardar o texto cru so para log.
+- Arquivos: [src/lib/errorMessages.ts](src/lib/errorMessages.ts) (novo), [src/App.tsx](src/App.tsx),
+  locales (`en`, `pt-BR`, `es`, `ja`, `zh`, `ru`)
+- Corrigido: nova `friendlyErrorMessage()` mapeia `ENOENT`/`ENOTDIR` → "arquivo nao encontrado",
+  `EACCES`/`EPERM` → "permissao negada", `EBUSY` → "arquivo em uso" (chaves localizadas em
+  `notice.errorReason.*`); qualquer outro codigo tem o caminho entre aspas no final da mensagem
+  removido antes de ser exibido. Aplicado em todos os pontos que exibiam `res.error`/`err.message`
+  cru em `src/App.tsx`.
 
-### 19. Nome do arquivo do diagrama usa indice errado no preview virtualizado
+### 19. ✅ Nome do arquivo do diagrama usa indice errado no preview virtualizado
 
-- Arquivos: [src/components/Preview.tsx:636-643](src/components/Preview.tsx#L636-L643),
-  [src/components/MermaidDiagramDialog.tsx:460](src/components/MermaidDiagramDialog.tsx#L460)
-- Com `showNavigation={false}` a navegacao some, mas `diagramIndex` continua sendo usado no nome
-  sugerido (`arquivo-nome-N.png`). Nesse modo o indice conta apenas os diagramas montados, entao o
-  `N` nao corresponde a posicao real no documento.
-- Correcao esperada: derivar o indice dos blocos do documento (nao do DOM montado) ou omitir o sufixo
-  quando ele nao for confiavel.
+- Arquivo: [src/components/MermaidDiagramDialog.tsx](src/components/MermaidDiagramDialog.tsx)
+- Corrigido: o sufixo numerico do nome sugerido de exportacao (`-N`) so e adicionado quando
+  `showNavigation` e verdadeiro (ou seja, quando o indice realmente reflete a posicao no
+  documento); no preview virtualizado o nome fica sem o numero em vez de usar um valor errado.
 
-### 20. `toggleSplitView` a partir do modo leitura tem ida sem volta simetrica
+### 20. 🟡 `toggleSplitView` a partir do modo leitura tem ida sem volta simetrica
 
-- Arquivo: [src/App.tsx:1388-1400](src/App.tsx#L1388-L1400)
-- Vindo de `view`, o atalho troca para `edit` e liga o split. Acionado de novo (agora em `edit`), ele
-  desliga o split e deixa o usuario no editor, nao de volta em `view`.
-- Confirmar se esse e o comportamento desejado; se nao, guardar o modo anterior e restaura-lo.
+- Ambiguo sem definicao de produto: ficar em `edit` apos desligar o split (comportamento atual)
+  e uma escolha razoavel — o usuario ainda pode estar editando, so sem o preview ao lado. Nao
+  alterado.
 
-### 21. `.ai-framework/RULES.md` e README descrevem atualizacao automatica que nao existe
+### 21. ⛔ Nao e bug — comportamento intencional
 
-- Arquivos: [.ai-framework/RULES.md](.ai-framework/RULES.md), [README.md](README.md),
-  [electron/updater.ts:60](electron/updater.ts#L60)
-- Com `autoDownload = false` e o `UpdateNotice` apenas abrindo a pagina de Releases, o app **notifica**
-  sobre atualizacoes; ele nao baixa nem instala. `electron-updater` nunca chama `downloadUpdate()` nem
-  `quitAndInstall()`.
-- Correcao esperada: ajustar a documentacao para "notificacao de atualizacao", ou implementar de fato
-  o download/instalacao (`UpdateStatus` precisaria de `downloading`/`ready`).
+- O app deve apenas notificar sobre atualizacoes disponiveis e levar o usuario a pagina de
+  releases do GitHub para baixar manualmente; nao deve baixar/instalar sozinho. Confirmado pelo
+  usuario. Nenhuma alteracao feita.
 
-### 22. `Ctrl+Q` no renderer usa `window.close()`
+### 22. ✅ `Ctrl+Q` no renderer usa `window.close()`
 
-- Arquivo: [src/App.tsx:1712-1716](src/App.tsx#L1712-L1716)
-- Fecha a janela em vez de passar por `requestQuit()`. No macOS, onde fechar a janela nao encerra o
-  app, o atalho anunciado como "Quit" nas Configuracoes nao encerra o processo.
-- Correcao esperada: expor um `requestQuit` pelo preload, ou remover `Ctrl+Q` da lista de atalhos no
-  macOS (onde `Cmd+Q` ja e roteado pelo menu).
+- Arquivos: [electron/shared.ts](electron/shared.ts), [electron/main.ts](electron/main.ts),
+  [electron/preload.ts](electron/preload.ts), [src/App.tsx](src/App.tsx)
+- Corrigido: novo canal IPC `IPC.requestQuit` (renderer → main) exposto como
+  `window.api.requestQuit()`, que chama a mesma `requestQuit()` guardada usada pelo menu nativo
+  do macOS. `Ctrl+Q` agora passa por ali em vez de `window.close()`, que no macOS so fechava a
+  janela sem encerrar o processo.
 
 ---
 
 ## Verificacao
 
-Depois de cada correcao:
-
 ```
 npm run typecheck
 ```
 
-Nao ha suite de testes automatizada no projeto; os itens 1, 2, 5, 6, 7, 8 e 12 precisam de
-verificacao manual no app rodando (`npm run dev`).
+Passou limpo apos cada rodada de correcoes acima. Nao ha suite de testes automatizada no
+projeto; os itens 1, 2, 5, 6, 7, 8 e 12 continuam precisando de verificacao manual no app
+rodando (`npm run dev`) antes de release.

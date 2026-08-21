@@ -31,6 +31,7 @@ import { getPreviewSchedule } from './lib/previewSchedule'
 import { beginRendererMeasure } from './lib/performanceMetrics'
 import { findLiteralMatches } from './lib/search'
 import { draftFailureNotice } from './lib/draftFailure'
+import { friendlyErrorMessage } from './lib/errorMessages'
 import type { OutlineItem } from './lib/outline'
 import { getExtraMermaidGuideExamples } from './lib/mermaidGuide'
 import { renderMermaidFlowcharts } from './lib/mermaid'
@@ -117,6 +118,10 @@ interface OpenManySessionState {
   draining: boolean
   /** True once main's own pass (`IPC.openManyDone`) is over — nothing more will be queued. */
   metaDone: boolean
+  /** Set by `cancelOpenMany`: stops the queue from draining further and drops what is still
+   *  queued, so a file the user just canceled does not open anyway just because its metadata
+   *  had already arrived from main before the abort reached it. */
+  canceled: boolean
   /** Documents actually opened (content delivered) or confirmed failed; drives the progress bar. */
   delivered: number
   total: number
@@ -425,7 +430,7 @@ export function App(): JSX.Element {
 
   const openLocalPath = useCallback(async (fileUrl: string): Promise<void> => {
     const result = await window.api.openLocalPath(fileUrl)
-    if (!result.ok) flash(t('notice.openFailed', { error: result.error }), true)
+    if (!result.ok) flash(t('notice.openFailed', { error: friendlyErrorMessage(result.error ?? '', t) }), true)
   }, [flash, t])
 
   const updateKey = `${updateState.status}:${updateState.version ?? ''}:${updateState.error ?? ''}`
@@ -649,7 +654,7 @@ export function App(): JSX.Element {
           )
         }
       })
-      .catch((err: Error) => flash(t('notice.draftRestoreFailed', { error: err.message }), true))
+      .catch((err: Error) => flash(t('notice.draftRestoreFailed', { error: friendlyErrorMessage(err.message, t) }), true))
   }, [addDocuments, flash, i18n, t])
 
   // --- Document title ----------------------------------------------------
@@ -736,7 +741,7 @@ export function App(): JSX.Element {
           )
           return true
         } catch (err) {
-          flash(t('notice.autoSaveFailed', { error: (err as Error).message }), true)
+          flash(t('notice.autoSaveFailed', { error: friendlyErrorMessage((err as Error).message, t) }), true)
           return false
         }
       })()
@@ -785,10 +790,10 @@ export function App(): JSX.Element {
       try {
         const result = await window.api.removeDraft(doc.draftId)
         if (result.ok) return true
-        flash(t('notice.autoSaveCleanupFailed', { error: result.error }), true)
+        flash(t('notice.autoSaveCleanupFailed', { error: friendlyErrorMessage(result.error ?? '', t) }), true)
         return false
       } catch (err) {
-        flash(t('notice.autoSaveCleanupFailed', { error: (err as Error).message }), true)
+        flash(t('notice.autoSaveCleanupFailed', { error: friendlyErrorMessage((err as Error).message, t) }), true)
         return false
       }
     },
@@ -829,7 +834,7 @@ export function App(): JSX.Element {
         flash(t('notice.saveSuccess'))
         return true
       }
-      if (!res.canceled) flash(t('notice.saveFailed', { error: res.error }), true)
+      if (!res.canceled) flash(t('notice.saveFailed', { error: friendlyErrorMessage(res.error ?? '', t) }), true)
       return false
     },
     [flash, removeDocumentDraft, t]
@@ -871,7 +876,7 @@ export function App(): JSX.Element {
         flash(t('notice.saveSuccess'))
         return true
       }
-      flash(t('notice.saveFailed', { error: res.error }), true)
+      flash(t('notice.saveFailed', { error: friendlyErrorMessage(res.error ?? '', t) }), true)
       return false
     },
     [flash, removeDocumentDraft, saveDocumentAs, t]
@@ -926,7 +931,7 @@ export function App(): JSX.Element {
   const doOpen = useCallback(async () => {
     const res = await window.api.openDialog()
     if (!res.ok) {
-      if (!res.canceled) flash(t('notice.openFailed', { error: res.error }), true)
+      if (!res.canceled) flash(t('notice.openFailed', { error: friendlyErrorMessage(res.error ?? '', t) }), true)
       return
     }
     materializeEditorContent()
@@ -937,6 +942,7 @@ export function App(): JSX.Element {
       queue: [],
       draining: false,
       metaDone: false,
+      canceled: false,
       delivered: 0,
       total: res.total,
       errors: []
@@ -953,6 +959,13 @@ export function App(): JSX.Element {
   const cancelOpenMany = useCallback(() => {
     const sessionId = activeOpenSessionIdRef.current
     if (!sessionId) return
+    const session = openSessionsRef.current.get(sessionId)
+    if (session) {
+      session.canceled = true
+      // Already-queued metadata belongs to files the user just canceled; drop them instead of
+      // letting the in-flight `drainOpenManyQueue` loop keep opening them after this point.
+      session.queue = []
+    }
     setOpenProgress((prev) => (prev ? { ...prev, canceling: true } : prev))
     void window.api.cancelOpenMany(sessionId)
   }, [])
@@ -969,7 +982,7 @@ export function App(): JSX.Element {
         if (res.ok) opened.push({ path: res.path, content: res.content, sizeProfile: res.sizeProfile })
         else {
           if (res.error === 'unsupported') flash(t('notice.unsupported'), true)
-          else flash(t('notice.openFailed', { error: res.error }), true)
+          else flash(t('notice.openFailed', { error: friendlyErrorMessage(res.error ?? '', t) }), true)
           // A transient failure (permission, a network share timing out, the IPC read's own
           // timeout) must not remove the path — only a file confirmed gone or never a document.
           if (isMissingDocumentError(res.error)) missing.push(path)
@@ -993,7 +1006,7 @@ export function App(): JSX.Element {
       setOpenProgress(null)
     }
     if (session.paths.length > 0) rememberRecent(session.paths)
-    if (session.errors.length > 0) flash(t('notice.openFailed', { error: session.errors[0] }), true)
+    if (session.errors.length > 0) flash(t('notice.openFailed', { error: friendlyErrorMessage(session.errors[0], t) }), true)
   }, [flash, rememberRecent, t])
 
   /**
@@ -1006,7 +1019,7 @@ export function App(): JSX.Element {
     if (!session || session.draining) return
     session.draining = true
     try {
-      while (session.queue.length > 0) {
+      while (!session.canceled && session.queue.length > 0) {
         const path = session.queue.shift() as string
         const res = await window.api.readPath(path)
         if (res.ok) {
@@ -1074,7 +1087,7 @@ export function App(): JSX.Element {
           baseName: base
         })
         if (res.ok) flash(t('notice.exportSuccess', { path: res.path }))
-        else if (!res.canceled) flash(t('notice.exportFailed', { error: res.error }), true)
+        else if (!res.canceled) flash(t('notice.exportFailed', { error: friendlyErrorMessage(res.error ?? '', t) }), true)
       } finally {
         setExportProgress(null)
       }
@@ -1194,7 +1207,7 @@ export function App(): JSX.Element {
       readOnly: true
       }])
     }
-    else flash(t('notice.openFailed', { error: res.error }), true)
+    else flash(t('notice.openFailed', { error: friendlyErrorMessage(res.error ?? '', t) }), true)
   }, [addDocuments, flash, materializeEditorContent, settings.language, t])
 
   const selectDocument = useCallback((docId: string) => {
@@ -1713,7 +1726,9 @@ export function App(): JSX.Element {
       }
       if (key === 'q') {
         event.preventDefault()
-        window.close()
+        // Not `window.close()`: on macOS that only closes this window, and the app stays
+        // running in the dock — this goes through the same guard as the native Quit menu.
+        window.api.requestQuit()
         return
       }
       if (key === '+' || key === '=') {
@@ -1776,6 +1791,7 @@ export function App(): JSX.Element {
       const session = openSessionsRef.current.get(progress.sessionId)
       if (!session) return
       if (progress.document) {
+        if (session.canceled) return
         // Metadata only; queue it so `drainOpenManyQueue` pulls the actual bytes one at a time.
         session.queue.push(progress.document.path)
         void drainOpenManyQueue(progress.sessionId)

@@ -251,6 +251,7 @@
     "autoSaveCleanupFailed": "Could not remove recovery draft: {{error}}",
     "draftRestoreFailed": "Could not restore recovery drafts: {{error}}",
     "openFailed": "Could not open file: {{error}}",
+    "errorReason": { "notFound": "File not found.", "permissionDenied": "Permission denied.", "busy": "File is in use." },
     "noDocument": "Open a document first.",
     "readOnlyGuide": "The bundled Markdown guide is read-only and cannot be saved.",
     "replaceNeedsSearch": "Enter a search term first.",

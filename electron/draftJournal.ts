@@ -89,6 +89,33 @@ export function encodeJournalEntry(edits: readonly DraftEdit[]): string {
 }
 
 /**
+ * First line of a fresh journal: the length of the snapshot it was appended after.
+ *
+ * `writeSnapshot` writes the new snapshot before removing the journal it superseded, so a
+ * crash in between leaves a journal on disk whose edits the snapshot already contains. This
+ * header lets the next load tell that stale journal apart from one that still belongs ahead
+ * of the snapshot it sits next to: the entries it decodes to (a JSON array) and this header
+ * (a JSON object) are different shapes, so `splitJournalHeader` never confuses the two.
+ */
+export function encodeJournalHeader(baseLength: number): string {
+  return `${JSON.stringify({ base: baseLength })}\n`
+}
+
+/** Journal text split into its base-length header (if present) and the entries after it. */
+export function splitJournalHeader(raw: string): { baseLength: number | null; body: string } {
+  const newline = raw.indexOf('\n')
+  if (newline < 0) return { baseLength: null, body: raw }
+  try {
+    const parsed = JSON.parse(raw.slice(0, newline)) as unknown
+    const base = parsed && typeof parsed === 'object' ? (parsed as { base?: unknown }).base : undefined
+    if (typeof base === 'number') return { baseLength: base, body: raw.slice(newline + 1) }
+  } catch {
+    // Not a header line — the whole thing is journal entries, as written before this existed.
+  }
+  return { baseLength: null, body: raw }
+}
+
+/**
  * Reads entries from journal text.
  *
  * A crash can leave the final line half-written, so an unparsable or malformed trailing line is

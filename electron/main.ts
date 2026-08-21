@@ -37,22 +37,28 @@ import { AssetCache } from './assetCache'
 import { beginMainMeasure, captureMainMemory, getMainPerformanceReport } from './performance'
 
 let mainWindow: BrowserWindow | null = null
-let pendingOpenPath: string | null = null
+/** Files an open reached main before the renderer's `onOpenDocument` listener was confirmed
+ *  mounted (see IPC.rendererReady). Flushed in order once it fires. */
+let pendingOpenPaths: string[] = []
 /** True once the renderer's `onOpenDocument` listener is confirmed mounted (see IPC.rendererReady). */
 let rendererReady = false
 let forceQuit = false
 let pendingQuit = false
 let updateController: UpdateController | null = null
 let persistWindowBoundsTimer: NodeJS.Timeout | null = null
-/** Forces the close through if a hung or crashed renderer never answers `requestClose`. */
-let closeGuardTimer: NodeJS.Timeout | null = null
+/** True from `requestClose()` until the renderer answers `confirmClose`, or the window is gone. */
+let closePending = false
 const capabilities = new FileCapabilities()
 const assetCache = new AssetCache(readFile)
 const openManySessions = new Map<string, AbortController>()
 
 protocol.registerSchemesAsPrivileged([{
   scheme: 'moji-asset',
-  privileges: { secure: true, standard: true, supportFetchAPI: true }
+  // `corsEnabled` plus the header below is what lets a canvas draw a `moji-asset://` image and
+  // still call `toDataURL`/`toBlob`: without both, Chromium treats the image as cross-origin
+  // and taints the canvas, so exporting a diagram that references a local image throws
+  // `SecurityError` instead of producing a PNG.
+  privileges: { secure: true, standard: true, supportFetchAPI: true, corsEnabled: true }
 }])
 
 if (process.platform === 'linux') {
@@ -133,20 +139,24 @@ function registerAssetProtocol(): void {
     }
     try {
       const bytes = await assetCache.read(asset.path, asset)
-      return new Response(new Uint8Array(bytes), { headers: { 'content-type': assetContentType(asset.path) } })
+      return new Response(new Uint8Array(bytes), {
+        headers: { 'content-type': assetContentType(asset.path), 'access-control-allow-origin': '*' }
+      })
     } catch {
       return new Response('Not found', { status: 404 })
     }
   })
 }
 
-function fileFromArgv(argv: string[]): string | null {
-  // Skip the executable (and, in dev, the script path). Look for a real .md file.
+function filesFromArgv(argv: string[]): string[] {
+  // Skip the executable (and, in dev, the script path). Collect every real .md file: a
+  // multi-file selection passed to "Open with Moji" arrives as one argv, not one launch per file.
+  const files: string[] = []
   for (const arg of argv.slice(1)) {
     if (arg.startsWith('-')) continue
-    if (isMarkdown(arg) && existsSync(arg)) return arg
+    if (isMarkdown(arg) && existsSync(arg)) files.push(arg)
   }
-  return null
+  return files
 }
 
 function samplePath(sampleName: unknown): string | null {
@@ -340,21 +350,21 @@ async function openDocument(filePath: string): Promise<void> {
   if (metadata) grantDocument(metadata.path)
   // A window can exist before its renderer has mounted the listener this push relies on
   // (fresh window still loading, or a second-instance file arriving mid-boot). Sending the
-  // event then would be dropped on the floor, so it waits for the same signal `flushPendingOpenPath`
+  // event then would be dropped on the floor, so it waits for the same signal `flushPendingOpenPaths`
   // reacts to.
   if (!mainWindow || mainWindow.isDestroyed() || !rendererReady) {
-    if (metadata) pendingOpenPath = filePath
+    if (metadata) pendingOpenPaths.push(filePath)
     return
   }
   if (metadata) mainWindow.webContents.send(IPC.openDocument, metadata)
 }
 
-function flushPendingOpenPath(): void {
+function flushPendingOpenPaths(): void {
   rendererReady = true
-  if (pendingOpenPath) {
-    const path = pendingOpenPath
-    pendingOpenPath = null
-    void openDocument(path)
+  if (pendingOpenPaths.length > 0) {
+    const paths = pendingOpenPaths
+    pendingOpenPaths = []
+    for (const path of paths) void openDocument(path)
   }
 }
 
@@ -367,7 +377,7 @@ function revealMainWindow(): void {
 
 function openAssociatedDocument(filePath: string): void {
   if (!mainWindow || mainWindow.isDestroyed()) {
-    pendingOpenPath = filePath
+    pendingOpenPaths.push(filePath)
     if (app.isReady()) createWindow()
     return
   }
@@ -376,25 +386,17 @@ function openAssociatedDocument(filePath: string): void {
   void openDocument(filePath)
 }
 
-/** How long a hung or unresponsive renderer gets to answer `requestClose` before it is closed anyway. */
-const CLOSE_GUARD_TIMEOUT_MS = 5000
-
-function clearCloseGuardTimer(): void {
-  if (closeGuardTimer !== null) {
-    clearTimeout(closeGuardTimer)
-    closeGuardTimer = null
-  }
-}
-
 /**
  * Closes or quits without waiting on the renderer.
  *
  * The unsaved-changes guard exists to give the renderer a chance to ask the user, but a
- * renderer that never answers — hung, or gone entirely — must not be able to keep the app
- * open forever. This is the same path `confirmClose(true)` takes.
+ * renderer whose event loop is genuinely stuck — not merely awaiting the user's answer in a
+ * dialog, which costs the main thread nothing while it waits — must not be able to keep the
+ * app open forever. This is only reached from Chromium's own hang detector (`unresponsive`) or
+ * a crashed renderer (`render-process-gone`), never from a timer racing the user's decision.
+ * This is the same path `confirmClose(true)` takes.
  */
 function forceCloseOrQuit(): void {
-  clearCloseGuardTimer()
   if (!mainWindow) return
   forceQuit = true
   if (pendingQuit) {
@@ -406,9 +408,8 @@ function forceCloseOrQuit(): void {
 }
 
 function requestClose(): void {
+  closePending = true
   mainWindow?.webContents.send(IPC.requestClose)
-  clearCloseGuardTimer()
-  closeGuardTimer = setTimeout(forceCloseOrQuit, CLOSE_GUARD_TIMEOUT_MS)
 }
 
 /** Quit the whole app, not just the window. On macOS closing the last window keeps the app alive. */
@@ -539,6 +540,7 @@ function createWindow(): void {
   forceQuit = false
   pendingQuit = false
   rendererReady = false
+  closePending = false
 
   const iconPath = app.isPackaged ? join(process.resourcesPath, 'icon.png') : join(app.getAppPath(), 'build', 'icon.png')
   mainWindow = new BrowserWindow({
@@ -603,13 +605,29 @@ function createWindow(): void {
       clearTimeout(persistWindowBoundsTimer)
       persistWindowBoundsTimer = null
     }
-    clearCloseGuardTimer()
+    closePending = false
     mainWindow = null
   })
 
-  // A crashed or killed renderer can never answer `requestClose`; without this the close
-  // guard would otherwise only recover after the `CLOSE_GUARD_TIMEOUT_MS` fallback.
-  mainWindow.webContents.on('render-process-gone', () => forceCloseOrQuit())
+  // Chromium's own hang detector: fires only when the renderer's main thread stops responding
+  // to input, never while it is merely awaiting the user's answer in a dialog. A renderer stuck
+  // like this can never answer `requestClose`, so a close or quit already in flight is forced
+  // through instead of leaving the app stuck open.
+  mainWindow.webContents.on('unresponsive', () => {
+    if (closePending || pendingQuit) forceCloseOrQuit()
+  })
+
+  // A crashed renderer mid-close can never answer `requestClose` either, so finish the close
+  // it was already asked to make. Outside of a close/quit in flight, a crash is not this guard's
+  // job to paper over: reload instead of silently discarding the window and any other open tabs.
+  mainWindow.webContents.on('render-process-gone', () => {
+    if (closePending || pendingQuit) {
+      forceCloseOrQuit()
+    } else if (mainWindow && !mainWindow.isDestroyed()) {
+      rendererReady = false
+      mainWindow.reload()
+    }
+  })
 
   if (process.env['ELECTRON_RENDERER_URL']) {
     void mainWindow.loadURL(process.env['ELECTRON_RENDERER_URL'])
@@ -703,7 +721,9 @@ function registerIpc(): void {
     void streamDocumentToPort(filePath, port)
   })
 
-  onFromRenderer(IPC.rendererReady, (): void => flushPendingOpenPath())
+  onFromRenderer(IPC.rendererReady, (): void => flushPendingOpenPaths())
+
+  onFromRenderer(IPC.requestQuit, (): void => requestQuit())
 
   handleFromRenderer(IPC.openLocalPath, (_e, fileUrl: unknown): Promise<WriteResult> => openLocalPath(fileUrl))
 
@@ -769,7 +789,7 @@ function registerIpc(): void {
 
   handleFromRenderer(IPC.confirmClose, (_e, shouldClose: unknown): void => {
     // The renderer answered, so the force-close guard no longer needs to fire.
-    clearCloseGuardTimer()
+    closePending = false
     if (shouldClose === true && mainWindow) {
       forceQuit = true
       if (pendingQuit) {
@@ -791,12 +811,12 @@ if (!gotLock) {
   app.quit()
 } else {
   app.on('second-instance', (_e, argv) => {
-    const file = fileFromArgv(argv)
+    const files = filesFromArgv(argv)
     if (mainWindow) {
       if (mainWindow.isMinimized()) mainWindow.restore()
       mainWindow.focus()
     }
-    if (file) void openDocument(file)
+    for (const file of files) void openDocument(file)
   })
 
   // macOS / Linux file association via open-file event.
@@ -813,7 +833,7 @@ if (!gotLock) {
   })
 
   app.whenReady().then(() => {
-    pendingOpenPath ??= fileFromArgv(process.argv)
+    pendingOpenPaths.push(...filesFromArgv(process.argv))
     registerAssetProtocol()
     registerIpc()
     installApplicationMenu()

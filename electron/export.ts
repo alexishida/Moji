@@ -472,6 +472,12 @@ async function htmlToPngFile(
     const finishMeasure = beginMainMeasure('export:png-render', { htmlChars: html.length })
     try {
       await win.webContents.executeJavaScript("document.documentElement.classList.add('export-png')")
+      // Settle the content area at the page's own size and wait for that layout to paint before
+      // measuring: some export themes use height-relative CSS (vh units, `min-height: 100vh`
+      // sections), whose `scrollHeight` depends on the viewport height, not just its width, and
+      // the class toggle just above can itself change what that layout looks like.
+      win.setContentSize(size.width, size.height)
+      await waitForPaint(win)
       const documentHeight = (await win.webContents.executeJavaScript(
         'Math.ceil(Math.max(document.body.scrollHeight, document.documentElement.scrollHeight))'
       )) as number
