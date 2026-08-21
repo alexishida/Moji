@@ -1,5 +1,6 @@
 import { appendFile, mkdir, readFile, readdir, rename, stat, unlink, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
+import { createHash } from 'node:crypto'
 import type { AutoSaveDraft } from './shared'
 import { stripLeadingBom } from './documentDecoder'
 import {
@@ -113,6 +114,12 @@ async function removeIfPresent(file: string): Promise<void> {
   }
 }
 
+/** Identity of a snapshot's contents, stamped into the journal header so loading (and only
+ *  loading) can tell a journal whose base the snapshot no longer matches from a live one. */
+function contentHash(content: string): string {
+  return createHash('sha256').update(content).digest('hex')
+}
+
 export class DraftStore {
   private readonly directory: string
   private readonly manifestFile: string
@@ -200,12 +207,19 @@ export class DraftStore {
       return snapshot
     }
 
-    const { baseLength, body } = splitJournalHeader(journalRaw)
+    const { baseLength, baseHash, body } = splitJournalHeader(journalRaw)
     // `writeSnapshot` writes the snapshot before removing the journal it superseded; a crash
     // between those two steps leaves a journal whose edits `snapshot` already contains. Its
-    // header still names the *pre-edit* length, which the current snapshot no longer has —
-    // replaying it here would duplicate every edit it holds, so it is discarded instead.
-    if (baseLength !== null && baseLength !== snapshot.length) return snapshot
+    // header names the base snapshot's content hash (or, for a journal written before the hash
+    // existed, just its length) — whenever that no longer matches the current snapshot the
+    // journal is stale and must be discarded, or replaying it would duplicate every edit it
+    // holds. The length comparison alone is not safe (an equal-length edit folded into the
+    // snapshot leaves a stale journal indistinguishable), which is why the hash exists.
+    if (baseHash !== null) {
+      if (baseHash !== contentHash(snapshot)) return snapshot
+    } else if (baseLength !== null && baseLength !== snapshot.length) {
+      return snapshot
+    }
     return replayJournal(snapshot, body)
   }
 
@@ -472,7 +486,9 @@ export class DraftStore {
     } catch {
       isFreshJournal = true
     }
-    const payload = isFreshJournal ? encodeJournalHeader(baseContent.length) + encoded : encoded
+    const payload = isFreshJournal
+      ? encodeJournalHeader(baseContent.length, contentHash(baseContent)) + encoded
+      : encoded
     try {
       await appendFile(journalFile, payload, 'utf-8')
     } catch (err) {

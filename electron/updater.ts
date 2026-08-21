@@ -79,21 +79,31 @@ export function createUpdateController(notify: StateListener): UpdateController 
    */
   const CHECK_TIMEOUT_MS = 20_000
 
-  const check = async (): Promise<UpdateState> => {
-    if (state.status === 'checking') return state
-    let timer: NodeJS.Timeout
+  /**
+   * One in-flight check at a time, tracked independently of the published `status`.
+   *
+   * `status` cannot serve as the guard: a check that loses the race against `CHECK_TIMEOUT_MS`
+   * publishes `status: 'error'` while its `checkForUpdates()` is still pending, so a quick
+   * "Try again" would pass a `status === 'checking'` check and start a second concurrent
+   * `checkForUpdates()` against the same updater.
+   */
+  let checkInFlight: Promise<UpdateState> | null = null
+
+  const performCheck = async (): Promise<UpdateState> => {
+    let timer: NodeJS.Timeout | undefined
     const timeout = new Promise<'timed-out'>((resolve) => {
       timer = setTimeout(() => resolve('timed-out'), CHECK_TIMEOUT_MS)
     })
-    // A rejection here already reaches the `error` listener registered above, which publishes
-    // its own state; catching it a second time here only keeps a check that loses the race
-    // against `timeout` from surfacing as an unhandled rejection.
-    const request = updater.checkForUpdates().then(
-      () => 'done' as const,
-      () => 'done' as const
-    )
+    // The `.then(() => updater.checkForUpdates())` indirection catches a synchronous throw
+    // (not just a rejection) and routes it through the same 'done' folding as a rejection.
+    const request = Promise.resolve()
+      .then(() => updater.checkForUpdates())
+      .then(
+        () => 'done' as const,
+        () => 'done' as const
+      )
     const outcome = await Promise.race([request, timeout])
-    clearTimeout(timer!)
+    if (timer !== undefined) clearTimeout(timer)
     // Read through a function boundary: TS narrows `state.status` from the early-return guard
     // above across the whole rest of this function, and does not know `publish` (a separate
     // closure) can reassign `state` out from under that narrowing while this awaits.
@@ -102,6 +112,13 @@ export function createUpdateController(notify: StateListener): UpdateController 
       publish({ status: 'error', error: 'Update check timed out.' })
     }
     return state
+  }
+
+  const check = (): Promise<UpdateState> => {
+    checkInFlight ??= performCheck().finally(() => {
+      checkInFlight = null
+    })
+    return checkInFlight
   }
 
   return {

@@ -110,6 +110,12 @@ export function editorLineForPreviewTop(
   const target = clamp(top, maxScrollTop)
   if (target <= 0) return 0
 
+  // The bottom of the preview shows the end of the document, so the exact bottom maps to the
+  // editor's last line. The heading interpolation below cannot reach it: a trailing heading
+  // within one viewport of the end has its own top offset above `maxScrollTop`, and closing
+  // the last segment there leaves progress short of 1 no matter how `end` is chosen.
+  if (target >= maxScrollTop) return lines
+
   if (anchors.length === 0) {
     return clamp((target / maxScrollTop) * lines, lines)
   }

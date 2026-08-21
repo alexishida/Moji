@@ -297,11 +297,11 @@ export function App(): JSX.Element {
   const panelOpen = exportDialogFormat !== null || settingsOpen || aboutOpen
   /** Two panes below this width leave neither of them readable. */
   const splitFits = workspaceWidth >= SPLIT_MIN_WIDTH_PX
-  // Deliberately independent of `mode`: the split toggle stays enabled while viewing so it can
-  // be turned on from there (see `toggleSplitView`), instead of only working after the user has
-  // already discovered they need to switch to edit mode first.
-  const canToggleSplit = hasDoc && activeDoc?.readOnly !== true && !panelOpen && splitFits
-  const splitActive = mode === 'edit' && canToggleSplit && settings.splitView
+  // The split pairs the live preview with the source editor, so it only exists while editing.
+  // The toggle stays disabled outside edit mode instead of silently switching modes, keeping the
+  // button's enabled state predictable while viewing.
+  const canToggleSplit = mode === 'edit' && hasDoc && activeDoc?.readOnly !== true && !panelOpen && splitFits
+  const splitActive = canToggleSplit && settings.splitView
   const previewVisible = mode === 'view' || splitActive
 
   const debouncedContent = useDebounced(content, previewSchedule.debounceMs)
@@ -1401,16 +1401,8 @@ export function App(): JSX.Element {
   const toggleSplitView = useCallback(() => {
     const s = stateRef.current
     if (!s.canToggleSplit) return
-    // Turning split on from view mode switches to edit in the same action: split view has
-    // nothing to show without the editor pane, so a bare toggle there would do nothing and
-    // leave the user to discover the mode switch is required on their own.
-    if (s.mode !== 'edit') {
-      setModeSafe('edit')
-      if (!s.splitView) changeSettings({ splitView: true })
-      return
-    }
     changeSettings({ splitView: !s.splitView })
-  }, [changeSettings, setModeSafe])
+  }, [changeSettings])
 
   const changeSplitRatio = useCallback(
     (ratio: number) => changeSettings({ splitRatio: ratio }),
@@ -1631,9 +1623,15 @@ export function App(): JSX.Element {
 
       const key = event.key.toLowerCase()
       const primary = event.ctrlKey || event.metaKey
-      const onlyPrimary = primary && !event.altKey
+      // A layout like pt-BR's ABNT2 produces `\` (and other symbols) through AltGr, which
+      // Chromium reports as Ctrl+Alt. `getModifierState('AltGraph')` tells that apart from a
+      // deliberate Ctrl+Alt chord, so shortcuts like Ctrl+\ keep working on such keyboards
+      // instead of being dropped by the `!event.altKey` guard below.
+      const altGraph = typeof event.getModifierState === 'function' && event.getModifierState('AltGraph')
+      const onlyPrimary = primary && (!event.altKey || altGraph)
 
       if (event.key === 'Escape') {
+        event.preventDefault()
         closeActivePanel()
         return
       }
@@ -1797,7 +1795,8 @@ export function App(): JSX.Element {
         void drainOpenManyQueue(progress.sessionId)
         return
       }
-      if (progress.error) session.errors.push(progress.error)
+      // Errors are collected once, from `openManyDone` below: main re-sends the same list in
+      // `done.errors`, so pushing `progress.error` here too would double every failure.
       // A file main could not even stat never reaches the queue, so it has to bump the
       // progress bar here or it would stall short of `total`.
       session.delivered += 1

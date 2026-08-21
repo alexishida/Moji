@@ -452,7 +452,17 @@ function installApplicationMenu(): void {
         ]
       },
       { role: 'editMenu' },
-      { role: 'windowMenu' }
+      // No default Miniaturize here: its Command+M would fight the editor's own "exit editor
+      // focus" binding (`Mod-m` in Editor.tsx), which the settings screen advertises. The
+      // window's yellow traffic light still minimizes without a menu item for it.
+      {
+        label: 'Window',
+        submenu: [
+          { role: 'zoom' },
+          { type: 'separator' },
+          { role: 'front' }
+        ]
+      }
     ])
   )
 }
@@ -620,13 +630,34 @@ function createWindow(): void {
   // A crashed renderer mid-close can never answer `requestClose` either, so finish the close
   // it was already asked to make. Outside of a close/quit in flight, a crash is not this guard's
   // job to paper over: reload instead of silently discarding the window and any other open tabs.
-  mainWindow.webContents.on('render-process-gone', () => {
+  mainWindow.webContents.on('render-process-gone', (_event, details) => {
     if (closePending || pendingQuit) {
       forceCloseOrQuit()
-    } else if (mainWindow && !mainWindow.isDestroyed()) {
-      rendererReady = false
-      mainWindow.reload()
+      return
     }
+    if (!mainWindow || mainWindow.isDestroyed()) return
+
+    // A renderer that never launches or failed signature verification will only crash again
+    // after a reload, so this is the one place a reload loop is worse than stopping.
+    if (details.reason === 'launch-failed' || details.reason === 'integrity-failure') {
+      dialog.showErrorBox(
+        'Moji could not start',
+        `The window failed to load (${details.reason}). The app will quit.`
+      )
+      app.exit(1)
+      return
+    }
+
+    // A transient crash (OOM, GPU, ...) reloads the window. Recovery drafts are restored from
+    // disk, but edits to on-disk documents that only existed in the renderer's memory are gone —
+    // the user should be told rather than finding an empty, silently-reset workspace.
+    rendererReady = false
+    mainWindow.reload()
+    void dialog.showMessageBox(mainWindow, {
+      type: 'warning',
+      message: 'Moji recovered after a crash.',
+      detail: 'The window was reloaded. Untitled documents were recovered, but any changes you had not saved to files on disk were lost.'
+    })
   })
 
   if (process.env['ELECTRON_RENDERER_URL']) {

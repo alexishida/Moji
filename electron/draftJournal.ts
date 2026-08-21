@@ -89,30 +89,44 @@ export function encodeJournalEntry(edits: readonly DraftEdit[]): string {
 }
 
 /**
- * First line of a fresh journal: the length of the snapshot it was appended after.
+ * First line of a fresh journal: the identity of the snapshot it was appended after.
  *
  * `writeSnapshot` writes the new snapshot before removing the journal it superseded, so a
  * crash in between leaves a journal on disk whose edits the snapshot already contains. This
  * header lets the next load tell that stale journal apart from one that still belongs ahead
  * of the snapshot it sits next to: the entries it decodes to (a JSON array) and this header
  * (a JSON object) are different shapes, so `splitJournalHeader` never confuses the two.
+ *
+ * The snapshot's *length* was the original discriminator, but it is not a safe one: a change
+ * that nets out to the same number of characters (an equal-length replacement folded into a
+ * full snapshot) leaves a stale journal indistinguishable from a live one. Carrying the
+ * content hash instead lets `readContent` reject a stale journal even when the lengths
+ * coincide. Journals written before the hash existed (`{ base }` only) keep working through
+ * the old length comparison.
  */
-export function encodeJournalHeader(baseLength: number): string {
-  return `${JSON.stringify({ base: baseLength })}\n`
+export function encodeJournalHeader(baseLength: number, baseHash?: string): string {
+  const header = baseHash === undefined
+    ? { base: baseLength }
+    : { base: baseLength, baseHash }
+  return `${JSON.stringify(header)}\n`
 }
 
-/** Journal text split into its base-length header (if present) and the entries after it. */
-export function splitJournalHeader(raw: string): { baseLength: number | null; body: string } {
+/** Journal text split into its base-identity header (if present) and the entries after it. */
+export function splitJournalHeader(raw: string): { baseLength: number | null; baseHash: string | null; body: string } {
   const newline = raw.indexOf('\n')
-  if (newline < 0) return { baseLength: null, body: raw }
+  if (newline < 0) return { baseLength: null, baseHash: null, body: raw }
   try {
     const parsed = JSON.parse(raw.slice(0, newline)) as unknown
-    const base = parsed && typeof parsed === 'object' ? (parsed as { base?: unknown }).base : undefined
-    if (typeof base === 'number') return { baseLength: base, body: raw.slice(newline + 1) }
+    const header = parsed && typeof parsed === 'object' ? (parsed as Record<string, unknown>) : null
+    const base = header?.['base']
+    if (typeof base === 'number') {
+      const baseHash = typeof header?.['baseHash'] === 'string' ? header['baseHash'] : null
+      return { baseLength: base, baseHash, body: raw.slice(newline + 1) }
+    }
   } catch {
     // Not a header line — the whole thing is journal entries, as written before this existed.
   }
-  return { baseLength: null, body: raw }
+  return { baseLength: null, baseHash: null, body: raw }
 }
 
 /**
