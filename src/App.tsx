@@ -1344,6 +1344,29 @@ export function App(): JSX.Element {
     setActiveHeadingId(id)
   }, [mode])
 
+  /**
+   * Highlight the outline entry for the section the editor is showing.
+   *
+   * The preview pane feeds `activeHeadingId` through its own scroll-spy; a lone editor (edit
+   * mode without the split view) has no preview to spy from, so the outline is followed here
+   * instead: the last heading at or above the first visible source line becomes the active one.
+   * While the split is on, the preview is what scrolls (synced from the editor) and drives the
+   * outline, so that path stays in charge.
+   */
+  const updateActiveHeadingFromEditorLine = useCallback((line: number) => {
+    if (stateRef.current.mode !== 'edit' || splitSyncRef.current.active) return
+    let bestId: string | null = null
+    let bestLine = -1
+    for (const item of outlineRef.current) {
+      const sourceLine = item.sourceLine
+      if (sourceLine !== undefined && sourceLine <= line && sourceLine > bestLine) {
+        bestId = item.id
+        bestLine = sourceLine
+      }
+    }
+    setActiveHeadingId(bestId)
+  }, [])
+
   const setPreviewHeadings = useCallback((headings: HTMLElement[]) => {
     previewHeadingsRef.current = headings
   }, [])
@@ -1483,6 +1506,13 @@ export function App(): JSX.Element {
     editor.scrollToLine(line)
   }, [claimScrollOwner, splitAnchorsFor])
 
+  // A scroll of the editor both follows along in the split preview (when on) and, without a
+  // preview to spy from, drives the outline's active entry.
+  const onEditorVisibleLineChange = useCallback((line: number) => {
+    updateActiveHeadingFromEditorLine(line)
+    syncPreviewToEditorLine(line)
+  }, [syncPreviewToEditorLine, updateActiveHeadingFromEditorLine])
+
   // Follow the preview while it is the pane being scrolled.
   useEffect(() => {
     if (!splitActive || !previewPaneElement) return
@@ -1515,6 +1545,13 @@ export function App(): JSX.Element {
     })
     return () => window.cancelAnimationFrame(frame)
   }, [html, settings.previewFluidWidth, settings.previewFontSize, settings.previewWidth, splitActive, syncPreviewToEditorLine])
+
+  // A lone editor produces no scroll event on mode/tab/outline changes, so the outline's active
+  // entry is re-derived from the current viewport top instead of waiting for the next scroll.
+  useEffect(() => {
+    if (mode !== 'edit' || splitActive) return
+    updateActiveHeadingFromEditorLine(editorRef.current?.getTopVisibleLine() ?? 0)
+  }, [activeDocId, editorOutline, mode, outlineVisible, splitActive, updateActiveHeadingFromEditorLine])
 
   const openSettings = useCallback(() => {
     setExportDialogFormat(null)
@@ -2011,7 +2048,7 @@ export function App(): JSX.Element {
                       onIdleStatsChange={updateIdleStats}
                       onOutlineChange={updateEditorOutline}
                       onBlur={() => void persistDraftDocument(activeDoc.id)}
-                      onVisibleLineChange={syncPreviewToEditorLine}
+                      onVisibleLineChange={onEditorVisibleLineChange}
                     />
                   </Suspense>
                 }
