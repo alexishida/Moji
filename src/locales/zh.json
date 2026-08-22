@@ -1,6 +1,6 @@
 {
   "app": {
-    "name": "Moji v1.0.5",
+    "name": "Moji v{{version}}",
     "untitled": "无标题",
     "modifiedMarker": "•"
   },
@@ -13,26 +13,9 @@
     "closeSaved": "关闭已保存",
     "closeAll": "关闭全部"
   },
-  "menu": {
-    "file": "文件",
-    "open": "打开…",
-    "save": "保存",
-    "saveAs": "另存为…",
-    "export": "导出",
-    "exportHtml": "导出为 HTML…",
-    "exportPdf": "导出为 PDF…",
-    "quit": "退出",
-    "view": "视图",
-    "toggleEdit": "切换编辑",
-    "toggleTheme": "切换主题",
-    "language": "语言"
-  },
   "toolbar": {
     "open": "打开",
-    "edit": "编辑",
-    "view": "视图",
     "preview": "预览",
-    "shortcuts": "快捷键",
     "editor": "编辑器",
     "viewMode": "查看模式",
     "newDocument": "新建",
@@ -47,8 +30,6 @@
     "occurrences": "匹配数",
     "close": "关闭",
     "export": "导出",
-    "exportHtml": "导出为 HTML",
-    "exportPdf": "导出为 PDF",
     "theme": "主题",
     "themeLight": "浅色模式",
     "themeDark": "深色模式",
@@ -60,17 +41,16 @@
     "useFluidWidth": "使用全宽阅读宽度",
     "showOutline": "显示大纲",
     "hideOutline": "隐藏大纲",
+    "showLivePreview": "显示实时预览",
+    "hideLivePreview": "隐藏实时预览",
+    "livePreviewTooNarrow": "空间不足，无法显示实时预览",
+    "resizeSplit": "调整窗格宽度",
     "settings": "设置",
     "about": "关于",
-    "more": "更多操作",
     "language": "语言"
   },
   "sidebar": {
-    "library": "库",
-    "localStorage": "本地存储",
-    "documents": "文档",
     "outline": "大纲",
-    "help": "帮助",
     "expand": "展开",
     "collapse": "折叠",
     "expandAll": "全部展开",
@@ -79,15 +59,11 @@
     "noDocument": "打开或创建一个文档以查看其大纲。"
   },
   "statusbar": {
-    "brand": "Moji v1.0.5",
+    "brand": "Moji v{{version}}",
     "guide": "Markdown 指南",
-    "exportPdf": "导出 PDF",
     "lineCount": "行数：{{count}}",
     "tokenCount": "Tokens：{{count}}",
     "wordCount": "字数：{{count}}"
-  },
-  "help": {
-    "hint": "打开或拖入 .md 文件，从顶部标签切换预览／编辑器，并使用大纲在标题间跳转。"
   },
   "preview": {
     "copyCode": "复制代码",
@@ -127,8 +103,7 @@
   },
   "welcome": {
     "tagline": "轻量简洁的 Markdown 阅读器",
-    "title": "Moji v1.0.5",
-    "subtitle": "打开 Markdown 文件以清晰地阅读。",
+    "title": "Moji v{{version}}",
     "openButton": "打开文件",
     "newButton": "新建文件",
     "dropHint": "或将 .md 文件拖入此窗口任意位置",
@@ -164,6 +139,9 @@
     "title": "设置",
     "general": "常规",
     "preview": "预览",
+    "editor": "编辑器",
+    "shortcutOr": "或",
+    "shortcuts": "快捷键",
     "fontFamily": "字体",
     "fontSize": "字号",
     "lineHeight": "行高",
@@ -189,6 +167,7 @@
       "findNext": "下一个匹配",
       "findPrevious": "上一个匹配",
       "toggleEdit": "切换编辑/预览",
+      "toggleSplit": "切换实时预览",
       "export": "导出",
       "settings": "设置",
       "fullscreen": "全屏",
@@ -204,7 +183,10 @@
       "link": "插入链接",
       "list": "切换列表",
       "checklist": "切换任务列表",
-      "codeBlock": "插入代码块"
+      "codeBlock": "插入代码块",
+      "indent": "增加缩进",
+      "outdent": "减少缩进",
+      "exitFocus": "退出编辑器焦点"
     }
   },
   "aboutDialog": {
@@ -238,6 +220,25 @@
     "later": "稍后",
     "dismiss": "关闭更新通知"
   },
+  "openProgress": {
+    "title": "正在打开文件…",
+    "count": "已打开 {{completed}}/{{total}}",
+    "cancel": "取消",
+    "canceling": "正在取消…"
+  },
+  "exportProgress": {
+    "title": "正在导出…",
+    "slice": "{{phase}} — 第 {{slice}} / {{slices}} 部分",
+    "cancel": "取消",
+    "canceling": "正在取消…",
+    "phase": {
+      "render": "正在渲染页面…",
+      "fonts": "正在加载字体…",
+      "capture": "正在捕获页面…",
+      "compress": "正在压缩图像…",
+      "write": "正在写入文件…"
+    }
+  },
   "notice": {
     "unsupported": "不支持的文件类型。只能打开 .md 和 .markdown 文件。",
     "exportSuccess": "已导出到 {{path}}",
@@ -245,9 +246,12 @@
     "saveSuccess": "已保存",
     "saveFailed": "保存失败：{{error}}",
     "autoSaveFailed": "无法保存恢复草稿：{{error}}",
+    "autoSaveOverMemoryBudget": "无法保存恢复草稿：需要 {{required}}，但草稿仅预留了 {{available}}。文本未被截断——请将文档保存为文件以保留内容。",
+    "autoSaveNoDiskSpace": "无法保存恢复草稿：需要 {{required}} 可用空间，但磁盘仅剩 {{available}}。文本未被截断——请释放空间或将文档保存为文件。",
     "autoSaveCleanupFailed": "无法删除恢复草稿：{{error}}",
     "draftRestoreFailed": "无法恢复草稿：{{error}}",
     "openFailed": "无法打开文件：{{error}}",
+    "errorReason": { "notFound": "找不到文件。", "permissionDenied": "权限被拒绝。", "busy": "文件正在使用中。" },
     "noDocument": "请先打开一个文档。",
     "readOnlyGuide": "内置 Markdown 指南为只读内容，无法保存。",
     "replaceNeedsSearch": "请先输入搜索词。",

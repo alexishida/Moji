@@ -1,6 +1,6 @@
 {
   "app": {
-    "name": "Moji v1.0.5",
+    "name": "Moji v{{version}}",
     "untitled": "Sem título",
     "modifiedMarker": "•"
   },
@@ -13,24 +13,8 @@
     "closeSaved": "Fechar Salvos",
     "closeAll": "Fechar Tudo"
   },
-  "menu": {
-    "file": "Arquivo",
-    "open": "Abrir…",
-    "save": "Salvar",
-    "saveAs": "Salvar como…",
-    "export": "Exportar",
-    "exportHtml": "Exportar como HTML…",
-    "exportPdf": "Exportar como PDF…",
-    "quit": "Sair",
-    "view": "Exibir",
-    "toggleEdit": "Alternar edição",
-    "toggleTheme": "Alternar tema",
-    "language": "Idioma"
-  },
   "toolbar": {
     "open": "Abrir",
-    "edit": "Editar",
-    "view": "Visualizar",
     "preview": "Visualizar",
     "editor": "Editar",
     "viewMode": "Modo de exibição",
@@ -46,8 +30,6 @@
     "occurrences": "Ocorrências",
     "close": "Fechar",
     "export": "Exportar",
-    "exportHtml": "Exportar como HTML",
-    "exportPdf": "Exportar como PDF",
     "theme": "Tema",
     "themeLight": "Modo claro",
     "themeDark": "Modo escuro",
@@ -59,17 +41,16 @@
     "useFluidWidth": "Usar largura total na leitura",
     "showOutline": "Mostrar sumário",
     "hideOutline": "Ocultar sumário",
+    "showLivePreview": "Mostrar visualização ao vivo",
+    "hideLivePreview": "Ocultar visualização ao vivo",
+    "livePreviewTooNarrow": "Espaço insuficiente para a visualização ao vivo",
+    "resizeSplit": "Redimensionar os painéis",
     "settings": "Configurações",
     "about": "Sobre",
-    "more": "Mais ações",
     "language": "Idioma"
   },
   "sidebar": {
-    "library": "Biblioteca",
-    "localStorage": "Armazenamento local",
-    "documents": "Documentos",
     "outline": "Sumário",
-    "help": "Ajuda",
     "expand": "Expandir",
     "collapse": "Recolher",
     "expandAll": "Expandir tudo",
@@ -78,15 +59,11 @@
     "noDocument": "Abra ou crie um documento para ver o sumário."
   },
   "statusbar": {
-    "brand": "Moji v1.0.5",
+    "brand": "Moji v{{version}}",
     "guide": "Guia de Markdown",
-    "exportPdf": "Exportar PDF",
     "lineCount": "Linhas: {{count}}",
     "tokenCount": "Tokens: {{count}}",
     "wordCount": "Palavras: {{count}}"
-  },
-  "help": {
-    "hint": "Abra ou solte um arquivo .md, alterne entre Visualizar/Editor nas abas superiores e use o sumário para navegar entre os títulos."
   },
   "preview": {
     "copyCode": "Copiar código",
@@ -126,8 +103,7 @@
   },
   "welcome": {
     "tagline": "Um leitor de Markdown leve e simples",
-    "title": "Moji v1.0.5",
-    "subtitle": "Abra um Markdown para ler com clareza, sem distrações.",
+    "title": "Moji v{{version}}",
     "openButton": "Abrir arquivo",
     "newButton": "Novo Arquivo",
     "dropHint": "ou arraste um arquivo .md para esta janela",
@@ -146,23 +122,25 @@
   "exportDialog": {
     "title": "Exportar documento",
     "format": "Formato",
-    "settings": "Configura\u00e7\u00f5es",
-    "pageSize": "Tamanho da p\u00e1gina",
-    "orientation": "Orienta\u00e7\u00e3o",
+    "settings": "Configurações",
+    "pageSize": "Tamanho da página",
+    "orientation": "Orientação",
     "portrait": "Retrato",
     "landscape": "Paisagem",
     "pdfTitle": "Exportar como PDF",
-    "pdfDescription": "Ideal para impress\u00e3o e compartilhamento com layout exato.",
+    "pdfDescription": "Ideal para impressão e compartilhamento com layout exato.",
     "htmlTitle": "Exportar como HTML",
-    "htmlDescription": "Melhor para publica\u00e7\u00e3o na web e incorpora\u00e7\u00e3o.",
+    "htmlDescription": "Melhor para publicação na web e incorporação.",
     "pngTitle": "Exportar como PNG",
-    "pngDescription": "Imagem em alta resolu\u00e7\u00e3o do conte\u00fado do documento.",
+    "pngDescription": "Imagem em alta resolução do conteúdo do documento.",
     "export": "Exportar"
   },
   "settingsDialog": {
     "title": "Configurações",
     "general": "Geral",
     "preview": "Visualizar",
+    "editor": "Editar",
+    "shortcutOr": "ou",
     "shortcuts": "Atalhos",
     "fontFamily": "Fonte",
     "fontSize": "Tamanho da fonte",
@@ -189,6 +167,7 @@
       "findNext": "Próxima ocorrência",
       "findPrevious": "Ocorrência anterior",
       "toggleEdit": "Alternar editor/visualização",
+      "toggleSplit": "Alternar visualização ao vivo",
       "export": "Exportar",
       "settings": "Configurações",
       "fullscreen": "Tela cheia",
@@ -204,7 +183,10 @@
       "link": "Inserir link",
       "list": "Alternar lista",
       "checklist": "Alternar checklist",
-      "codeBlock": "Inserir bloco de código"
+      "codeBlock": "Inserir bloco de código",
+      "indent": "Aumentar recuo",
+      "outdent": "Diminuir recuo",
+      "exitFocus": "Sair do foco do editor"
     }
   },
   "aboutDialog": {
@@ -238,6 +220,25 @@
     "later": "Depois",
     "dismiss": "Dispensar aviso de atualização"
   },
+  "openProgress": {
+    "title": "Abrindo arquivos…",
+    "count": "{{completed}} de {{total}} abertos",
+    "cancel": "Cancelar",
+    "canceling": "Cancelando…"
+  },
+  "exportProgress": {
+    "title": "Exportando…",
+    "slice": "{{phase}} — {{slice}} de {{slices}}",
+    "cancel": "Cancelar",
+    "canceling": "Cancelando…",
+    "phase": {
+      "render": "Renderizando a página…",
+      "fonts": "Carregando fontes…",
+      "capture": "Capturando a página…",
+      "compress": "Comprimindo a imagem…",
+      "write": "Gravando o arquivo…"
+    }
+  },
   "notice": {
     "unsupported": "Tipo de arquivo não suportado. Apenas arquivos .md e .markdown podem ser abertos.",
     "exportSuccess": "Exportado para {{path}}",
@@ -245,9 +246,12 @@
     "saveSuccess": "Salvo",
     "saveFailed": "Falha ao salvar: {{error}}",
     "autoSaveFailed": "Falha ao salvar rascunho de recuperação: {{error}}",
+    "autoSaveOverMemoryBudget": "Falha ao salvar rascunho de recuperação: precisa de {{required}}, mas apenas {{available}} estão reservados para rascunhos. Nada foi cortado do texto — salve o documento em um arquivo para preservá-lo.",
+    "autoSaveNoDiskSpace": "Falha ao salvar rascunho de recuperação: precisa de {{required}} livres, mas restam apenas {{available}} em disco. Nada foi cortado do texto — libere espaço ou salve o documento em um arquivo.",
     "autoSaveCleanupFailed": "Falha ao remover rascunho de recuperação: {{error}}",
     "draftRestoreFailed": "Falha ao restaurar rascunhos de recuperação: {{error}}",
     "openFailed": "Não foi possível abrir o arquivo: {{error}}",
+    "errorReason": { "notFound": "Arquivo não encontrado.", "permissionDenied": "Permissão negada.", "busy": "Arquivo em uso." },
     "noDocument": "Abra um documento primeiro.",
     "readOnlyGuide": "O guia Markdown incluído é somente leitura e não pode ser salvo.",
     "replaceNeedsSearch": "Digite um termo para buscar.",

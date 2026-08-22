@@ -15,11 +15,35 @@ The system SHALL default to a view-only preview and allow the user to toggle an 
 - **THEN** the editor is hidden and only the rendered preview remains visible
 
 ### Requirement: Live preview while editing
-The system SHALL update the rendered preview to reflect edits to the source with a short debounce, without requiring a manual refresh.
+The system SHALL offer a split view that shows the rendered preview beside the source editor, and SHALL update it to reflect edits with a short debounce, without requiring a manual refresh.
+
+#### Scenario: Show the preview beside the editor
+- **WHEN** the user activates the live preview toggle in the toolbar or its shortcut while editing
+- **THEN** the preview appears beside the source editor and both panes stay usable
 
 #### Scenario: Preview follows edits
-- **WHEN** the user types or deletes text in the source editor
+- **WHEN** the user types or deletes text in the source editor with the live preview showing
 - **THEN** the preview updates to reflect the new content within a brief delay
+
+#### Scenario: Preview follows the editor position
+- **WHEN** the user scrolls or edits at some point of the document
+- **THEN** the preview scrolls to the matching part of the rendered document instead of staying where it was
+
+#### Scenario: Editor follows the preview position
+- **WHEN** the user scrolls the preview pane with the live preview showing
+- **THEN** the source editor scrolls to the matching part of the document, and the two panes do not fight each other
+
+#### Scenario: Available only while editing
+- **WHEN** a document is open in view mode
+- **THEN** the live preview toggle is disabled, becoming available once edit mode is on
+
+#### Scenario: Resize the panes
+- **WHEN** the user drags the divider between the panes
+- **THEN** the panes resize within their allowed range, and the chosen ratio is restored in later sessions
+
+#### Scenario: Workspace too narrow
+- **WHEN** the workspace is too narrow to show two readable panes
+- **THEN** the live preview toggle is disabled and explains why
 
 ### Requirement: Dirty-state tracking
 The system SHALL track unsaved changes and indicate the dirty state, warning before actions that would discard unsaved edits.
@@ -65,3 +89,30 @@ The system SHALL persist documents without a filesystem path as internal recover
 #### Scenario: Disable recovery
 - **WHEN** the user disables untitled-document recovery in Settings
 - **THEN** new changes are not written to internal recovery storage and normal unsaved-change confirmation applies
+
+#### Scenario: Recover a large document
+- **WHEN** an untitled document holds more text than any fixed character limit would allow, and the machine has memory and disk space for it
+- **THEN** the recovery draft is persisted and restored in full, with no content removed
+
+#### Scenario: Recovery storage is unavailable
+- **WHEN** a recovery draft cannot be written because the memory budget or the free disk space is insufficient
+- **THEN** the application reports how much was needed and how much was available, keeps the previously stored draft unchanged, and never stores a shortened copy of the document
+
+### Requirement: Indent and outdent in the source editor
+The system SHALL indent with Tab and outdent with Shift+Tab inside the source editor, using two spaces per level, instead of moving focus to the next control.
+
+#### Scenario: Nest a list item
+- **WHEN** the cursor is on the leading whitespace of a list item and the user presses Tab
+- **THEN** the line receives one more indent level, nesting it under the item above
+
+#### Scenario: Indent inside a line
+- **WHEN** the cursor sits after text on a line and the user presses Tab
+- **THEN** one indent unit is inserted at the cursor
+
+#### Scenario: Indent a selection
+- **WHEN** text spanning one or more lines is selected and the user presses Tab
+- **THEN** every selected line receives one more indent level
+
+#### Scenario: Outdent
+- **WHEN** the user presses Shift+Tab
+- **THEN** every touched line loses one indent level, and lines with no leading whitespace stay unchanged

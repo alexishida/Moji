@@ -1,5 +1,6 @@
-import { BrowserWindow, dialog, screen } from 'electron'
-import { writeFile } from 'node:fs/promises'
+import { app, BrowserWindow, dialog, screen } from 'electron'
+import { open, unlink, writeFile } from 'node:fs/promises'
+import { randomUUID } from 'node:crypto'
 import { dirname, join } from 'node:path'
 import {
   EXPORT_PAGE_SIZES,
@@ -7,11 +8,14 @@ import {
   type ExportFormat,
   type ExportPageOrientation,
   type ExportPageSize,
+  type ExportProgress,
   type ExportRequest,
   type WriteResult
 } from './shared'
 import { getSettings, updateSettings } from './settings'
-import { createPngEncoder } from './png'
+import { sanitizeFileNameComponent } from './ipcInput'
+import { createPngFileWriter } from './png'
+import { beginMainMeasure, captureMainMemory, captureWebContentsMemory } from './performance'
 
 const FILTERS: Record<ExportFormat, Electron.FileFilter> = {
   html: { name: 'HTML', extensions: ['html'] },
@@ -33,6 +37,54 @@ const MAX_CAPTURE_DEVICE_PX = 16384
  * slice simply costs less memory, at the price of one more scroll and capture.
  */
 const CAPTURE_SLICE_CSS_PX = 2048
+
+export type ExportProgressReporter = (progress: ExportProgress) => void
+
+/** Raised when the user cancels; carried to the top so the partial file is discarded. */
+class ExportCanceled extends Error {
+  constructor() {
+    super('Export canceled.')
+  }
+}
+
+interface ExportSession {
+  canceled: boolean
+  report: ExportProgressReporter
+  /** Throw if the user has cancelled, at a point where nothing is half-written. */
+  checkpoint: () => void
+}
+
+/**
+ * Rendering an export holds a hidden window, a capture pipeline and a worker thread.
+ * Running two at once would multiply that cost while making the progress the user sees
+ * ambiguous, so a second request is refused rather than queued.
+ */
+let activeExport: ExportSession | null = null
+
+export function isExportRunning(): boolean {
+  return activeExport !== null
+}
+
+/** Ask the running export to stop. It ends at the next checkpoint. */
+export function cancelExport(): void {
+  if (activeExport) activeExport.canceled = true
+}
+
+function beginExportSession(report: ExportProgressReporter): ExportSession {
+  const session: ExportSession = {
+    canceled: false,
+    report,
+    checkpoint: () => {
+      if (session.canceled) throw new ExportCanceled()
+    }
+  }
+  activeExport = session
+  return session
+}
+
+function endExportSession(session: ExportSession): void {
+  if (activeExport === session) activeExport = null
+}
 
 function isExportFormat(format: unknown): format is ExportFormat {
   return format === 'pdf' || format === 'html' || format === 'png'
@@ -70,7 +122,7 @@ function exportAssetBaseUrl(assetBaseUrl: unknown): string | undefined {
 }
 
 function exportBaseName(baseName: string): string {
-  return baseName.replace(/[\\/]/g, '').trim() || 'document'
+  return sanitizeFileNameComponent(baseName) || 'document'
 }
 
 function exportDefaultPath(baseName: string, format: ExportFormat): string {
@@ -90,31 +142,88 @@ function rememberDialogDirectory(filePath: string): void {
  * - PDF: load the HTML into a hidden window and print it to PDF.
  * - PNG: render the HTML at the selected page width and capture it as an image.
  */
-export async function exportDocument(request: unknown): Promise<WriteResult> {
+export async function exportDocument(
+  request: unknown,
+  onProgress: ExportProgressReporter = () => undefined,
+  parentWindow?: BrowserWindow
+): Promise<WriteResult> {
   if (!isExportRequest(request)) return { ok: false, error: 'Invalid export request.' }
+  if (isExportRunning()) return { ok: false, error: 'An export is already in progress.' }
 
-  const { format, pageSize, pageOrientation, html, assetBaseUrl, baseName } = request
-
-  const { canceled, filePath } = await dialog.showSaveDialog({
-    defaultPath: exportDefaultPath(baseName, format),
-    filters: [FILTERS[format]]
-  })
-  if (canceled || !filePath) return { ok: false, canceled: true }
-  rememberDialogDirectory(filePath)
+  const { format, baseName } = request
+  // The session opens before the dialog, so a second request while the user is still
+  // choosing a destination is refused rather than starting a competing render.
+  const session = beginExportSession(onProgress)
 
   try {
-    if (format === 'html') {
-      await writeFile(filePath, html, 'utf-8')
-    } else if (format === 'pdf') {
-      const pdf = await htmlToPdf(html, pageSize, pageOrientation, assetBaseUrl)
-      await writeFile(filePath, pdf)
-    } else {
-      const png = await htmlToPng(html, pageSize, pageOrientation, assetBaseUrl)
-      await writeFile(filePath, png)
+    const options: Electron.SaveDialogOptions = {
+      defaultPath: exportDefaultPath(baseName, format),
+      filters: [FILTERS[format]]
     }
-    return { ok: true, path: filePath }
+    const { canceled, filePath } = parentWindow
+      ? await dialog.showSaveDialog(parentWindow, options)
+      : await dialog.showSaveDialog(options)
+    if (canceled || !filePath) return { ok: false, canceled: true }
+    rememberDialogDirectory(filePath)
+
+    return await runExport(request, filePath, session)
   } catch (err) {
     return { ok: false, error: (err as Error).message }
+  } finally {
+    endExportSession(session)
+  }
+}
+
+/** Export without native dialog. Used only by local `--benchmark` runner. */
+export async function exportDocumentToPath(
+  request: unknown,
+  filePath: string,
+  onProgress: ExportProgressReporter = () => undefined
+): Promise<WriteResult> {
+  if (!isExportRequest(request)) return { ok: false, error: 'Invalid export request.' }
+  if (isExportRunning()) return { ok: false, error: 'An export is already in progress.' }
+
+  const session = beginExportSession(onProgress)
+  try {
+    return await runExport(request, filePath, session)
+  } finally {
+    endExportSession(session)
+  }
+}
+
+async function runExport(request: ExportRequest, filePath: string, session: ExportSession): Promise<WriteResult> {
+  const { format, pageSize, pageOrientation, html, assetBaseUrl } = request
+  const finishMeasure = beginMainMeasure('document:export', { htmlChars: html.length })
+  let wroteDestination = false
+  try {
+    session.checkpoint()
+
+    if (format === 'html') {
+      session.report({ phase: 'write' })
+      await writeFile(filePath, html, 'utf-8')
+      wroteDestination = true
+    } else if (format === 'pdf') {
+      const pdf = await htmlToPdf(html, pageSize, pageOrientation, session, assetBaseUrl)
+      session.checkpoint()
+      session.report({ phase: 'write' })
+      await writeFile(filePath, pdf)
+      wroteDestination = true
+    } else {
+      await htmlToPngFile(filePath, html, pageSize, pageOrientation, session, assetBaseUrl)
+    }
+
+    void captureMainMemory('main:memory:document-export')
+    return { ok: true, path: filePath }
+  } catch (err) {
+    if (err instanceof ExportCanceled) {
+      // PNG discards its temporary file. Only remove HTML/PDF when this export has
+      // finished writing the destination; otherwise it may be a pre-existing file.
+      if (wroteDestination) await unlink(filePath).catch(() => undefined)
+      return { ok: false, canceled: true }
+    }
+    return { ok: false, error: (err as Error).message }
+  } finally {
+    finishMeasure()
   }
 }
 
@@ -125,7 +234,7 @@ function isDiagramPngRequest(request: unknown): request is DiagramPngRequest {
 }
 
 /** Save one renderer-created Mermaid PNG through Electron's native save dialog. */
-export async function exportDiagramPng(request: unknown): Promise<WriteResult> {
+export async function exportDiagramPng(request: unknown, parentWindow?: BrowserWindow): Promise<WriteResult> {
   if (!isDiagramPngRequest(request)) return { ok: false, error: 'Invalid diagram PNG request.' }
 
   const match = /^data:image\/png;base64,([A-Za-z0-9+/]+={0,2})$/.exec(request.dataUrl)
@@ -135,10 +244,13 @@ export async function exportDiagramPng(request: unknown): Promise<WriteResult> {
   const isPng = png.length >= 8 && png.subarray(0, 8).equals(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]))
   if (!isPng) return { ok: false, error: 'Invalid diagram PNG data.' }
 
-  const { canceled, filePath } = await dialog.showSaveDialog({
+  const options: Electron.SaveDialogOptions = {
     defaultPath: exportDefaultPath(request.baseName, 'png'),
     filters: [FILTERS.png]
-  })
+  }
+  const { canceled, filePath } = parentWindow
+    ? await dialog.showSaveDialog(parentWindow, options)
+    : await dialog.showSaveDialog(options)
   if (canceled || !filePath) return { ok: false, canceled: true }
   rememberDialogDirectory(filePath)
 
@@ -150,19 +262,142 @@ export async function exportDiagramPng(request: unknown): Promise<WriteResult> {
   }
 }
 
-async function waitForFonts(win: BrowserWindow): Promise<void> {
+/**
+ * Upper bound on waiting for a frame, in milliseconds.
+ *
+ * `requestAnimationFrame` is the signal that layout landed and was painted, but a page
+ * that never schedules a frame would stall the export outright. The race keeps the wait
+ * bounded; it is a safety net, not the expected path.
+ */
+const PAINT_TIMEOUT_MS = 500
+
+/** Upper bound on waiting for webfonts before capturing anyway. */
+const FONT_TIMEOUT_MS = 5000
+
+function delay(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms))
+}
+
+/**
+ * Wait until the page has painted the layout just requested.
+ *
+ * Scrolling and resizing take effect over the following frames, so the capture used to
+ * be preceded by a flat 50 ms guess: long enough to waste on every slice of a long
+ * document, and with no guarantee of being long enough on a slow one. Two nested frames
+ * are a direct signal instead — the first fires after the change is laid out, the second
+ * once the frame carrying it has been produced.
+ */
+async function waitForPaint(win: BrowserWindow): Promise<void> {
   await Promise.race([
-    win.webContents.executeJavaScript('document.fonts.ready'),
-    new Promise((r) => setTimeout(r, 5000))
+    win.webContents.executeJavaScript(
+      'new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve(true))))'
+    ),
+    delay(PAINT_TIMEOUT_MS)
   ])
 }
 
-async function createExportWindow(
+async function waitForFonts(win: BrowserWindow): Promise<void> {
+  await Promise.race([win.webContents.executeJavaScript('document.fonts.ready'), delay(FONT_TIMEOUT_MS)])
+}
+
+/** Opening tag of the document head, where the `<base>` below has to land. */
+const HEAD_TAG = /<head[^>]*>/i
+
+/** The temporary file the hidden window loads, and the promise that removes it. */
+interface ExportSource {
+  path: string
+  /** Removes the file. Never throws: a leftover temporary must not fail an export that worked. */
+  discard: () => Promise<void>
+}
+
+function escapeAttribute(value: string): string {
+  return value.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;')
+}
+
+/**
+ * Writes the document the hidden window renders from.
+ *
+ * The document used to travel as `data:text/html;charset=utf-8,` + `encodeURIComponent(html)`: a
+ * percent-encoded copy of the whole export, around three times its size, built in main and parsed
+ * back by Chromium. A temporary file carries the same bytes without that copy ever existing — the
+ * document is written once, in slices that share the original string, and Chromium reads it from
+ * disk.
+ *
+ * The `data:` URL resolved relative assets through `baseURLForDataURL`. A file in the temporary
+ * directory would resolve them against that directory instead, so a `<base>` naming the document's
+ * own directory is written into the head. Relative images and links written as raw HTML inside the
+ * Markdown therefore keep resolving exactly where they did.
+ */
+async function writeExportSource(html: string, assetBaseUrl?: string): Promise<ExportSource> {
+  const path = join(app.getPath('temp'), `moji-export-${randomUUID()}.html`)
+  const base = exportAssetBaseUrl(assetBaseUrl)
+  // Without a head there is nowhere valid to put the base: a stray tag before the doctype would
+  // switch the document to quirks mode, which changes far more than asset resolution.
+  const head = base ? HEAD_TAG.exec(html) : null
+  const discard = async (): Promise<void> => {
+    try {
+      await unlink(path)
+    } catch {
+      // Already gone, or never created. Either way there is nothing to clean up.
+    }
+  }
+
+  const handle = await open(path, 'w')
+  try {
+    if (head) {
+      const insertAt = head.index + head[0].length
+      await handle.write(html.slice(0, insertAt))
+      await handle.write(`<base href="${escapeAttribute(base as string)}">`)
+      await handle.write(html.slice(insertAt))
+    } else {
+      await handle.write(html)
+    }
+  } catch (err) {
+    await discard()
+    throw err
+  } finally {
+    await handle.close()
+  }
+
+  return { path, discard }
+}
+
+/**
+ * Renders the export in a hidden window and tears down everything it needed.
+ *
+ * The window stays sandboxed, context-isolated and without Node, because it renders a document
+ * assembled from the user's Markdown. The temporary file is removed after the window is gone,
+ * whether the render succeeded, failed or never started.
+ */
+async function withExportWindow<T>(
   html: string,
   pageSize: ExportPageSize,
   pageOrientation: ExportPageOrientation,
-  assetBaseUrl?: string
+  assetBaseUrl: string | undefined,
+  session: ExportSession,
+  use: (win: BrowserWindow) => Promise<T>
+): Promise<T> {
+  session.report({ phase: 'render' })
+  const source = await writeExportSource(html, assetBaseUrl)
+  let win: BrowserWindow | null = null
+  try {
+    win = await createExportWindow(source.path, html.length, pageSize, pageOrientation, session)
+    session.checkpoint()
+    return await use(win)
+  } finally {
+    win?.destroy()
+    await source.discard()
+  }
+}
+
+async function createExportWindow(
+  sourcePath: string,
+  htmlChars: number,
+  pageSize: ExportPageSize,
+  pageOrientation: ExportPageOrientation,
+  session: ExportSession
 ): Promise<BrowserWindow> {
+  const finishMeasure = beginMainMeasure('export-window:mount', { htmlChars })
   const size = pagePixels(pageSize, pageOrientation)
   const win = new BrowserWindow({
     show: false,
@@ -176,30 +411,45 @@ async function createExportWindow(
       webSecurity: true
     }
   })
-  await win.loadURL('data:text/html;charset=utf-8,' + encodeURIComponent(html), {
-    baseURLForDataURL: exportAssetBaseUrl(assetBaseUrl)
-  })
-  await waitForFonts(win)
-  return win
+  try {
+    await win.loadFile(sourcePath)
+    session.checkpoint()
+
+    session.report({ phase: 'fonts' })
+    await waitForFonts(win)
+    void captureWebContentsMemory('export-window:memory', win.webContents)
+    return win
+  } catch (err) {
+    // The caller never receives this window, so nothing else would close it.
+    win.destroy()
+    throw err
+  } finally {
+    finishMeasure()
+  }
 }
 
 async function htmlToPdf(
   html: string,
   pageSize: ExportPageSize,
   pageOrientation: ExportPageOrientation,
+  session: ExportSession,
   assetBaseUrl?: string
 ): Promise<Buffer> {
-  const win = await createExportWindow(html, pageSize, pageOrientation, assetBaseUrl)
-  try {
-    return await win.webContents.printToPDF({
-      printBackground: true,
-      margins: { marginType: 'default' },
-      pageSize,
-      landscape: pageOrientation === 'landscape'
-    })
-  } finally {
-    win.destroy()
-  }
+  return withExportWindow(html, pageSize, pageOrientation, assetBaseUrl, session, async (win) => {
+    const finishMeasure = beginMainMeasure('export:pdf-render', { htmlChars: html.length })
+    try {
+      session.report({ phase: 'capture' })
+      // Omitting `margins` keeps Electron's 1cm (~0.4in) default on all sides. The old
+      // `marginType: 'default'` spelling was dropped when printToPDF moved to CDP.
+      return await win.webContents.printToPDF({
+        printBackground: true,
+        pageSize,
+        landscape: pageOrientation === 'landscape'
+      })
+    } finally {
+      finishMeasure()
+    }
+  })
 }
 
 /** Height of one capture, in CSS pixels, honouring both the texture cap and the display scale. */
@@ -208,58 +458,91 @@ function captureSliceHeight(): number {
   return Math.max(1, Math.min(CAPTURE_SLICE_CSS_PX, withinTexture))
 }
 
-async function htmlToPng(
+/** Capture the page in slices and stream them straight into `filePath`. */
+async function htmlToPngFile(
+  filePath: string,
   html: string,
   pageSize: ExportPageSize,
   pageOrientation: ExportPageOrientation,
+  session: ExportSession,
   assetBaseUrl?: string
-): Promise<Buffer> {
+): Promise<void> {
   const size = pagePixels(pageSize, pageOrientation)
-  const win = await createExportWindow(html, pageSize, pageOrientation, assetBaseUrl)
-  try {
-    await win.webContents.executeJavaScript("document.documentElement.classList.add('export-png')")
-    const documentHeight = (await win.webContents.executeJavaScript(
-      'Math.ceil(Math.max(document.body.scrollHeight, document.documentElement.scrollHeight))'
-    )) as number
-
-    const totalHeight = Math.max(size.height, documentHeight)
-    const sliceHeight = captureSliceHeight()
-
-    win.setContentSize(size.width, Math.min(totalHeight, sliceHeight))
-    await new Promise((r) => setTimeout(r, 50))
-
-    // Each slice is compressed and released as it is captured, so peak memory follows the
-    // slice height rather than the height of the document.
-    const encoder = createPngEncoder()
-    let width = 0
-    let height = 0
-
-    for (let top = 0; top < totalHeight; top += sliceHeight) {
-      const remaining = Math.min(sliceHeight, totalHeight - top)
-
-      // The page cannot scroll past `totalHeight - viewport`, so the final scrollTo is
-      // clamped. Capture from where the page actually landed, or the last slice repeats a
-      // band already captured.
-      const scrollY = (await win.webContents.executeJavaScript(
-        `window.scrollTo(0, ${top}); Math.round(window.scrollY)`
+  return withExportWindow(html, pageSize, pageOrientation, assetBaseUrl, session, async (win) => {
+    const finishMeasure = beginMainMeasure('export:png-render', { htmlChars: html.length })
+    try {
+      await win.webContents.executeJavaScript("document.documentElement.classList.add('export-png')")
+      // Settle the content area at the page's own size and wait for that layout to paint before
+      // measuring: some export themes use height-relative CSS (vh units, `min-height: 100vh`
+      // sections), whose `scrollHeight` depends on the viewport height, not just its width, and
+      // the class toggle just above can itself change what that layout looks like.
+      win.setContentSize(size.width, size.height)
+      await waitForPaint(win)
+      const documentHeight = (await win.webContents.executeJavaScript(
+        'Math.ceil(Math.max(document.body.scrollHeight, document.documentElement.scrollHeight))'
       )) as number
-      await new Promise((r) => setTimeout(r, 50))
 
-      const image = await win.webContents.capturePage({
-        x: 0,
-        y: top - scrollY,
-        width: size.width,
-        height: remaining
-      })
+      const totalHeight = Math.max(size.height, documentHeight)
+      const sliceHeight = captureSliceHeight()
 
-      const captured = image.getSize()
-      width = captured.width
-      height += captured.height
-      await encoder.addSlice(image.toBitmap(), captured.width, captured.height)
+      win.setContentSize(size.width, Math.min(totalHeight, sliceHeight))
+      await waitForPaint(win)
+
+      // Each slice is compressed and written out as it is captured, so peak memory follows
+      // the slice height rather than the height of the document.
+      const writer = await createPngFileWriter(filePath)
+      const slices = Math.max(1, Math.ceil(totalHeight / sliceHeight))
+      let width = 0
+      let height = 0
+      let slice = 0
+
+      try {
+        for (let top = 0; top < totalHeight; top += sliceHeight) {
+          // Between slices nothing is half-written: the file holds whole rows, so this is
+          // where a cancellation can drop out and discard the partial image.
+          session.checkpoint()
+
+          slice += 1
+          session.report({ phase: 'capture', slice, slices })
+          const remaining = Math.min(sliceHeight, totalHeight - top)
+
+          // The page cannot scroll past `totalHeight - viewport`, so the final scrollTo is
+          // clamped. Capture from where the page actually landed, or the last slice repeats
+          // a band already captured.
+          const scrollY = (await win.webContents.executeJavaScript(
+            `window.scrollTo(0, ${top}); Math.round(window.scrollY)`
+          )) as number
+          await waitForPaint(win)
+
+          const image = await win.webContents.capturePage({
+            x: 0,
+            y: top - scrollY,
+            width: size.width,
+            height: remaining
+          })
+
+          const captured = image.getSize()
+          if (slice === 1) {
+            width = captured.width
+          } else if (captured.width !== width) {
+            throw new Error(`PNG export slice width changed from ${width} to ${captured.width}`)
+          }
+          height += captured.height
+
+          session.report({ phase: 'compress', slice, slices })
+          await writer.addSlice(image.toBitmap(), captured.width, captured.height)
+        }
+
+        session.checkpoint()
+        session.report({ phase: 'write' })
+        await writer.finish(width, height)
+      } catch (err) {
+        // A half-written capture is worse than no file at all.
+        await writer.abort()
+        throw err
+      }
+    } finally {
+      finishMeasure()
     }
-
-    return encoder.finish(width, height)
-  } finally {
-    win.destroy()
-  }
+  })
 }

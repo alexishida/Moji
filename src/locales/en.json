@@ -1,6 +1,6 @@
 {
   "app": {
-    "name": "Moji v1.0.5",
+    "name": "Moji v{{version}}",
     "untitled": "Untitled",
     "modifiedMarker": "•"
   },
@@ -13,24 +13,8 @@
     "closeSaved": "Close Saved",
     "closeAll": "Close All"
   },
-  "menu": {
-    "file": "File",
-    "open": "Open…",
-    "save": "Save",
-    "saveAs": "Save As…",
-    "export": "Export",
-    "exportHtml": "Export as HTML…",
-    "exportPdf": "Export as PDF…",
-    "quit": "Quit",
-    "view": "View",
-    "toggleEdit": "Toggle Edit",
-    "toggleTheme": "Toggle Theme",
-    "language": "Language"
-  },
   "toolbar": {
     "open": "Open",
-    "edit": "Edit",
-    "view": "View",
     "preview": "Preview",
     "editor": "Editor",
     "viewMode": "View mode",
@@ -46,8 +30,6 @@
     "occurrences": "Occurrences",
     "close": "Close",
     "export": "Export",
-    "exportHtml": "Export as HTML",
-    "exportPdf": "Export as PDF",
     "theme": "Theme",
     "themeLight": "Light mode",
     "themeDark": "Dark mode",
@@ -59,17 +41,16 @@
     "useFluidWidth": "Use full reading width",
     "showOutline": "Show outline",
     "hideOutline": "Hide outline",
+    "showLivePreview": "Show live preview",
+    "hideLivePreview": "Hide live preview",
+    "livePreviewTooNarrow": "Not enough room for the live preview",
+    "resizeSplit": "Resize the panes",
     "settings": "Settings",
     "about": "About",
-    "more": "More actions",
     "language": "Language"
   },
   "sidebar": {
-    "library": "Library",
-    "localStorage": "Local Storage",
-    "documents": "Documents",
     "outline": "Outline",
-    "help": "Help",
     "expand": "Expand",
     "collapse": "Collapse",
     "expandAll": "Expand all",
@@ -78,15 +59,11 @@
     "noDocument": "Open or create a document to see its outline."
   },
   "statusbar": {
-    "brand": "Moji v1.0.5",
+    "brand": "Moji v{{version}}",
     "guide": "Markdown Guide",
-    "exportPdf": "Export PDF",
     "lineCount": "Lines: {{count}}",
     "tokenCount": "Tokens: {{count}}",
     "wordCount": "Words: {{count}}"
-  },
-  "help": {
-    "hint": "Open or drop a .md file, switch Preview/Editor from the top tabs, and use the outline to jump between headings."
   },
   "preview": {
     "copyCode": "Copy code",
@@ -126,8 +103,7 @@
   },
   "welcome": {
     "tagline": "A lightweight, simple Markdown reader",
-    "title": "Moji v1.0.5",
-    "subtitle": "Open a Markdown file to read it cleanly.",
+    "title": "Moji v{{version}}",
     "openButton": "Open File",
     "newButton": "New File",
     "dropHint": "or drop a .md file anywhere in this window",
@@ -163,6 +139,8 @@
     "title": "Settings",
     "general": "General",
     "preview": "Preview",
+    "editor": "Editor",
+    "shortcutOr": "or",
     "shortcuts": "Shortcuts",
     "fontFamily": "Font Family",
     "fontSize": "Font Size",
@@ -189,6 +167,7 @@
       "findNext": "Next match",
       "findPrevious": "Previous match",
       "toggleEdit": "Toggle editor/preview",
+      "toggleSplit": "Toggle live preview",
       "export": "Export",
       "settings": "Settings",
       "fullscreen": "Fullscreen",
@@ -204,7 +183,10 @@
       "link": "Insert link",
       "list": "Toggle list",
       "checklist": "Toggle checklist",
-      "codeBlock": "Insert code block"
+      "codeBlock": "Insert code block",
+      "indent": "Indent line",
+      "outdent": "Outdent line",
+      "exitFocus": "Exit editor focus"
     }
   },
   "aboutDialog": {
@@ -238,6 +220,25 @@
     "later": "Later",
     "dismiss": "Dismiss update notice"
   },
+  "openProgress": {
+    "title": "Opening files…",
+    "count": "{{completed}} of {{total}} opened",
+    "cancel": "Cancel",
+    "canceling": "Canceling…"
+  },
+  "exportProgress": {
+    "title": "Exporting…",
+    "slice": "{{phase}} — {{slice}} of {{slices}}",
+    "cancel": "Cancel",
+    "canceling": "Canceling…",
+    "phase": {
+      "render": "Rendering the page…",
+      "fonts": "Loading fonts…",
+      "capture": "Capturing the page…",
+      "compress": "Compressing the image…",
+      "write": "Writing the file…"
+    }
+  },
   "notice": {
     "unsupported": "Unsupported file type. Only .md and .markdown files can be opened.",
     "exportSuccess": "Exported to {{path}}",
@@ -245,9 +246,12 @@
     "saveSuccess": "Saved",
     "saveFailed": "Save failed: {{error}}",
     "autoSaveFailed": "Could not save recovery draft: {{error}}",
+    "autoSaveOverMemoryBudget": "Could not save the recovery draft: it needs {{required}} but only {{available}} is reserved for drafts. Nothing was cut from your text — save the document to a file to keep it.",
+    "autoSaveNoDiskSpace": "Could not save the recovery draft: it needs {{required}} of free space but only {{available}} is left on disk. Nothing was cut from your text — free space or save the document to a file.",
     "autoSaveCleanupFailed": "Could not remove recovery draft: {{error}}",
     "draftRestoreFailed": "Could not restore recovery drafts: {{error}}",
     "openFailed": "Could not open file: {{error}}",
+    "errorReason": { "notFound": "File not found.", "permissionDenied": "Permission denied.", "busy": "File is in use." },
     "noDocument": "Open a document first.",
     "readOnlyGuide": "The bundled Markdown guide is read-only and cannot be saved.",
     "replaceNeedsSearch": "Enter a search term first.",

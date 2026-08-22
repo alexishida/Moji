@@ -1,3 +1,4 @@
+import { memo } from 'react'
 import { useTranslation } from 'react-i18next'
 import { IconBook } from './icons'
 
@@ -11,7 +12,7 @@ interface StatusBarProps {
   onGuide: () => void
 }
 
-export function StatusBar(props: StatusBarProps): JSX.Element {
+function StatusBarView(props: StatusBarProps): JSX.Element {
   const { t } = useTranslation()
 
   return (
@@ -32,3 +33,11 @@ export function StatusBar(props: StatusBarProps): JSX.Element {
     </footer>
   )
 }
+
+export const StatusBar = memo(StatusBarView, (previous, next) => (
+  previous.hasDoc === next.hasDoc &&
+  previous.onGuide === next.onGuide &&
+  previous.stats.lines === next.stats.lines &&
+  previous.stats.tokens === next.stats.tokens &&
+  previous.stats.words === next.stats.words
+))

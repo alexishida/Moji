@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react'
+import { memo, useCallback, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { IconCollapseAll, IconExpandAll, IconList } from './icons'
 import { OutlineTree } from './OutlineTree'
@@ -22,7 +22,7 @@ function collectCollapsible(nodes: OutlineNode[], acc: string[] = []): string[] 
   return acc
 }
 
-export function Sidebar(props: SidebarProps): JSX.Element {
+export const Sidebar = memo(function Sidebar(props: SidebarProps): JSX.Element {
   const { t } = useTranslation()
 
   const tree = useMemo(() => nestOutline(props.outline), [props.outline])
@@ -85,4 +85,16 @@ export function Sidebar(props: SidebarProps): JSX.Element {
       </div>
     </aside>
   )
-}
+}, (previous, next) => (
+  previous.hasDoc === next.hasDoc &&
+  previous.activeId === next.activeId &&
+  previous.showOutline === next.showOutline &&
+  previous.onSelectHeading === next.onSelectHeading &&
+  previous.outline.length === next.outline.length &&
+  previous.outline.every((item, index) => (
+    item.id === next.outline[index].id &&
+    item.text === next.outline[index].text &&
+    item.level === next.outline[index].level &&
+    item.sourceLine === next.outline[index].sourceLine
+  ))
+))

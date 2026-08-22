@@ -705,6 +705,66 @@ body {
   background: var(--bg);
 }
 
+/* --- Split view: editor beside the live preview -------------------------- */
+.split {
+  flex: 1 1 auto;
+  display: flex;
+  min-width: 0;
+  min-height: 0;
+}
+
+.split__pane {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 0;
+  min-width: 0;
+  min-height: 0;
+}
+
+.split--active .split__pane--editor {
+  flex: 0 0 var(--split-ratio, 50%);
+}
+
+.split--active .split__pane--preview {
+  flex: 1 1 0;
+  border-left: 1px solid var(--border);
+}
+
+.split--view-only .split__pane--editor {
+  display: none;
+}
+
+.split--view-only .split__pane--preview {
+  flex: 1 1 0;
+}
+
+.split__divider {
+  flex: 0 0 5px;
+  cursor: col-resize;
+  background: var(--chrome-bg);
+  border-left: 1px solid var(--border);
+  touch-action: none;
+}
+
+.split__divider:hover,
+.split--dragging .split__divider {
+  background: var(--accent);
+}
+
+.split__divider:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
+/* Text selection would follow the pointer out of the divider while dragging. */
+.split--dragging {
+  user-select: none;
+}
+
+.split--dragging .split__pane {
+  pointer-events: none;
+}
+
 /* --- Document tabs ------------------------------------------------------- */
 .document-tabs {
   display: flex;
@@ -1156,6 +1216,63 @@ body {
   background: var(--danger);
 }
 
+/* --- Multi-file open progress -------------------------------------------- */
+.open-progress {
+  position: fixed;
+  left: var(--space-3);
+  bottom: calc(var(--statusbar-h) + var(--space-3));
+  z-index: 56;
+  width: min(340px, calc(100vw - 24px));
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3);
+  color: var(--text);
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+}
+
+.open-progress__content {
+  min-width: 0;
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.open-progress__title {
+  font-size: 13px;
+  line-height: 1.35;
+}
+
+.open-progress__body {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.open-progress__bar {
+  height: 4px;
+  margin-top: var(--space-1);
+  background: var(--nav-hover-bg);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.open-progress__bar-fill {
+  height: 100%;
+  background: var(--accent);
+  transition: width 120ms ease-out;
+}
+
+.open-progress__cancel {
+  flex: 0 0 auto;
+  min-height: 30px;
+  padding: var(--space-1) var(--space-3);
+  font-size: 12px;
+}
+
 /* --- Automatic updates -------------------------------------------------- */
 .update-notice {
   position: fixed;
@@ -1538,6 +1655,13 @@ body {
   border: 1px solid var(--border-strong);
   border-radius: var(--radius-sm);
   box-shadow: inset 0 -1px 0 rgba(255, 255, 255, 0.04);
+}
+
+.settings-shortcut__key-or {
+  align-self: center;
+  margin: 0 2px;
+  font-size: 11px;
+  color: var(--text-muted);
 }
 
 /* --- Export dialog ------------------------------------------------------- */
@@ -2074,7 +2198,7 @@ body {
 .cm-editor {
   height: 100%;
   font-family: var(--font-mono);
-  font-size: 14px;
+  font-size: var(--editor-font-size, 14px);
 }
 
 .cm-editor .cm-scroller {

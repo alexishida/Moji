@@ -1,6 +1,6 @@
 {
   "app": {
-    "name": "Moji v1.0.5",
+    "name": "Moji v{{version}}",
     "untitled": "Без названия",
     "modifiedMarker": "•"
   },
@@ -13,26 +13,9 @@
     "closeSaved": "Закрыть сохранённые",
     "closeAll": "Закрыть все"
   },
-  "menu": {
-    "file": "Файл",
-    "open": "Открыть…",
-    "save": "Сохранить",
-    "saveAs": "Сохранить как…",
-    "export": "Экспорт",
-    "exportHtml": "Экспорт в HTML…",
-    "exportPdf": "Экспорт в PDF…",
-    "quit": "Выход",
-    "view": "Вид",
-    "toggleEdit": "Переключить редактирование",
-    "toggleTheme": "Переключить тему",
-    "language": "Язык"
-  },
   "toolbar": {
     "open": "Открыть",
-    "edit": "Правка",
-    "view": "Вид",
     "preview": "Просмотр",
-    "shortcuts": "Горячие клавиши",
     "editor": "Редактор",
     "viewMode": "Режим просмотра",
     "newDocument": "Создать",
@@ -47,8 +30,6 @@
     "occurrences": "Совпадения",
     "close": "Закрыть",
     "export": "Экспорт",
-    "exportHtml": "Экспорт в HTML",
-    "exportPdf": "Экспорт в PDF",
     "theme": "Тема",
     "themeLight": "Светлая тема",
     "themeDark": "Тёмная тема",
@@ -60,17 +41,16 @@
     "useFluidWidth": "Использовать полную ширину",
     "showOutline": "Показать оглавление",
     "hideOutline": "Скрыть оглавление",
+    "showLivePreview": "Показать живой просмотр",
+    "hideLivePreview": "Скрыть живой просмотр",
+    "livePreviewTooNarrow": "Недостаточно места для живого просмотра",
+    "resizeSplit": "Изменить размер панелей",
     "settings": "Настройки",
     "about": "О программе",
-    "more": "Другие действия",
     "language": "Язык"
   },
   "sidebar": {
-    "library": "Библиотека",
-    "localStorage": "Локальное хранилище",
-    "documents": "Документы",
     "outline": "Структура",
-    "help": "Справка",
     "expand": "Развернуть",
     "collapse": "Свернуть",
     "expandAll": "Развернуть все",
@@ -79,15 +59,11 @@
     "noDocument": "Откройте или создайте документ, чтобы увидеть его структуру."
   },
   "statusbar": {
-    "brand": "Moji v1.0.5",
+    "brand": "Moji v{{version}}",
     "guide": "Руководство по Markdown",
-    "exportPdf": "Экспорт в PDF",
     "lineCount": "Строк: {{count}}",
     "tokenCount": "Токенов: {{count}}",
     "wordCount": "Слов: {{count}}"
-  },
-  "help": {
-    "hint": "Откройте или перетащите файл .md, переключайте Просмотр/Редактор через верхние вкладки и используйте структуру для перехода между заголовками."
   },
   "preview": {
     "copyCode": "Копировать код",
@@ -127,8 +103,7 @@
   },
   "welcome": {
     "tagline": "Лёгкая и простая программа для чтения Markdown",
-    "title": "Moji v1.0.5",
-    "subtitle": "Откройте файл Markdown, чтобы читать его в удобном виде.",
+    "title": "Moji v{{version}}",
     "openButton": "Открыть файл",
     "newButton": "Новый файл",
     "dropHint": "или перетащите файл .md в это окно",
@@ -164,6 +139,9 @@
     "title": "Настройки",
     "general": "Общие",
     "preview": "Просмотр",
+    "editor": "Редактор",
+    "shortcutOr": "или",
+    "shortcuts": "Горячие клавиши",
     "fontFamily": "Шрифт",
     "fontSize": "Размер шрифта",
     "lineHeight": "Межстрочный интервал",
@@ -189,6 +167,7 @@
       "findNext": "Следующее совпадение",
       "findPrevious": "Предыдущее совпадение",
       "toggleEdit": "Редактор/просмотр",
+      "toggleSplit": "Живой просмотр",
       "export": "Экспорт",
       "settings": "Настройки",
       "fullscreen": "Полный экран",
@@ -204,7 +183,10 @@
       "link": "Вставить ссылку",
       "list": "Переключить список",
       "checklist": "Переключить чеклист",
-      "codeBlock": "Вставить блок кода"
+      "codeBlock": "Вставить блок кода",
+      "indent": "Увеличить отступ",
+      "outdent": "Уменьшить отступ",
+      "exitFocus": "Снять фокус с редактора"
     }
   },
   "aboutDialog": {
@@ -238,6 +220,25 @@
     "later": "Позже",
     "dismiss": "Закрыть уведомление об обновлении"
   },
+  "openProgress": {
+    "title": "Открытие файлов…",
+    "count": "Открыто {{completed}} из {{total}}",
+    "cancel": "Отмена",
+    "canceling": "Отмена…"
+  },
+  "exportProgress": {
+    "title": "Экспорт…",
+    "slice": "{{phase}} — {{slice}} из {{slices}}",
+    "cancel": "Отмена",
+    "canceling": "Отмена…",
+    "phase": {
+      "render": "Отрисовка страницы…",
+      "fonts": "Загрузка шрифтов…",
+      "capture": "Захват страницы…",
+      "compress": "Сжатие изображения…",
+      "write": "Запись файла…"
+    }
+  },
   "notice": {
     "unsupported": "Неподдерживаемый тип файла. Можно открывать только файлы .md и .markdown.",
     "exportSuccess": "Экспортировано в {{path}}",
@@ -245,9 +246,12 @@
     "saveSuccess": "Сохранено",
     "saveFailed": "Ошибка сохранения: {{error}}",
     "autoSaveFailed": "Не удалось сохранить черновик восстановления: {{error}}",
+    "autoSaveOverMemoryBudget": "Не удалось сохранить черновик восстановления: требуется {{required}}, а для черновиков выделено только {{available}}. Текст не был обрезан — сохраните документ в файл, чтобы не потерять его.",
+    "autoSaveNoDiskSpace": "Не удалось сохранить черновик восстановления: требуется {{required}} свободного места, а на диске осталось только {{available}}. Текст не был обрезан — освободите место или сохраните документ в файл.",
     "autoSaveCleanupFailed": "Не удалось удалить черновик восстановления: {{error}}",
     "draftRestoreFailed": "Не удалось восстановить черновики: {{error}}",
     "openFailed": "Не удалось открыть файл: {{error}}",
+    "errorReason": { "notFound": "Файл не найден.", "permissionDenied": "Доступ запрещён.", "busy": "Файл используется." },
     "noDocument": "Сначала откройте документ.",
     "readOnlyGuide": "Встроенное руководство Markdown доступно только для чтения и не может быть сохранено.",
     "replaceNeedsSearch": "Сначала введите условие поиска.",

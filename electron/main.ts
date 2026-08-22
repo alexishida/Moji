@@ -1,34 +1,65 @@
-import { app, BrowserWindow, dialog, ipcMain, Menu, shell } from 'electron'
-import { readFile, writeFile } from 'node:fs/promises'
+import { app, BrowserWindow, dialog, ipcMain, Menu, protocol, shell } from 'electron'
+import { readFile, stat, writeFile } from 'node:fs/promises'
 import { existsSync } from 'node:fs'
-import { dirname, extname, isAbsolute, join } from 'node:path'
+import { randomUUID } from 'node:crypto'
+import { dirname, isAbsolute, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import {
   IPC,
-  MARKDOWN_EXTENSIONS,
-  SUPPORTED_LANGUAGES,
   type AutoSaveDraft,
+  type DocumentMetadata,
+  type DocumentSizeProfile,
+  type DocumentStreamMessage,
+  type DraftAppendResult,
+  type DraftPersistProblem,
   type DraftResult,
-  type ImageDataResult,
-  type Language,
-  type OpenManyResult,
+  type OpenDialogResult,
   type OpenResult,
   type Settings,
   type UpdateState,
-  type WindowBounds,
   type WriteResult
 } from './shared'
 import { getSettings, updateSettings } from './settings'
-import { getDrafts, removeDraft, saveDraft } from './drafts'
-import { exportDiagramPng, exportDocument } from './export'
+import { appendDraftEdits, getDrafts, removeDraft, saveDraft } from './drafts'
+import { isDraftId } from './draftStore'
+import { isDraftPersistError } from './draftCapacity'
+import { areDraftEditBatches } from './draftJournal'
+import { assetContentType, assetPathFromUrl, authorizedAsset } from './assetPaths'
+import { FileCapabilities } from './fileCapabilities'
+import { isMarkdown, sanitizeDraft, sanitizeSettingsPatch, suggestedMarkdownName } from './ipcInput'
+import { cancelExport, exportDiagramPng, exportDocument } from './export'
+import { benchmarkRequested, recordBenchmark } from './benchmark'
 import { createUpdateController, type UpdateController } from './updater'
+import { mapWithConcurrency } from './openPool'
+import { readFileChunks } from './documentStream'
+import { stripLeadingBom } from './documentDecoder'
+import { AssetCache } from './assetCache'
+import { beginMainMeasure, captureMainMemory, getMainPerformanceReport } from './performance'
 
 let mainWindow: BrowserWindow | null = null
-let pendingOpenPath: string | null = null
+/** Files an open reached main before the renderer's `onOpenDocument` listener was confirmed
+ *  mounted (see IPC.rendererReady). Flushed in order once it fires. */
+let pendingOpenPaths: string[] = []
+/** True once the renderer's `onOpenDocument` listener is confirmed mounted (see IPC.rendererReady). */
+let rendererReady = false
 let forceQuit = false
 let pendingQuit = false
 let updateController: UpdateController | null = null
 let persistWindowBoundsTimer: NodeJS.Timeout | null = null
+/** True from `requestClose()` until the renderer answers `confirmClose`, or the window is gone. */
+let closePending = false
+const capabilities = new FileCapabilities()
+const assetCache = new AssetCache(readFile)
+const openManySessions = new Map<string, AbortController>()
+
+protocol.registerSchemesAsPrivileged([{
+  scheme: 'moji-asset',
+  // `corsEnabled` plus the header below is what lets a canvas draw a `moji-asset://` image and
+  // still call `toDataURL`/`toBlob`: without both, Chromium treats the image as cross-origin
+  // and taints the canvas, so exporting a diagram that references a local image throws
+  // `SecurityError` instead of producing a PNG.
+  privileges: { secure: true, standard: true, supportFetchAPI: true, corsEnabled: true }
+}])
 
 if (process.platform === 'linux') {
   app.setDesktopName('moji.desktop')
@@ -45,9 +76,17 @@ if (process.platform === 'linux') {
  */
 const SETTINGS_DIRECTORY = 'moji'
 app.setName('Moji')
-app.setPath('userData', join(app.getPath('appData'), SETTINGS_DIRECTORY))
+// `--user-data-dir` is Chromium's own switch for pointing an instance at a different
+// profile, and pinning the path unconditionally silently overrode it. Honouring it costs
+// nothing in normal use, where the switch is absent, and it is what lets a test run
+// against a throwaway profile instead of the one belonging to whoever runs it.
+if (!process.argv.some((arg) => arg.startsWith('--user-data-dir='))) {
+  app.setPath('userData', join(app.getPath('appData'), SETTINGS_DIRECTORY))
+}
 
-const IMAGE_EXTENSIONS = new Set(['.avif', '.bmp', '.gif', '.ico', '.jpeg', '.jpg', '.png', '.svg', '.webp'])
+const NORMAL_DOCUMENT_SIZE_LIMIT = 5 * 1024 * 1024
+const LARGE_DOCUMENT_SIZE_LIMIT = 20 * 1024 * 1024
+const DOCUMENT_OPEN_CONCURRENCY = 3
 const SAMPLE_FILES = new Set([
   'markdown-guide.en.md',
   'markdown-guide.pt-BR.md',
@@ -59,51 +98,6 @@ const SAMPLE_FILES = new Set([
 
 function asString(value: unknown): string | null {
   return typeof value === 'string' ? value : null
-}
-
-function isLanguage(value: unknown): value is Language {
-  return typeof value === 'string' && (SUPPORTED_LANGUAGES as readonly string[]).includes(value)
-}
-
-function sanitizeSettingsPatch(value: unknown): Partial<Settings> {
-  if (!value || typeof value !== 'object') return {}
-  const raw = value as Record<string, unknown>
-  const patch: Partial<Settings> = {}
-
-  if (isLanguage(raw['language'])) patch.language = raw['language']
-  if (raw['previewTheme'] === 'light' || raw['previewTheme'] === 'dark') patch.previewTheme = raw['previewTheme']
-  if (typeof raw['previewFontFamily'] === 'string') patch.previewFontFamily = raw['previewFontFamily']
-  if (typeof raw['previewFontSize'] === 'number') patch.previewFontSize = raw['previewFontSize']
-  if (typeof raw['previewLineHeight'] === 'number') patch.previewLineHeight = raw['previewLineHeight']
-  if (typeof raw['previewFluidWidth'] === 'boolean') patch.previewFluidWidth = raw['previewFluidWidth']
-  if (typeof raw['previewWidth'] === 'number') patch.previewWidth = raw['previewWidth']
-  if (typeof raw['autoSave'] === 'boolean') patch.autoSave = raw['autoSave']
-  if (Array.isArray(raw['recentFiles'])) patch.recentFiles = raw['recentFiles'].filter((p): p is string => typeof p === 'string')
-  if (isWindowBounds(raw['windowBounds'])) patch.windowBounds = raw['windowBounds']
-
-  return patch
-}
-
-function sanitizeDraft(value: unknown): AutoSaveDraft | null {
-  if (!value || typeof value !== 'object') return null
-  const raw = value as Record<string, unknown>
-  if (typeof raw['id'] !== 'string' || !/^draft-[a-zA-Z0-9-]+$/.test(raw['id'])) return null
-  if (typeof raw['title'] !== 'string' || raw['title'].length > 512) return null
-  if (typeof raw['content'] !== 'string' || raw['content'].length > 10 * 1024 * 1024) return null
-  return { id: raw['id'], title: raw['title'], content: raw['content'] }
-}
-
-function isWindowBounds(value: unknown): value is WindowBounds {
-  if (!value || typeof value !== 'object') return false
-  const raw = value as Record<string, unknown>
-  return typeof raw['width'] === 'number' && typeof raw['height'] === 'number'
-}
-
-function suggestedMarkdownName(value: unknown): string {
-  if (typeof value !== 'string') return 'untitled.md'
-  const name = value.replace(/[\\/]/g, '').trim()
-  if (!name) return 'untitled.md'
-  return isMarkdown(name) ? name : `${name}.md`
 }
 
 function lastDialogDirectory(): string | undefined {
@@ -120,61 +114,49 @@ function dialogDefaultPath(fileName: string): string {
   return directory ? join(directory, fileName) : fileName
 }
 
-function stripLeadingBom(content: string): string {
-  return content.startsWith('\uFEFF') ? content.slice(1) : content
+function documentSizeProfile(sizeBytes: number): DocumentSizeProfile {
+  if (sizeBytes <= NORMAL_DOCUMENT_SIZE_LIMIT) return 'normal'
+  if (sizeBytes <= LARGE_DOCUMENT_SIZE_LIMIT) return 'large'
+  return 'very-large'
 }
 
-function isMarkdown(filePath: unknown): filePath is string {
-  if (typeof filePath !== 'string') return false
-  return (MARKDOWN_EXTENSIONS as readonly string[]).includes(extname(filePath).toLowerCase())
+/**
+ * Grant access to a path the user chose.
+ *
+ * Every caller sits on a path that came from a dialog, the command line, a file
+ * association or a drop — never from the renderer naming a file of its own accord.
+ */
+function grantDocument(documentPath: string): void {
+  capabilities.grant(documentPath)
 }
 
-function isSupportedImage(filePath: string): boolean {
-  return IMAGE_EXTENSIONS.has(extname(filePath).toLowerCase())
+function registerAssetProtocol(): void {
+  protocol.handle('moji-asset', async (request) => {
+    const filePath = assetPathFromUrl(request.url)
+    const asset = filePath ? await authorizedAsset(filePath, capabilities.directories) : null
+    if (!asset) {
+      return new Response('Forbidden', { status: 403 })
+    }
+    try {
+      const bytes = await assetCache.read(asset.path, asset)
+      return new Response(new Uint8Array(bytes), {
+        headers: { 'content-type': assetContentType(asset.path), 'access-control-allow-origin': '*' }
+      })
+    } catch {
+      return new Response('Not found', { status: 404 })
+    }
+  })
 }
 
-function imageMimeType(filePath: string): string {
-  switch (extname(filePath).toLowerCase()) {
-    case '.avif':
-      return 'image/avif'
-    case '.bmp':
-      return 'image/bmp'
-    case '.gif':
-      return 'image/gif'
-    case '.ico':
-      return 'image/x-icon'
-    case '.jpeg':
-    case '.jpg':
-      return 'image/jpeg'
-    case '.png':
-      return 'image/png'
-    case '.svg':
-      return 'image/svg+xml'
-    case '.webp':
-      return 'image/webp'
-    default:
-      return 'application/octet-stream'
-  }
-}
-
-async function readImageAsDataUrl(filePath: unknown): Promise<ImageDataResult> {
-  if (typeof filePath !== 'string') return { ok: false, error: 'unsupported' }
-  if (!isAbsolute(filePath) || !isSupportedImage(filePath)) return { ok: false, error: 'unsupported' }
-  try {
-    const image = await readFile(filePath)
-    return { ok: true, dataUrl: `data:${imageMimeType(filePath)};base64,${image.toString('base64')}` }
-  } catch (err) {
-    return { ok: false, error: (err as Error).message }
-  }
-}
-
-function fileFromArgv(argv: string[]): string | null {
-  // Skip the executable (and, in dev, the script path). Look for a real .md file.
+function filesFromArgv(argv: string[]): string[] {
+  // Skip the executable (and, in dev, the script path). Collect every real .md file: a
+  // multi-file selection passed to "Open with Moji" arrives as one argv, not one launch per file.
+  const files: string[] = []
   for (const arg of argv.slice(1)) {
     if (arg.startsWith('-')) continue
-    if (isMarkdown(arg) && existsSync(arg)) return arg
+    if (isMarkdown(arg) && existsSync(arg)) files.push(arg)
   }
-  return null
+  return files
 }
 
 function samplePath(sampleName: unknown): string | null {
@@ -182,13 +164,164 @@ function samplePath(sampleName: unknown): string | null {
   return join(app.getAppPath(), 'samples', sampleName)
 }
 
-async function readDocument(filePath: unknown): Promise<OpenResult> {
+async function readDocument(filePath: unknown, signal?: AbortSignal, writable = true): Promise<OpenResult> {
+  if (!isMarkdown(filePath)) return { ok: false, error: 'unsupported' }
+  if (signal?.aborted) return { ok: false, canceled: true }
+  const finishMeasure = beginMainMeasure('document:open')
+  let sizeBytes = 0
+  try {
+    const fileStat = await stat(filePath)
+    if (!fileStat.isFile()) return { ok: false, error: 'unsupported' }
+    if (signal?.aborted) return { ok: false, canceled: true }
+    const content = stripLeadingBom(await readFile(filePath, { encoding: 'utf-8', signal }))
+    sizeBytes = fileStat.size
+    // Packaged guides (`readSample`) pass `writable: false`: their directory still needs to be
+    // readable for relative images, but `IPC.save` must never be able to overwrite a file that
+    // ships inside the app just because it was opened once.
+    if (writable) grantDocument(filePath)
+    else capabilities.grantAssetDirectory(filePath)
+    void captureMainMemory('main:memory:document-open')
+    return {
+      ok: true,
+      path: filePath,
+      content,
+      sizeBytes: fileStat.size,
+      sizeProfile: documentSizeProfile(fileStat.size)
+    }
+  } catch (err) {
+    if (signal?.aborted) return { ok: false, canceled: true }
+    return { ok: false, error: (err as Error).message }
+  } finally {
+    finishMeasure({ sizeBytes })
+  }
+}
+
+/** Validates a document and measures it without reading a single byte of content. */
+type DocumentMetadataResult = { ok: true; metadata: DocumentMetadata } | { ok: false; error: string }
+
+/**
+ * Validates and measures a document, keeping the reason a lookup failed.
+ *
+ * A missing/wrong-extension file and a share that timed out or a permission error look
+ * identical if both collapse to `null`; callers that decide whether to forget a recent file
+ * (the renderer) need to tell "this path is not a document" from "this document could not be
+ * read right now" apart.
+ */
+async function resolveDocumentMetadata(filePath: unknown): Promise<DocumentMetadataResult> {
   if (!isMarkdown(filePath)) return { ok: false, error: 'unsupported' }
   try {
-    const content = stripLeadingBom(await readFile(filePath, 'utf-8'))
-    return { ok: true, path: filePath, content }
+    const fileStat = await stat(filePath)
+    if (!fileStat.isFile()) return { ok: false, error: 'unsupported' }
+    return { ok: true, metadata: { path: filePath, sizeBytes: fileStat.size, sizeProfile: documentSizeProfile(fileStat.size) } }
   } catch (err) {
     return { ok: false, error: (err as Error).message }
+  }
+}
+
+async function statDocument(filePath: unknown): Promise<DocumentMetadata | null> {
+  const result = await resolveDocumentMetadata(filePath)
+  return result.ok ? result.metadata : null
+}
+
+/**
+ * Streams a document to the renderer as UTF-8 chunks over a `MessagePort`.
+ *
+ * The renderer decodes incrementally, so no step of the delivery ever holds a second full copy of
+ * the document: main reads one chunk at a time and never builds the UTF-16 string that
+ * `ipcRenderer.invoke` would have had to serialize.
+ */
+async function streamDocumentToPort(filePath: unknown, port: Electron.MessagePortMain): Promise<void> {
+
+  const finishMeasure = beginMainMeasure('document:open-stream')
+  let sizeBytes = 0
+  let chunks = 0
+  // The renderer may close its end mid-stream (window closed, reload). Reporting the failure must
+  // never throw a second time out of an unawaited call.
+  const postError = (error: string): void => {
+    try {
+      port.postMessage({ type: 'error', error } satisfies DocumentStreamMessage)
+    } catch {
+      // Port already gone; the pending read is abandoned with it.
+    }
+  }
+
+  try {
+    const result = await resolveDocumentMetadata(filePath)
+    if (!result.ok) {
+      postError(result.error)
+      return
+    }
+    const metadata = result.metadata
+
+    sizeBytes = metadata.sizeBytes
+    // Opening is how a file earns its capability. Recent files and drag-and-drop reach
+    // this point with a path the renderer supplied, and both are legitimate ways for a
+    // person to open a document, so the read itself is the grant — it is writing and
+    // asset loading that are then confined to what has actually been opened.
+    grantDocument(metadata.path)
+    port.postMessage({ type: 'meta', ...metadata } satisfies DocumentStreamMessage)
+    for await (const chunk of readFileChunks(metadata.path)) {
+      chunks += 1
+      // No transfer list: `MessagePortMain.postMessage` only accepts `MessagePortMain` entries
+      // there and rejects anything else with `TypeError: Port at index 0 is not a valid port`,
+      // which would abort the read on its very first chunk. The buffer is copied by the
+      // structured clone instead, and released as soon as the next chunk replaces it.
+      port.postMessage({ type: 'chunk', buffer: chunk.buffer, byteLength: chunk.byteLength } satisfies DocumentStreamMessage)
+    }
+    port.postMessage({ type: 'end' } satisfies DocumentStreamMessage)
+    void captureMainMemory('main:memory:document-open')
+  } catch (err) {
+    postError((err as Error).message)
+  } finally {
+    finishMeasure({ sizeBytes, chunks })
+    port.close()
+  }
+}
+
+/**
+ * Reads many files with bounded concurrency, streaming each result to the renderer as it
+ * completes instead of waiting for the whole batch. Lets a large selection show progress and
+ * be canceled mid-flight without discarding files already opened.
+ */
+async function runOpenManySession(sessionId: string, filePaths: string[], sender: Electron.WebContents): Promise<void> {
+  const controller = new AbortController()
+  openManySessions.set(sessionId, controller)
+  const total = filePaths.length
+  let completed = 0
+  const errors: string[] = []
+
+  const send = (channel: string, payload: unknown): void => {
+    if (!sender.isDestroyed()) sender.send(channel, payload)
+  }
+
+  try {
+    await mapWithConcurrency(
+      filePaths,
+      DOCUMENT_OPEN_CONCURRENCY,
+      // Only stats every selected file. The renderer pulls each one's bytes back through the
+      // same streamed `readPathStream` read a single open uses, once it sees the metadata
+      // pushed below — this batch never holds document content in main at all.
+      async (filePath) => {
+        const result = await resolveDocumentMetadata(filePath)
+        if (result.ok) grantDocument(result.metadata.path)
+        return result
+      },
+      {
+        signal: controller.signal,
+        onResult: (result) => {
+          completed += 1
+          if (result.ok) {
+            send(IPC.openManyProgress, { sessionId, completed, total, document: result.metadata })
+          } else {
+            errors.push(result.error)
+            send(IPC.openManyProgress, { sessionId, completed, total, error: result.error })
+          }
+        }
+      }
+    )
+  } finally {
+    openManySessions.delete(sessionId)
+    send(IPC.openManyDone, { sessionId, canceled: controller.signal.aborted, errors })
   }
 }
 
@@ -205,15 +338,33 @@ async function openLocalPath(fileUrl: unknown): Promise<WriteResult> {
   }
 }
 
-/** Single funnel for every open entry point (association, CLI, dialog, drop). */
+/**
+ * Single funnel for every open entry point (association, CLI, dialog, drop). Only metadata is
+ * pushed: the renderer pulls the bytes through `readPathStream`, so document text crosses the
+ * process boundary exactly once, in one place.
+ */
 async function openDocument(filePath: string): Promise<void> {
-  const result = await readDocument(filePath)
-  if (!mainWindow || mainWindow.isDestroyed()) {
-    if (result.ok) pendingOpenPath = filePath
+  const metadata = await statDocument(filePath)
+  // This funnel is only reached from the OS or a dialog, so it is where the path earns
+  // the right to be streamed back when the renderer asks for its bytes.
+  if (metadata) grantDocument(metadata.path)
+  // A window can exist before its renderer has mounted the listener this push relies on
+  // (fresh window still loading, or a second-instance file arriving mid-boot). Sending the
+  // event then would be dropped on the floor, so it waits for the same signal `flushPendingOpenPaths`
+  // reacts to.
+  if (!mainWindow || mainWindow.isDestroyed() || !rendererReady) {
+    if (metadata) pendingOpenPaths.push(filePath)
     return
   }
-  if (result.ok) {
-    mainWindow.webContents.send(IPC.openDocument, { path: result.path, content: result.content })
+  if (metadata) mainWindow.webContents.send(IPC.openDocument, metadata)
+}
+
+function flushPendingOpenPaths(): void {
+  rendererReady = true
+  if (pendingOpenPaths.length > 0) {
+    const paths = pendingOpenPaths
+    pendingOpenPaths = []
+    for (const path of paths) void openDocument(path)
   }
 }
 
@@ -226,7 +377,7 @@ function revealMainWindow(): void {
 
 function openAssociatedDocument(filePath: string): void {
   if (!mainWindow || mainWindow.isDestroyed()) {
-    pendingOpenPath = filePath
+    pendingOpenPaths.push(filePath)
     if (app.isReady()) createWindow()
     return
   }
@@ -235,7 +386,29 @@ function openAssociatedDocument(filePath: string): void {
   void openDocument(filePath)
 }
 
+/**
+ * Closes or quits without waiting on the renderer.
+ *
+ * The unsaved-changes guard exists to give the renderer a chance to ask the user, but a
+ * renderer whose event loop is genuinely stuck — not merely awaiting the user's answer in a
+ * dialog, which costs the main thread nothing while it waits — must not be able to keep the
+ * app open forever. This is only reached from Chromium's own hang detector (`unresponsive`) or
+ * a crashed renderer (`render-process-gone`), never from a timer racing the user's decision.
+ * This is the same path `confirmClose(true)` takes.
+ */
+function forceCloseOrQuit(): void {
+  if (!mainWindow) return
+  forceQuit = true
+  if (pendingQuit) {
+    pendingQuit = false
+    app.quit()
+  } else {
+    mainWindow.close()
+  }
+}
+
 function requestClose(): void {
+  closePending = true
   mainWindow?.webContents.send(IPC.requestClose)
 }
 
@@ -279,7 +452,17 @@ function installApplicationMenu(): void {
         ]
       },
       { role: 'editMenu' },
-      { role: 'windowMenu' }
+      // No default Miniaturize here: its Command+M would fight the editor's own "exit editor
+      // focus" binding (`Mod-m` in Editor.tsx), which the settings screen advertises. The
+      // window's yellow traffic light still minimizes without a menu item for it.
+      {
+        label: 'Window',
+        submenu: [
+          { role: 'zoom' },
+          { type: 'separator' },
+          { role: 'front' }
+        ]
+      }
     ])
   )
 }
@@ -323,6 +506,42 @@ function schedulePersistWindowBounds(win: BrowserWindow): void {
   }, 400)
 }
 
+/**
+ * Accept IPC only from this application's own top-level frame.
+ *
+ * Without this every handler answers whoever calls it. A subframe or a page that ended up
+ * somewhere unexpected would reach the same file APIs as the app itself, so the sender is
+ * checked once, centrally, rather than being assumed by twenty handlers.
+ */
+function isTrustedSender(event: Electron.IpcMainInvokeEvent | Electron.IpcMainEvent): boolean {
+  if (!mainWindow || mainWindow.isDestroyed()) return false
+  if (event.sender !== mainWindow.webContents) return false
+  // Top frame only: a nested frame never legitimately drives the app.
+  return event.senderFrame === null || event.senderFrame === event.sender.mainFrame
+}
+
+/** `ipcMain.handle`, refusing anything that did not come from the app window. */
+function handleFromRenderer(
+  channel: string,
+  listener: (event: Electron.IpcMainInvokeEvent, ...args: never[]) => unknown
+): void {
+  ipcMain.handle(channel, (event, ...args) => {
+    if (!isTrustedSender(event)) throw new Error('forbidden')
+    return (listener as (event: Electron.IpcMainInvokeEvent, ...args: unknown[]) => unknown)(event, ...args)
+  })
+}
+
+/** `ipcMain.on`, refusing anything that did not come from the app window. */
+function onFromRenderer(
+  channel: string,
+  listener: (event: Electron.IpcMainEvent, ...args: never[]) => void
+): void {
+  ipcMain.on(channel, (event, ...args) => {
+    if (!isTrustedSender(event)) return
+    ;(listener as (event: Electron.IpcMainEvent, ...args: unknown[]) => void)(event, ...args)
+  })
+}
+
 function createWindow(): void {
   // `forceQuit` is what lets an approved close through the guard. On Windows and Linux the
   // process ends with the window, so it never outlives its purpose. On macOS the app stays
@@ -330,6 +549,8 @@ function createWindow(): void {
   // ever asking about unsaved changes. Every new window starts with the guard armed.
   forceQuit = false
   pendingQuit = false
+  rendererReady = false
+  closePending = false
 
   const iconPath = app.isPackaged ? join(process.resourcesPath, 'icon.png') : join(app.getAppPath(), 'build', 'icon.png')
   mainWindow = new BrowserWindow({
@@ -352,9 +573,12 @@ function createWindow(): void {
   mainWindow.once('ready-to-show', () => {
     mainWindow?.setMenuBarVisibility(false)
     revealMainWindow()
-    if (pendingOpenPath) {
-      void openDocument(pendingOpenPath)
-      pendingOpenPath = null
+    // Any file still pending is delivered once the renderer confirms its listener is mounted
+    // (`IPC.rendererReady`), not here: first paint does not guarantee `onOpenDocument` is wired up yet.
+    if (benchmarkRequested()) {
+      void recordBenchmark(mainWindow as BrowserWindow, openDocument)
+        .then(() => app.quit())
+        .catch((error: Error) => { console.error('Benchmark failed:', error); app.exit(1) })
     }
   })
 
@@ -391,7 +615,49 @@ function createWindow(): void {
       clearTimeout(persistWindowBoundsTimer)
       persistWindowBoundsTimer = null
     }
+    closePending = false
     mainWindow = null
+  })
+
+  // Chromium's own hang detector: fires only when the renderer's main thread stops responding
+  // to input, never while it is merely awaiting the user's answer in a dialog. A renderer stuck
+  // like this can never answer `requestClose`, so a close or quit already in flight is forced
+  // through instead of leaving the app stuck open.
+  mainWindow.webContents.on('unresponsive', () => {
+    if (closePending || pendingQuit) forceCloseOrQuit()
+  })
+
+  // A crashed renderer mid-close can never answer `requestClose` either, so finish the close
+  // it was already asked to make. Outside of a close/quit in flight, a crash is not this guard's
+  // job to paper over: reload instead of silently discarding the window and any other open tabs.
+  mainWindow.webContents.on('render-process-gone', (_event, details) => {
+    if (closePending || pendingQuit) {
+      forceCloseOrQuit()
+      return
+    }
+    if (!mainWindow || mainWindow.isDestroyed()) return
+
+    // A renderer that never launches or failed signature verification will only crash again
+    // after a reload, so this is the one place a reload loop is worse than stopping.
+    if (details.reason === 'launch-failed' || details.reason === 'integrity-failure') {
+      dialog.showErrorBox(
+        'Moji could not start',
+        `The window failed to load (${details.reason}). The app will quit.`
+      )
+      app.exit(1)
+      return
+    }
+
+    // A transient crash (OOM, GPU, ...) reloads the window. Recovery drafts are restored from
+    // disk, but edits to on-disk documents that only existed in the renderer's memory are gone —
+    // the user should be told rather than finding an empty, silently-reset workspace.
+    rendererReady = false
+    mainWindow.reload()
+    void dialog.showMessageBox(mainWindow, {
+      type: 'warning',
+      message: 'Moji recovered after a crash.',
+      detail: 'The window was reloaded. Untitled documents were recovered, but any changes you had not saved to files on disk were lost.'
+    })
   })
 
   if (process.env['ELECTRON_RENDERER_URL']) {
@@ -402,28 +668,55 @@ function createWindow(): void {
   }
 }
 
+/**
+ * Describes a failed draft write to the renderer.
+ *
+ * A refusal for memory or disk carries its measurements so the renderer can name what is missing;
+ * anything else keeps travelling as its message. Either way the draft in the editor is untouched,
+ * so the renderer can retry after the user frees space.
+ */
+function draftFailure(err: unknown): { error: string; problem?: DraftPersistProblem } {
+  const error = (err as Error).message
+  return isDraftPersistError(err) ? { error, problem: err.problem } : { error }
+}
+
 function registerIpc(): void {
-  ipcMain.handle(IPC.getSettings, (): Settings => getSettings())
+  handleFromRenderer(IPC.getSettings, (): Settings => getSettings())
 
-  ipcMain.handle(IPC.setSettings, (_e, patch: unknown): Settings => updateSettings(sanitizeSettingsPatch(patch)))
+  handleFromRenderer(IPC.setSettings, (_e, patch: unknown): Settings => updateSettings(sanitizeSettingsPatch(patch)))
 
-  ipcMain.handle(IPC.getDrafts, (): Promise<AutoSaveDraft[]> => getDrafts())
+  handleFromRenderer(IPC.getDrafts, (): Promise<AutoSaveDraft[]> => getDrafts())
 
-  ipcMain.handle(IPC.saveDraft, async (_e, value: unknown): Promise<DraftResult> => {
+  handleFromRenderer(IPC.saveDraft, async (_e, value: unknown): Promise<DraftResult> => {
     const draft = sanitizeDraft(value)
     if (!draft) return { ok: false, error: 'invalid-draft' }
     try {
       await saveDraft(draft)
       return { ok: true }
     } catch (err) {
-      return { ok: false, error: (err as Error).message }
+      return { ok: false, ...draftFailure(err) }
     }
   })
 
-  ipcMain.handle(IPC.removeDraft, async (_e, value: unknown): Promise<DraftResult> => {
-    if (typeof value !== 'string' || !/^draft-[a-zA-Z0-9-]+$/.test(value)) {
-      return { ok: false, error: 'invalid-draft' }
+  handleFromRenderer(
+    IPC.appendDraftEdits,
+    async (_e, id: unknown, batches: unknown, expectedLength: unknown): Promise<DraftAppendResult> => {
+      if (!isDraftId(id) || !areDraftEditBatches(batches)) return { ok: false, reason: 'error', error: 'invalid-draft' }
+      if (typeof expectedLength !== 'number' || !Number.isInteger(expectedLength) || expectedLength < 0) {
+        return { ok: false, reason: 'error', error: 'invalid-draft' }
+      }
+      try {
+        const outcome = await appendDraftEdits(id, batches, expectedLength)
+        if (outcome === 'out-of-sync' || outcome === 'unknown-draft') return { ok: false, reason: outcome }
+        return { ok: true }
+      } catch (err) {
+        return { ok: false, reason: 'error', ...draftFailure(err) }
+      }
     }
+  )
+
+  handleFromRenderer(IPC.removeDraft, async (_e, value: unknown): Promise<DraftResult> => {
+    if (!isDraftId(value)) return { ok: false, error: 'invalid-draft' }
     try {
       await removeDraft(value)
       return { ok: true }
@@ -432,7 +725,7 @@ function registerIpc(): void {
     }
   })
 
-  ipcMain.handle(IPC.openDialog, async (): Promise<OpenManyResult> => {
+  handleFromRenderer(IPC.openDialog, async (event): Promise<OpenDialogResult> => {
     const options: Electron.OpenDialogOptions = {
       properties: ['openFile', 'multiSelections'],
       filters: [{ name: 'Markdown', extensions: ['md', 'markdown'] }],
@@ -443,31 +736,39 @@ function registerIpc(): void {
       : await dialog.showOpenDialog(options)
     if (canceled || filePaths.length === 0) return { ok: false, canceled: true }
     rememberDialogDirectory(filePaths[0])
-    const results = await Promise.all(filePaths.map((filePath) => readDocument(filePath)))
-    const failed = results.find((result) => !result.ok)
-    if (failed && !failed.ok) return { ok: false, error: failed.error ?? 'open failed' }
-    return {
-      ok: true,
-      documents: results
-        .filter((result): result is { ok: true; path: string; content: string } => result.ok)
-        .map(({ path, content }) => ({ path, content }))
-    }
+    const sessionId = randomUUID()
+    void runOpenManySession(sessionId, filePaths, event.sender)
+    return { ok: true, sessionId, total: filePaths.length }
   })
 
-  ipcMain.handle(IPC.readPath, (_e, filePath: unknown): Promise<OpenResult> => readDocument(filePath))
+  handleFromRenderer(IPC.cancelOpenMany, (_e, sessionId: unknown): void => {
+    if (typeof sessionId !== 'string') return
+    openManySessions.get(sessionId)?.abort()
+  })
 
-  ipcMain.handle(IPC.readImage, (_e, filePath: unknown): Promise<ImageDataResult> => readImageAsDataUrl(filePath))
+  onFromRenderer(IPC.readPathStream, (event, filePath: unknown): void => {
+    const [port] = event.ports
+    if (!port) return
+    void streamDocumentToPort(filePath, port)
+  })
 
-  ipcMain.handle(IPC.openLocalPath, (_e, fileUrl: unknown): Promise<WriteResult> => openLocalPath(fileUrl))
+  onFromRenderer(IPC.rendererReady, (): void => flushPendingOpenPaths())
 
-  ipcMain.handle(IPC.readSample, (_e, name: unknown): Promise<OpenResult> => {
+  onFromRenderer(IPC.requestQuit, (): void => requestQuit())
+
+  handleFromRenderer(IPC.openLocalPath, (_e, fileUrl: unknown): Promise<WriteResult> => openLocalPath(fileUrl))
+
+  handleFromRenderer(IPC.readSample, (_e, name: unknown): Promise<OpenResult> => {
     const path = samplePath(name)
-    return path ? readDocument(path) : Promise.resolve({ ok: false, error: 'unsupported' })
+    return path ? readDocument(path, undefined, false) : Promise.resolve({ ok: false, error: 'unsupported' })
   })
 
-  ipcMain.handle(IPC.save, async (_e, filePath: unknown, content: unknown): Promise<WriteResult> => {
+  handleFromRenderer(IPC.save, async (_e, filePath: unknown, content: unknown): Promise<WriteResult> => {
     const path = asString(filePath)
     if (!path || !isMarkdown(path) || typeof content !== 'string') return { ok: false, error: 'unsupported' }
+    // A Markdown extension is not authorisation. Only a file the user opened or chose in
+    // the save dialog can be written to.
+    if (!capabilities.allows(path)) return { ok: false, error: 'forbidden' }
     try {
       await writeFile(path, content, 'utf-8')
       rememberDialogDirectory(path)
@@ -477,7 +778,7 @@ function registerIpc(): void {
     }
   })
 
-  ipcMain.handle(IPC.saveAs, async (_e, content: unknown, suggestedName?: unknown): Promise<WriteResult> => {
+  handleFromRenderer(IPC.saveAs, async (_e, content: unknown, suggestedName?: unknown): Promise<WriteResult> => {
     if (typeof content !== 'string') return { ok: false, error: 'unsupported' }
     const fileName = suggestedMarkdownName(suggestedName)
     const options: Electron.SaveDialogOptions = {
@@ -489,6 +790,7 @@ function registerIpc(): void {
       : await dialog.showSaveDialog(options)
     if (canceled || !filePath) return { ok: false, canceled: true }
     rememberDialogDirectory(filePath)
+    grantDocument(filePath)
     try {
       await writeFile(filePath, content, 'utf-8')
       return { ok: true, path: filePath }
@@ -497,17 +799,28 @@ function registerIpc(): void {
     }
   })
 
-  ipcMain.handle(IPC.export, (_e, request: unknown): Promise<WriteResult> => exportDocument(request))
-  ipcMain.handle(IPC.exportDiagramPng, (_e, request: unknown): Promise<WriteResult> => exportDiagramPng(request))
+  handleFromRenderer(IPC.export, (event, request: unknown): Promise<WriteResult> =>
+    exportDocument(request, (progress) => {
+      if (!event.sender.isDestroyed()) event.sender.send(IPC.exportProgress, progress)
+    }, BrowserWindow.fromWebContents(event.sender) ?? undefined)
+  )
+  handleFromRenderer(IPC.cancelExport, (): void => cancelExport())
+  handleFromRenderer(IPC.exportDiagramPng, (event, request: unknown): Promise<WriteResult> =>
+    exportDiagramPng(request, BrowserWindow.fromWebContents(event.sender) ?? undefined)
+  )
 
-  ipcMain.handle(IPC.getUpdateState, (): UpdateState => updateController?.getState() ?? unavailableUpdateState())
+  handleFromRenderer(IPC.getUpdateState, (): UpdateState => updateController?.getState() ?? unavailableUpdateState())
 
-  ipcMain.handle(
+  handleFromRenderer(IPC.getPerformanceReport, () => getMainPerformanceReport())
+
+  handleFromRenderer(
     IPC.checkForUpdate,
     (): Promise<UpdateState> => updateController?.check() ?? Promise.resolve(unavailableUpdateState())
   )
 
-  ipcMain.handle(IPC.confirmClose, (_e, shouldClose: unknown): void => {
+  handleFromRenderer(IPC.confirmClose, (_e, shouldClose: unknown): void => {
+    // The renderer answered, so the force-close guard no longer needs to fire.
+    closePending = false
     if (shouldClose === true && mainWindow) {
       forceQuit = true
       if (pendingQuit) {
@@ -529,12 +842,12 @@ if (!gotLock) {
   app.quit()
 } else {
   app.on('second-instance', (_e, argv) => {
-    const file = fileFromArgv(argv)
+    const files = filesFromArgv(argv)
     if (mainWindow) {
       if (mainWindow.isMinimized()) mainWindow.restore()
       mainWindow.focus()
     }
-    if (file) void openDocument(file)
+    for (const file of files) void openDocument(file)
   })
 
   // macOS / Linux file association via open-file event.
@@ -551,7 +864,8 @@ if (!gotLock) {
   })
 
   app.whenReady().then(() => {
-    pendingOpenPath ??= fileFromArgv(process.argv)
+    pendingOpenPaths.push(...filesFromArgv(process.argv))
+    registerAssetProtocol()
     registerIpc()
     installApplicationMenu()
     createWindow()

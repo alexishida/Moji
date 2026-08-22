@@ -1,6 +1,6 @@
 {
   "app": {
-    "name": "Moji v1.0.5",
+    "name": "Moji v{{version}}",
     "untitled": "無題",
     "modifiedMarker": "•"
   },
@@ -13,26 +13,9 @@
     "closeSaved": "保存済みを閉じる",
     "closeAll": "すべて閉じる"
   },
-  "menu": {
-    "file": "ファイル",
-    "open": "開く…",
-    "save": "保存",
-    "saveAs": "名前を付けて保存…",
-    "export": "エクスポート",
-    "exportHtml": "HTML としてエクスポート…",
-    "exportPdf": "PDF としてエクスポート…",
-    "quit": "終了",
-    "view": "表示",
-    "toggleEdit": "編集を切り替え",
-    "toggleTheme": "テーマを切り替え",
-    "language": "言語"
-  },
   "toolbar": {
     "open": "開く",
-    "edit": "編集",
-    "view": "表示",
     "preview": "プレビュー",
-    "shortcuts": "ショートカット",
     "editor": "エディター",
     "viewMode": "表示モード",
     "newDocument": "新規",
@@ -47,8 +30,6 @@
     "occurrences": "一致数",
     "close": "閉じる",
     "export": "エクスポート",
-    "exportHtml": "HTML としてエクスポート",
-    "exportPdf": "PDF としてエクスポート",
     "theme": "テーマ",
     "themeLight": "ライトモード",
     "themeDark": "ダークモード",
@@ -60,17 +41,16 @@
     "useFluidWidth": "閲覧幅を全幅にする",
     "showOutline": "目次を表示",
     "hideOutline": "目次を非表示",
+    "showLivePreview": "ライブプレビューを表示",
+    "hideLivePreview": "ライブプレビューを非表示",
+    "livePreviewTooNarrow": "ライブプレビューを表示する幅が足りません",
+    "resizeSplit": "ペインの幅を変更",
     "settings": "設定",
     "about": "このアプリについて",
-    "more": "その他の操作",
     "language": "言語"
   },
   "sidebar": {
-    "library": "ライブラリ",
-    "localStorage": "ローカルストレージ",
-    "documents": "ドキュメント",
     "outline": "アウトライン",
-    "help": "ヘルプ",
     "expand": "展開",
     "collapse": "折りたたむ",
     "expandAll": "すべて展開",
@@ -79,15 +59,11 @@
     "noDocument": "ドキュメントを開くか新規作成するとアウトラインが表示されます。"
   },
   "statusbar": {
-    "brand": "Moji v1.0.5",
+    "brand": "Moji v{{version}}",
     "guide": "Markdown ガイド",
-    "exportPdf": "PDF をエクスポート",
     "lineCount": "行数: {{count}}",
     "tokenCount": "トークン: {{count}}",
     "wordCount": "単語数: {{count}}"
-  },
-  "help": {
-    "hint": ".md ファイルを開くかドロップし、上部タブでプレビューとエディターを切り替え、アウトラインで見出し間を移動できます。"
   },
   "preview": {
     "copyCode": "コードをコピー",
@@ -127,8 +103,7 @@
   },
   "welcome": {
     "tagline": "軽くてシンプルな Markdown リーダー",
-    "title": "Moji v1.0.5",
-    "subtitle": "Markdown ファイルを開いて、すっきり読めます。",
+    "title": "Moji v{{version}}",
     "openButton": "ファイルを開く",
     "newButton": "新規ファイル",
     "dropHint": "または、このウィンドウのどこかに .md ファイルをドロップ",
@@ -164,6 +139,9 @@
     "title": "設定",
     "general": "一般",
     "preview": "プレビュー",
+    "editor": "エディター",
+    "shortcutOr": "または",
+    "shortcuts": "ショートカット",
     "fontFamily": "フォント",
     "fontSize": "フォントサイズ",
     "lineHeight": "行の高さ",
@@ -189,6 +167,7 @@
       "findNext": "次の一致",
       "findPrevious": "前の一致",
       "toggleEdit": "エディタ/プレビュー切替",
+      "toggleSplit": "ライブプレビュー切替",
       "export": "エクスポート",
       "settings": "設定",
       "fullscreen": "全画面",
@@ -204,7 +183,10 @@
       "link": "リンクを挿入",
       "list": "リスト切替",
       "checklist": "チェックリスト切替",
-      "codeBlock": "コードブロックを挿入"
+      "codeBlock": "コードブロックを挿入",
+      "indent": "インデントを増やす",
+      "outdent": "インデントを減らす",
+      "exitFocus": "エディタのフォーカスを解除"
     }
   },
   "aboutDialog": {
@@ -238,6 +220,25 @@
     "later": "後で",
     "dismiss": "更新通知を閉じる"
   },
+  "openProgress": {
+    "title": "ファイルを開いています…",
+    "count": "{{total}} 件中 {{completed}} 件開きました",
+    "cancel": "キャンセル",
+    "canceling": "キャンセル中…"
+  },
+  "exportProgress": {
+    "title": "エクスポート中…",
+    "slice": "{{phase}} — {{slices}} 中 {{slice}}",
+    "cancel": "キャンセル",
+    "canceling": "キャンセル中…",
+    "phase": {
+      "render": "ページを描画中…",
+      "fonts": "フォントを読み込み中…",
+      "capture": "ページをキャプチャ中…",
+      "compress": "画像を圧縮中…",
+      "write": "ファイルを書き込み中…"
+    }
+  },
   "notice": {
     "unsupported": "未対応のファイル形式です。.md と .markdown ファイルのみ開けます。",
     "exportSuccess": "{{path}} にエクスポートしました",
@@ -245,9 +246,12 @@
     "saveSuccess": "保存しました",
     "saveFailed": "保存に失敗しました: {{error}}",
     "autoSaveFailed": "復元用下書きを保存できませんでした: {{error}}",
+    "autoSaveOverMemoryBudget": "復元用下書きを保存できませんでした: {{required}} 必要ですが、下書き用には {{available}} しか確保されていません。テキストは切り詰められていません。ドキュメントをファイルに保存して保持してください。",
+    "autoSaveNoDiskSpace": "復元用下書きを保存できませんでした: 空き容量が {{required}} 必要ですが、ディスクには {{available}} しか残っていません。テキストは切り詰められていません。空き容量を増やすか、ドキュメントをファイルに保存してください。",
     "autoSaveCleanupFailed": "復元用下書きを削除できませんでした: {{error}}",
     "draftRestoreFailed": "復元用下書きを復元できませんでした: {{error}}",
     "openFailed": "ファイルを開けませんでした: {{error}}",
+    "errorReason": { "notFound": "ファイルが見つかりません。", "permissionDenied": "アクセスが拒否されました。", "busy": "ファイルは使用中です。" },
     "noDocument": "まずドキュメントを開いてください。",
     "readOnlyGuide": "付属の Markdown ガイドは読み取り専用のため保存できません。",
     "replaceNeedsSearch": "検索語を入力してください。",

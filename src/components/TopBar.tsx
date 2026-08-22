@@ -1,8 +1,8 @@
-import { useState, useCallback, useEffect, useRef, type ChangeEvent, type FormEvent } from 'react'
+import { memo, useState, useCallback, useEffect, useRef, type ChangeEvent, type FormEvent } from 'react'
 import { useTranslation } from 'react-i18next'
 import { SettingsButton } from './SettingsButton'
 import { FontSizeButton } from './FontSizeButton'
-import { IconMoon, IconSun, IconEye, IconPencil, IconDownload, IconOpen, IconFilePlus, IconSave, IconInfo, IconReplace, IconReplaceAll, IconX, IconLayoutWidth, IconSidebar, IconChevronRight } from './icons'
+import { IconMoon, IconSun, IconEye, IconPencil, IconDownload, IconOpen, IconFilePlus, IconSave, IconInfo, IconReplace, IconReplaceAll, IconX, IconLayoutWidth, IconSidebar, IconSplitPreview, IconChevronRight } from './icons'
 import type { ExportFormat, Theme } from '../../electron/shared'
 
 interface TopBarProps {
@@ -29,7 +29,11 @@ interface TopBarProps {
   searchMatchCount: number
   activeSearchIndex: number | null
   canToggleTheme: boolean
-  previewFontSize: number
+  /** Font size of the active mode: preview in view mode, source editor in edit mode. */
+  fontSize: number
+  minFontSize: number
+  maxFontSize: number
+  defaultFontSize: number
   canAdjustFontSize: boolean
   onFontSizeChange: (value: number) => void
   previewFluidWidth: boolean
@@ -38,12 +42,17 @@ interface TopBarProps {
   outlineVisible: boolean
   canToggleOutline: boolean
   onToggleOutline: () => void
+  splitView: boolean
+  canToggleSplit: boolean
+  /** False when the workspace is too narrow for two panes, which changes the tooltip. */
+  splitFits: boolean
+  onToggleSplit: () => void
   searchFocusRequest: number
   replaceFocusRequest: number
   dismissRequest: number
 }
 
-export function TopBar(props: TopBarProps): JSX.Element {
+export const TopBar = memo(function TopBar(props: TopBarProps): JSX.Element {
   const { t } = useTranslation()
   const [searchTerm, setSearchTerm] = useState('')
   const [replaceTerm, setReplaceTerm] = useState('')
@@ -313,6 +322,24 @@ export function TopBar(props: TopBarProps): JSX.Element {
           </button>
 
           <button
+            className={`iconbtn ${props.splitView && props.canToggleSplit ? 'iconbtn--active' : ''}`}
+            type="button"
+            onClick={props.onToggleSplit}
+            disabled={!props.canToggleSplit}
+            title={
+              !props.splitFits
+                ? t('toolbar.livePreviewTooNarrow')
+                : props.splitView
+                  ? t('toolbar.hideLivePreview')
+                  : t('toolbar.showLivePreview')
+            }
+            aria-label={props.splitView ? t('toolbar.hideLivePreview') : t('toolbar.showLivePreview')}
+            aria-pressed={props.splitView}
+          >
+            <IconSplitPreview />
+          </button>
+
+          <button
             className={`iconbtn ${props.previewFluidWidth ? 'iconbtn--active' : ''}`}
             type="button"
             onClick={props.onTogglePreviewWidth}
@@ -325,7 +352,10 @@ export function TopBar(props: TopBarProps): JSX.Element {
           </button>
 
           <FontSizeButton
-            value={props.previewFontSize}
+            value={props.fontSize}
+            min={props.minFontSize}
+            max={props.maxFontSize}
+            defaultValue={props.defaultFontSize}
             disabled={!props.canAdjustFontSize}
             onChange={props.onFontSizeChange}
           />
@@ -357,4 +387,4 @@ export function TopBar(props: TopBarProps): JSX.Element {
       </div>
     </header>
   )
-}
+})

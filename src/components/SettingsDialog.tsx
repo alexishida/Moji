@@ -22,7 +22,19 @@ const PREVIEW_WIDTHS = Array.from(
   (_, i) => PREVIEW_WIDTH_MIN + i * PREVIEW_WIDTH_STEP
 )
 
-const SHORTCUT_SECTIONS = [
+interface ShortcutItem {
+  action: string
+  keys: readonly string[]
+  /** A second chord that performs the same action, shown alongside the primary one. */
+  altKeys?: readonly string[]
+}
+
+interface ShortcutSection {
+  key: string
+  items: readonly ShortcutItem[]
+}
+
+const SHORTCUT_SECTIONS: readonly ShortcutSection[] = [
   {
     key: 'file',
     items: [
@@ -39,14 +51,15 @@ const SHORTCUT_SECTIONS = [
     items: [
       { action: 'search', keys: ['Ctrl', 'F'] },
       { action: 'replace', keys: ['Ctrl', 'H'] },
-      { action: 'findNext', keys: ['F3'] },
-      { action: 'findPrevious', keys: ['Shift', 'F3'] }
+      { action: 'findNext', keys: ['F3'], altKeys: ['Ctrl', 'G'] },
+      { action: 'findPrevious', keys: ['Shift', 'F3'], altKeys: ['Ctrl', 'Shift', 'G'] }
     ]
   },
   {
     key: 'view',
     items: [
       { action: 'toggleEdit', keys: ['Ctrl', 'E'] },
+      { action: 'toggleSplit', keys: ['Ctrl', '\\'] },
       { action: 'export', keys: ['Ctrl', 'Shift', 'E'] },
       { action: 'settings', keys: ['Ctrl', ','] },
       { action: 'fullscreen', keys: ['F11'] },
@@ -77,12 +90,23 @@ const SHORTCUT_SECTIONS = [
       { action: 'link', keys: ['Ctrl', 'K'] },
       { action: 'list', keys: ['Ctrl', 'L'] },
       { action: 'checklist', keys: ['Ctrl', 'Shift', 'L'] },
-      { action: 'codeBlock', keys: ['Ctrl', 'Shift', 'K'] }
+      { action: 'codeBlock', keys: ['Ctrl', 'Shift', 'K'] },
+      { action: 'indent', keys: ['Tab'] },
+      { action: 'outdent', keys: ['Shift', 'Tab'] },
+      { action: 'exitFocus', keys: ['Ctrl', 'M'] }
     ]
   }
-] as const
+]
 
-type SettingsTab = 'general' | 'preview' | 'shortcuts'
+type SettingsTab = 'general' | 'preview' | 'editor' | 'shortcuts'
+
+// The app's own keydown handler already treats Cmd as the primary modifier on macOS
+// (`event.ctrlKey || event.metaKey`), so the shortcut list must not print "Ctrl" there too.
+const isMac = typeof navigator !== 'undefined' && /Mac/i.test(navigator.userAgent)
+
+function platformKeyLabel(key: string): string {
+  return isMac && key === 'Ctrl' ? '⌘' : key
+}
 
 export function SettingsDialog({ settings, onClose, onChange }: SettingsDialogProps): JSX.Element {
   const { t } = useTranslation()
@@ -102,7 +126,7 @@ export function SettingsDialog({ settings, onClose, onChange }: SettingsDialogPr
 
       <div className="settings-dialog__body">
         <div className="settings-tabs" role="tablist" aria-label={t('settingsDialog.title')}>
-          {(['general', 'preview', 'shortcuts'] as const).map((tab) => (
+          {(['general', 'preview', 'editor', 'shortcuts'] as const).map((tab) => (
             <button
               key={tab}
               className={`settings-tabs__button ${activeTab === tab ? 'settings-tabs__button--active' : ''}`}
@@ -225,6 +249,33 @@ export function SettingsDialog({ settings, onClose, onChange }: SettingsDialogPr
           </section>
         )}
 
+        {activeTab === 'editor' && (
+          <section className="settings-section" aria-labelledby="settings-editor-heading">
+            <h3 className="settings-section__heading" id="settings-editor-heading">
+              {t('settingsDialog.editor')}
+            </h3>
+
+            <div className="settings-field-list">
+              <label className="settings-field">
+                <span className="settings-field__label">{t('settingsDialog.fontSize')}</span>
+                <input
+                  className="input settings-field__control"
+                  type="number"
+                  min={12}
+                  max={24}
+                  step={1}
+                  value={settings.editorFontSize}
+                  onChange={(e) => {
+                    if (Number.isFinite(e.currentTarget.valueAsNumber)) {
+                      onChange({ editorFontSize: e.currentTarget.valueAsNumber })
+                    }
+                  }}
+                />
+              </label>
+            </div>
+          </section>
+        )}
+
         {activeTab === 'shortcuts' && (
           <div className="settings-shortcuts" aria-label={t('settingsDialog.shortcuts')}>
             {SHORTCUT_SECTIONS.map((section) => (
@@ -242,9 +293,19 @@ export function SettingsDialog({ settings, onClose, onChange }: SettingsDialogPr
                       <span className="settings-shortcut__keys">
                         {item.keys.map((key) => (
                           <kbd className="settings-shortcut__key" key={key}>
-                            {key}
+                            {platformKeyLabel(key)}
                           </kbd>
                         ))}
+                        {item.altKeys && (
+                          <>
+                            <span className="settings-shortcut__key-or">{t('settingsDialog.shortcutOr')}</span>
+                            {item.altKeys.map((key) => (
+                              <kbd className="settings-shortcut__key" key={key}>
+                                {platformKeyLabel(key)}
+                              </kbd>
+                            ))}
+                          </>
+                        )}
                       </span>
                     </div>
                   ))}

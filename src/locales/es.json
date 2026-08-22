@@ -1,6 +1,6 @@
 {
   "app": {
-    "name": "Moji v1.0.5",
+    "name": "Moji v{{version}}",
     "untitled": "Sin título",
     "modifiedMarker": "•"
   },
@@ -13,26 +13,9 @@
     "closeSaved": "Cerrar guardadas",
     "closeAll": "Cerrar todas"
   },
-  "menu": {
-    "file": "Archivo",
-    "open": "Abrir…",
-    "save": "Guardar",
-    "saveAs": "Guardar como…",
-    "export": "Exportar",
-    "exportHtml": "Exportar como HTML…",
-    "exportPdf": "Exportar como PDF…",
-    "quit": "Salir",
-    "view": "Ver",
-    "toggleEdit": "Alternar edición",
-    "toggleTheme": "Alternar tema",
-    "language": "Idioma"
-  },
   "toolbar": {
     "open": "Abrir",
-    "edit": "Editar",
-    "view": "Ver",
     "preview": "Vista previa",
-    "shortcuts": "Atajos",
     "editor": "Editor",
     "viewMode": "Modo de vista",
     "newDocument": "Nuevo",
@@ -47,8 +30,6 @@
     "occurrences": "Coincidencias",
     "close": "Cerrar",
     "export": "Exportar",
-    "exportHtml": "Exportar como HTML",
-    "exportPdf": "Exportar como PDF",
     "theme": "Tema",
     "themeLight": "Modo claro",
     "themeDark": "Modo oscuro",
@@ -60,17 +41,16 @@
     "useFluidWidth": "Usar ancho total de lectura",
     "showOutline": "Mostrar índice",
     "hideOutline": "Ocultar índice",
+    "showLivePreview": "Mostrar vista previa en vivo",
+    "hideLivePreview": "Ocultar vista previa en vivo",
+    "livePreviewTooNarrow": "No hay espacio suficiente para la vista previa en vivo",
+    "resizeSplit": "Redimensionar los paneles",
     "settings": "Ajustes",
     "about": "Acerca de",
-    "more": "Más acciones",
     "language": "Idioma"
   },
   "sidebar": {
-    "library": "Biblioteca",
-    "localStorage": "Almacenamiento local",
-    "documents": "Documentos",
     "outline": "Esquema",
-    "help": "Ayuda",
     "expand": "Expandir",
     "collapse": "Contraer",
     "expandAll": "Expandir todo",
@@ -79,15 +59,11 @@
     "noDocument": "Abre o crea un documento para ver su esquema."
   },
   "statusbar": {
-    "brand": "Moji v1.0.5",
+    "brand": "Moji v{{version}}",
     "guide": "Guía de Markdown",
-    "exportPdf": "Exportar PDF",
     "lineCount": "Líneas: {{count}}",
     "tokenCount": "Tokens: {{count}}",
     "wordCount": "Palabras: {{count}}"
-  },
-  "help": {
-    "hint": "Abre o suelta un archivo .md, cambia entre Vista previa/Editor en las pestañas superiores y usa el esquema para saltar entre encabezados."
   },
   "preview": {
     "copyCode": "Copiar código",
@@ -127,8 +103,7 @@
   },
   "welcome": {
     "tagline": "Un lector de Markdown ligero y sencillo",
-    "title": "Moji v1.0.5",
-    "subtitle": "Abre un archivo Markdown para leerlo de forma limpia.",
+    "title": "Moji v{{version}}",
     "openButton": "Abrir archivo",
     "newButton": "Nuevo archivo",
     "dropHint": "o suelta un archivo .md en cualquier parte de esta ventana",
@@ -148,22 +123,25 @@
     "title": "Exportar documento",
     "format": "Formato",
     "settings": "Ajustes",
-    "pageSize": "Tama\u00f1o de p\u00e1gina",
-    "orientation": "Orientaci\u00f3n",
+    "pageSize": "Tamaño de página",
+    "orientation": "Orientación",
     "portrait": "Vertical",
     "landscape": "Horizontal",
     "pdfTitle": "Exportar como PDF",
-    "pdfDescription": "Ideal para imprimir y compartir dise\u00f1os exactos.",
+    "pdfDescription": "Ideal para imprimir y compartir diseños exactos.",
     "htmlTitle": "Exportar como HTML",
-    "htmlDescription": "Mejor para publicaci\u00f3n web e incrustaci\u00f3n.",
+    "htmlDescription": "Mejor para publicación web e incrustación.",
     "pngTitle": "Exportar como PNG",
-    "pngDescription": "Imagen de alta resoluci\u00f3n del contenido del documento.",
+    "pngDescription": "Imagen de alta resolución del contenido del documento.",
     "export": "Exportar"
   },
   "settingsDialog": {
     "title": "Ajustes",
     "general": "General",
     "preview": "Vista previa",
+    "editor": "Editor",
+    "shortcutOr": "o",
+    "shortcuts": "Atajos",
     "fontFamily": "Fuente",
     "fontSize": "Tamaño de fuente",
     "lineHeight": "Altura de línea",
@@ -189,6 +167,7 @@
       "findNext": "Siguiente coincidencia",
       "findPrevious": "Coincidencia anterior",
       "toggleEdit": "Alternar editor/vista previa",
+      "toggleSplit": "Alternar vista previa en vivo",
       "export": "Exportar",
       "settings": "Ajustes",
       "fullscreen": "Pantalla completa",
@@ -204,7 +183,10 @@
       "link": "Insertar enlace",
       "list": "Alternar lista",
       "checklist": "Alternar checklist",
-      "codeBlock": "Insertar bloque de código"
+      "codeBlock": "Insertar bloque de código",
+      "indent": "Aumentar sangría",
+      "outdent": "Reducir sangría",
+      "exitFocus": "Salir del foco del editor"
     }
   },
   "aboutDialog": {
@@ -238,6 +220,25 @@
     "later": "Más tarde",
     "dismiss": "Cerrar aviso de actualización"
   },
+  "openProgress": {
+    "title": "Abriendo archivos…",
+    "count": "{{completed}} de {{total}} abiertos",
+    "cancel": "Cancelar",
+    "canceling": "Cancelando…"
+  },
+  "exportProgress": {
+    "title": "Exportando…",
+    "slice": "{{phase}} — {{slice}} de {{slices}}",
+    "cancel": "Cancelar",
+    "canceling": "Cancelando…",
+    "phase": {
+      "render": "Renderizando la página…",
+      "fonts": "Cargando fuentes…",
+      "capture": "Capturando la página…",
+      "compress": "Comprimiendo la imagen…",
+      "write": "Escribiendo el archivo…"
+    }
+  },
   "notice": {
     "unsupported": "Tipo de archivo no compatible. Solo se pueden abrir archivos .md y .markdown.",
     "exportSuccess": "Exportado a {{path}}",
@@ -245,9 +246,12 @@
     "saveSuccess": "Guardado",
     "saveFailed": "Error al guardar: {{error}}",
     "autoSaveFailed": "No se pudo guardar el borrador de recuperación: {{error}}",
+    "autoSaveOverMemoryBudget": "No se pudo guardar el borrador de recuperación: necesita {{required}}, pero solo hay {{available}} reservados para borradores. No se recortó nada del texto: guarda el documento en un archivo para conservarlo.",
+    "autoSaveNoDiskSpace": "No se pudo guardar el borrador de recuperación: necesita {{required}} libres, pero solo quedan {{available}} en el disco. No se recortó nada del texto: libera espacio o guarda el documento en un archivo.",
     "autoSaveCleanupFailed": "No se pudo eliminar el borrador de recuperación: {{error}}",
     "draftRestoreFailed": "No se pudieron restaurar los borradores de recuperación: {{error}}",
     "openFailed": "No se pudo abrir el archivo: {{error}}",
+    "errorReason": { "notFound": "Archivo no encontrado.", "permissionDenied": "Permiso denegado.", "busy": "Archivo en uso." },
     "noDocument": "Abre un documento primero.",
     "readOnlyGuide": "La guía de Markdown incluida es de solo lectura y no se puede guardar.",
     "replaceNeedsSearch": "Introduce primero un término de búsqueda.",

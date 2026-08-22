@@ -1,65 +1,39 @@
-import MarkdownIt from 'markdown-it'
-import anchor from 'markdown-it-anchor'
-import taskLists from 'markdown-it-task-lists'
-import sub from 'markdown-it-sub'
-import sup from 'markdown-it-sup'
-import ins from 'markdown-it-ins'
-import mark from 'markdown-it-mark'
-import footnote from 'markdown-it-footnote'
-import deflist from 'markdown-it-deflist'
-import abbr from 'markdown-it-abbr'
-import { full as emoji } from 'markdown-it-emoji'
-import texmath from 'markdown-it-texmath'
-import katex from 'katex'
-import hljs from 'highlight.js'
 import DOMPurify from 'dompurify'
+import type { OutlineItem } from './outline'
+import {
+  documentAssetBaseUrl,
+  extractMarkdownOutlineCore,
+  hasPotentialMath,
+  renderMarkdownDocumentRaw,
+  renderMarkdownDocumentRawAsync,
+  type RawMarkdownRenderResult,
+  type RenderMarkdownOptions
+} from './markdownCore'
+import {
+  requestMarkdownRender,
+  requestMarkdownRenderOnce,
+  MarkdownWorkerRequestCanceledError
+} from './markdownWorkerClient'
+import { beginRendererMeasure, recordRendererMeasure } from './performanceMetrics'
 
-interface RenderMarkdownOptions {
-  documentPath?: string | null
-  assetMode?: 'app' | 'file'
+export { documentAssetBaseUrl, hasPotentialMath, MarkdownWorkerRequestCanceledError }
+export type { RenderMarkdownOptions }
+
+export interface MarkdownRenderResult {
+  html: string
+  blocks?: MarkdownRenderBlock[]
+  outline: OutlineItem[]
+  headingLines: ReadonlyMap<string, number>
 }
 
-const md = new MarkdownIt({
-  html: true, // raw HTML allowed here, then sanitized by DOMPurify below
-  linkify: true,
-  typographer: true,
-  breaks: false,
-  highlight(str, lang): string {
-    if (lang.toLowerCase() === 'mermaid') {
-      return `<pre class="hljs mermaid-diagram-candidate"><code>${md.utils.escapeHtml(str)}</code></pre>`
-    }
-    if (lang && hljs.getLanguage(lang)) {
-      try {
-        return `<pre class="hljs"><code>${hljs.highlight(str, { language: lang }).value}</code></pre>`
-      } catch {
-        /* fall through to escaped plain text */
-      }
-    }
-    return `<pre class="hljs"><code>${md.utils.escapeHtml(str)}</code></pre>`
-  }
-})
+export interface MarkdownRenderBlock {
+  id: string
+  html: string
+  text: string
+  headingIds: string[]
+  estimatedHeight: number
+}
 
-md.use(anchor, { slugify: (s) => encodeURIComponent(String(s).trim().toLowerCase().replace(/\s+/g, '-')) })
-md.use(taskLists, { enabled: true, label: true })
-// Extended Markdown: subscript ~x~, superscript ^x^, insert ++x++, highlight ==x==.
-md.use(sub)
-md.use(sup)
-md.use(ins)
-md.use(mark)
-// Block-level extras: footnotes, definition lists, abbreviations, emoji shortcodes.
-md.use(footnote)
-md.use(deflist)
-md.use(abbr)
-md.use(emoji)
-// Math: $inline$ and $$block$$ rendered with KaTeX. Invalid TeX renders as inline
-// error text instead of throwing so a single bad formula never breaks the preview.
-md.use(texmath, {
-  engine: katex,
-  delimiters: 'dollars',
-  katexOptions: { throwOnError: false, strict: false }
-})
-
-// Keep target/rel safe on links that DOMPurify would otherwise allow through.
 DOMPurify.addHook('afterSanitizeAttributes', (node) => {
   if (node.tagName === 'A' && node.getAttribute('href')?.startsWith('http')) {
     node.setAttribute('target', '_blank')
@@ -67,106 +41,117 @@ DOMPurify.addHook('afterSanitizeAttributes', (node) => {
   }
 })
 
-const EMPTY_IMAGE =
-  'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw=='
-
-function filePathToFileUrl(filePath: string): string {
-  const normalized = filePath.replace(/\\/g, '/')
-  if (/^[A-Za-z]:\//.test(normalized)) {
-    const [drive, ...rest] = normalized.split('/')
-    return `file:///${drive}/${rest.map(encodeURIComponent).join('/')}`
-  }
-  if (normalized.startsWith('//')) {
-    const [host, ...rest] = normalized.slice(2).split('/')
-    return `file://${host}/${rest.map(encodeURIComponent).join('/')}`
-  }
-  return `file://${normalized.split('/').map(encodeURIComponent).join('/')}`
-}
-
-function prepareAppImage(image: Element, filePath: string): void {
-  image.setAttribute('data-local-src', filePath)
-  image.setAttribute('src', EMPTY_IMAGE)
-}
-
-function fileUrlToPath(fileUrl: string): string {
-  const url = new URL(fileUrl)
-  const pathname = decodeURIComponent(url.pathname)
-  if (url.hostname) return `//${url.hostname}${pathname}`
-  return /^\/[A-Za-z]:\//.test(pathname) ? pathname.slice(1) : pathname
-}
-
-export function documentAssetBaseUrl(documentPath: string | null | undefined): string | null {
-  if (!documentPath) return null
-  const normalized = documentPath.replace(/\\/g, '/')
-  const lastSlash = normalized.lastIndexOf('/')
-  if (lastSlash < 0) return null
-  return `${filePathToFileUrl(normalized.slice(0, lastSlash + 1))}/`.replace(/\/+$/, '/')
-}
-
-/** Returns zero-based source line for an anchored Markdown heading. */
-export function findMarkdownHeadingLine(source: string, headingId: string): number | null {
-  const token = md.parse(source ?? '', {}).find((item) =>
-    item.type === 'heading_open' && item.attrGet('id') === headingId && item.map
-  )
-  return token?.map?.[0] ?? null
-}
-
-function resolveLocalSources(
-  html: string,
-  documentPath: string | null | undefined,
-  assetMode: RenderMarkdownOptions['assetMode']
-): string {
-  const baseUrl = documentAssetBaseUrl(documentPath)
-  if (!baseUrl) return html
-
-  const template = document.createElement('template')
-  template.innerHTML = html
-
-  template.content.querySelectorAll('img[src]').forEach((image) => {
-    const src = image.getAttribute('src')?.trim()
-    if (!src || src.startsWith('#')) return
-
-    if (/^file:/i.test(src)) {
-      if (assetMode === 'app') prepareAppImage(image, fileUrlToPath(src))
-      return
-    }
-
-    if (/^[a-z][a-z\d+.-]*:/i.test(src)) return
-
-    try {
-      const fileUrl = new URL(src.replace(/\\/g, '/'), baseUrl).toString()
-      if (assetMode === 'app') prepareAppImage(image, fileUrlToPath(fileUrl))
-      else image.setAttribute('src', fileUrl)
-    } catch {
-      /* Keep original src when URL parsing fails. */
-    }
-  })
-
-  template.content.querySelectorAll('a[href]').forEach((anchor) => {
-    const href = anchor.getAttribute('href')?.trim()
-    if (!href || href.startsWith('#') || /^file:/i.test(href) || /^[a-z][a-z\d+.-]*:/i.test(href)) return
-
-    try {
-      anchor.setAttribute('href', new URL(href.replace(/\\/g, '/'), baseUrl).toString())
-    } catch {
-      /* Keep original href when URL parsing fails. */
-    }
-  })
-
-  return template.innerHTML
-}
-
-/** Render Markdown to sanitized HTML safe to inject into the preview. */
-export function renderMarkdown(source: string, options: RenderMarkdownOptions = {}): string {
-  const rawHtml = md.render((source ?? '').replace(/^\uFEFF/, ''))
-  const htmlWithResolvedSources = resolveLocalSources(rawHtml, options.documentPath, options.assetMode ?? 'file')
-  return DOMPurify.sanitize(htmlWithResolvedSources, {
-    // html for the document, mathMl + svg for KaTeX output. `eq`/`eqn` are the
-    // wrapper tags markdown-it-texmath emits around each formula.
+/** Renderer-only trust boundary. Worker output stays raw until this returns. */
+export function sanitizeMarkdownHtml(rawHtml: string): string {
+  return DOMPurify.sanitize(rawHtml, {
     USE_PROFILES: { html: true, mathMl: true, svg: true },
     ALLOWED_URI_REGEXP:
-      /^(?:(?:(?:f|ht)tps?|file|mailto|tel|callto|sms|cid|xmpp):|[^a-z]|[a-z+.-]+(?:[^a-z+.-:]|$))/i,
+      /^(?:(?:(?:f|ht)tps?|file|mailto|tel|callto|sms|cid|xmpp):|[^a-z]|[a-z+.-]+(?:[^a-z+.\-:]|$))/i,
     ADD_TAGS: ['eq', 'eqn'],
-    ADD_ATTR: ['target', 'rel', 'id', 'src', 'data-local-src']
+    ADD_ATTR: ['target', 'rel', 'id', 'src', 'data-local-asset', 'loading', 'decoding']
   })
+}
+
+function recordCoreTimings(result: RawMarkdownRenderResult, markdownChars: number): void {
+  const rawHtmlChars = result.rawHtml.length + (result.blocks?.reduce((sum, block) => sum + block.rawHtml.length, 0) ?? 0)
+  recordRendererMeasure('markdown:parse', result.timings.parseMs, { markdownChars })
+  recordRendererMeasure('markdown:outline', result.timings.outlineMs, { headingCount: result.outline.length })
+  recordRendererMeasure('markdown:render-html', result.timings.renderHtmlMs, { rawHtmlChars })
+}
+
+function finalizeMarkdownResult(raw: RawMarkdownRenderResult, markdownChars: number): MarkdownRenderResult {
+  recordCoreTimings(raw, markdownChars)
+  const rawHtmlChars = raw.rawHtml.length + (raw.blocks?.reduce((sum, block) => sum + block.rawHtml.length, 0) ?? 0)
+  const finishSanitize = beginRendererMeasure('markdown:sanitize', { rawHtmlChars })
+  let html = ''
+  let blocks: MarkdownRenderBlock[] | undefined
+  try {
+    if (raw.blocks) {
+      blocks = raw.blocks.map((block) => ({
+        id: block.id,
+        html: sanitizeMarkdownHtml(block.rawHtml),
+        text: block.text,
+        headingIds: block.headingIds,
+        estimatedHeight: block.estimatedHeight
+      }))
+    } else {
+      html = sanitizeMarkdownHtml(raw.rawHtml)
+    }
+  } finally {
+    finishSanitize({
+      htmlChars: html.length + (blocks?.reduce((sum, block) => sum + block.html.length, 0) ?? 0),
+      blockCount: blocks?.length ?? 0
+    })
+  }
+  return { html, blocks, outline: raw.outline, headingLines: new Map(raw.headingLines) }
+}
+
+export function extractMarkdownOutline(source: string): OutlineItem[] {
+  const normalizedSource = (source ?? '').replace(/^\uFEFF/, '')
+  const finishMeasure = beginRendererMeasure('markdown:outline', { markdownChars: normalizedSource.length })
+  let outline: OutlineItem[] = []
+  try {
+    outline = extractMarkdownOutlineCore(normalizedSource)
+    return outline
+  } finally {
+    finishMeasure({ headingCount: outline.length })
+  }
+}
+
+export function renderMarkdown(source: string, options: RenderMarkdownOptions = {}): string {
+  return renderMarkdownDocument(source, options).html
+}
+
+export function renderMarkdownDocument(
+  source: string,
+  options: RenderMarkdownOptions = {}
+): MarkdownRenderResult {
+  const finishRender = beginRendererMeasure('markdown:render', { markdownChars: source.length })
+  let result: MarkdownRenderResult | null = null
+  try {
+    result = finalizeMarkdownResult(renderMarkdownDocumentRaw(source, options), source.length)
+    return result
+  } finally {
+    finishRender({ htmlChars: result?.html.length ?? 0, headingCount: result?.outline.length ?? 0 })
+  }
+}
+
+export async function renderMarkdownAsync(source: string, options: RenderMarkdownOptions = {}): Promise<string> {
+  return (await renderMarkdownDocumentAsync(source, options)).html
+}
+
+export async function renderMarkdownDocumentAsync(
+  source: string,
+  options: RenderMarkdownOptions = {}
+): Promise<MarkdownRenderResult> {
+  if (hasPotentialMath(source)) await import('katex/dist/katex.min.css')
+  return finalizeMarkdownResult(await renderMarkdownDocumentRawAsync(source, options), source.length)
+}
+
+/** Parse, highlight and render outside UI thread; sanitize response in renderer. */
+export async function renderMarkdownDocumentInWorker(
+  source: string,
+  options: RenderMarkdownOptions = {}
+): Promise<MarkdownRenderResult> {
+  const finishRoundTrip = beginRendererMeasure('markdown:worker-roundtrip', { markdownChars: source.length })
+  try {
+    const [raw] = await Promise.all([
+      requestMarkdownRender(source, options),
+      hasPotentialMath(source) ? import('katex/dist/katex.min.css') : Promise.resolve()
+    ])
+    return finalizeMarkdownResult(raw, source.length)
+  } finally {
+    finishRoundTrip()
+  }
+}
+
+export async function renderMarkdownInWorker(
+  source: string,
+  options: RenderMarkdownOptions = {}
+): Promise<string> {
+  const [raw] = await Promise.all([
+    requestMarkdownRenderOnce(source, options),
+    hasPotentialMath(source) ? import('katex/dist/katex.min.css') : Promise.resolve()
+  ])
+  return finalizeMarkdownResult(raw, source.length).html
 }

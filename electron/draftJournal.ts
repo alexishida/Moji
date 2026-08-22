@@ -1,0 +1,165 @@
+/**
+ * Append-only journal of edits for one draft.
+ *
+ * Autosave used to rewrite the whole draft on every tick. A journal records only what changed, so
+ * the cost of a keystroke follows the size of the edit instead of the size of the document. The
+ * draft on disk is therefore a snapshot plus the edits appended after it.
+ */
+
+/** One splice, in the coordinates of the text it was produced against. */
+export interface DraftEdit {
+  from: number
+  to: number
+  insert: string
+}
+
+/** Ceiling on a single journal entry, so a malformed request cannot grow the file without bound. */
+export const MAX_EDITS_PER_ENTRY = 5_000
+
+export function isDraftEdit(value: unknown): value is DraftEdit {
+  if (!value || typeof value !== 'object') return false
+  const raw = value as Record<string, unknown>
+  return (
+    typeof raw['from'] === 'number' &&
+    Number.isInteger(raw['from']) &&
+    raw['from'] >= 0 &&
+    typeof raw['to'] === 'number' &&
+    Number.isInteger(raw['to']) &&
+    raw['to'] >= raw['from'] &&
+    typeof raw['insert'] === 'string'
+  )
+}
+
+export function areDraftEdits(value: unknown): value is DraftEdit[] {
+  return Array.isArray(value) && value.length <= MAX_EDITS_PER_ENTRY && value.every(isDraftEdit)
+}
+
+/**
+ * Each transaction's edits are expressed against the text as it was *before* that transaction, so
+ * batches from different transactions can never be flattened into one array — they must stay
+ * ordered and be applied one after another.
+ */
+export function areDraftEditBatches(value: unknown): value is DraftEdit[][] {
+  if (!Array.isArray(value) || value.length > MAX_EDITS_PER_ENTRY) return false
+  let total = 0
+  for (const batch of value) {
+    if (!areDraftEdits(batch)) return false
+    total += batch.length
+    if (total > MAX_EDITS_PER_ENTRY) return false
+  }
+  return true
+}
+
+/** Applies consecutive transactions, each against the text the previous one produced. */
+export function applyDraftEditBatches(base: string, batches: readonly (readonly DraftEdit[])[]): string {
+  let content = base
+  for (const edits of batches) content = applyDraftEdits(content, edits)
+  return content
+}
+
+export function encodeJournalEntries(batches: readonly (readonly DraftEdit[])[]): string {
+  return batches.map(encodeJournalEntry).join('')
+}
+
+/**
+ * Applies one transaction's edits to `base`.
+ *
+ * Edits must be ascending and non-overlapping, which is how CodeMirror's `iterChanges` reports
+ * them. That lets the whole transaction apply in a single pass, and it makes a malformed batch
+ * detectable rather than silently corrupting the draft.
+ */
+export function applyDraftEdits(base: string, edits: readonly DraftEdit[]): string {
+  if (edits.length === 0) return base
+
+  const parts: string[] = []
+  let cursor = 0
+  for (const edit of edits) {
+    if (edit.from < cursor || edit.to > base.length) {
+      throw new RangeError('draft edits must be ascending, non-overlapping and within the document')
+    }
+    parts.push(base.slice(cursor, edit.from), edit.insert)
+    cursor = edit.to
+  }
+  parts.push(base.slice(cursor))
+  return parts.join('')
+}
+
+export function encodeJournalEntry(edits: readonly DraftEdit[]): string {
+  return `${JSON.stringify(edits)}\n`
+}
+
+/**
+ * First line of a fresh journal: the identity of the snapshot it was appended after.
+ *
+ * `writeSnapshot` writes the new snapshot before removing the journal it superseded, so a
+ * crash in between leaves a journal on disk whose edits the snapshot already contains. This
+ * header lets the next load tell that stale journal apart from one that still belongs ahead
+ * of the snapshot it sits next to: the entries it decodes to (a JSON array) and this header
+ * (a JSON object) are different shapes, so `splitJournalHeader` never confuses the two.
+ *
+ * The snapshot's *length* was the original discriminator, but it is not a safe one: a change
+ * that nets out to the same number of characters (an equal-length replacement folded into a
+ * full snapshot) leaves a stale journal indistinguishable from a live one. Carrying the
+ * content hash instead lets `readContent` reject a stale journal even when the lengths
+ * coincide. Journals written before the hash existed (`{ base }` only) keep working through
+ * the old length comparison.
+ */
+export function encodeJournalHeader(baseLength: number, baseHash?: string): string {
+  const header = baseHash === undefined
+    ? { base: baseLength }
+    : { base: baseLength, baseHash }
+  return `${JSON.stringify(header)}\n`
+}
+
+/** Journal text split into its base-identity header (if present) and the entries after it. */
+export function splitJournalHeader(raw: string): { baseLength: number | null; baseHash: string | null; body: string } {
+  const newline = raw.indexOf('\n')
+  if (newline < 0) return { baseLength: null, baseHash: null, body: raw }
+  try {
+    const parsed = JSON.parse(raw.slice(0, newline)) as unknown
+    const header = parsed && typeof parsed === 'object' ? (parsed as Record<string, unknown>) : null
+    const base = header?.['base']
+    if (typeof base === 'number') {
+      const baseHash = typeof header?.['baseHash'] === 'string' ? header['baseHash'] : null
+      return { baseLength: base, baseHash, body: raw.slice(newline + 1) }
+    }
+  } catch {
+    // Not a header line — the whole thing is journal entries, as written before this existed.
+  }
+  return { baseLength: null, baseHash: null, body: raw }
+}
+
+/**
+ * Reads entries from journal text.
+ *
+ * A crash can leave the final line half-written, so an unparsable or malformed trailing line is
+ * dropped rather than failing the whole recovery: every complete entry before it is still valid.
+ */
+export function parseJournal(raw: string): DraftEdit[][] {
+  const entries: DraftEdit[][] = []
+  for (const line of raw.split('\n')) {
+    if (!line) continue
+    let parsed: unknown
+    try {
+      parsed = JSON.parse(line)
+    } catch {
+      break
+    }
+    if (!areDraftEdits(parsed)) break
+    entries.push(parsed)
+  }
+  return entries
+}
+
+/** Replays a snapshot plus its journal. Entries that no longer fit the text stop the replay. */
+export function replayJournal(snapshot: string, raw: string): string {
+  let content = snapshot
+  for (const edits of parseJournal(raw)) {
+    try {
+      content = applyDraftEdits(content, edits)
+    } catch {
+      break
+    }
+  }
+  return content
+}

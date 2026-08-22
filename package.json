@@ -1,6 +1,6 @@
 {
   "name": "moji",
-  "version": "1.0.5",
+  "version": "1.0.6",
   "desktopName": "moji.desktop",
   "description": "Clean cross-platform Markdown viewer and editor (React + Electron)",
   "homepage": "https://github.com/alexishida/Moji",
@@ -28,17 +28,21 @@
     "node": "^20.19.0 || >=22.12.0"
   },
   "scripts": {
+    "postinstall": "node scripts/install-electron-binary.cjs",
     "dev": "node scripts/run-electron-vite.cjs dev",
     "dev:update": "node scripts/run-electron-vite.cjs dev --mock-update",
     "build": "electron-vite build",
     "typecheck": "tsc --noEmit -p tsconfig.json",
-    "test": "vitest run",
-    "test:watch": "vitest",
+    "benchmark:corpus": "node scripts/generate-benchmark-corpus.cjs",
+    "benchmark:ipc": "node scripts/measure-ipc-transport.cjs",
+    "benchmark:record": "npm run build && npm run benchmark:corpus && node scripts/run-benchmark.cjs --benchmark-corpus=.tmp/benchmark-corpus --benchmark-output=docs/baseline-v1.json",
+    "benchmark:compare": "node scripts/compare-benchmark.cjs",
     "preview": "node scripts/run-electron-vite.cjs preview",
-    "dist": "electron-vite build && electron-builder",
-    "dist:win": "electron-vite build && electron-builder --win",
-    "dist:linux": "electron-vite build && electron-builder --linux",
-    "dist:mac": "electron-vite build && electron-builder --mac"
+    "dist": "npm run verify && electron-vite build && electron-builder",
+    "dist:win": "npm run verify && electron-vite build && electron-builder --win",
+    "dist:linux": "npm run verify && electron-vite build && electron-builder --linux",
+    "dist:mac": "npm run verify && electron-vite build && electron-builder --mac",
+    "verify": "npm run typecheck"
   },
   "dependencies": {
     "@codemirror/commands": "^6.7.1",
@@ -47,6 +51,7 @@
     "@codemirror/search": "^6.7.1",
     "@codemirror/state": "^6.4.1",
     "@codemirror/view": "^6.34.1",
+    "@fontsource/inter": "^5.3.0",
     "@lezer/highlight": "^1.2.3",
     "dompurify": "^3.2.2",
     "electron-updater": "^6.8.9",
@@ -80,9 +85,8 @@
     "electron": "^43.1.0",
     "electron-builder": "^26.15.6",
     "electron-vite": "^5.0.0",
-    "jsdom": "^29.1.1",
+    "playwright": "^1.62.1",
     "typescript": "^5.7.2",
-    "vite": "^7.3.6",
-    "vitest": "^4.1.10"
+    "vite": "^7.3.6"
   }
 }

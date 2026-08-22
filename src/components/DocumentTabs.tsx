@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { memo, useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { IconX } from './icons'
 
@@ -25,7 +25,7 @@ interface MenuState {
   y: number
 }
 
-export function DocumentTabs({
+function DocumentTabsView({
   tabs,
   activeId,
   onSelect,
@@ -152,3 +152,20 @@ export function DocumentTabs({
     </div>
   )
 }
+
+function sameTabs(previous: DocumentTabItem[], next: DocumentTabItem[]): boolean {
+  return previous.length === next.length && previous.every((tab, index) => (
+    tab.id === next[index].id && tab.title === next[index].title && tab.dirty === next[index].dirty
+  ))
+}
+
+export const DocumentTabs = memo(DocumentTabsView, (previous, next) => (
+  previous.activeId === next.activeId &&
+  previous.onSelect === next.onSelect &&
+  previous.onClose === next.onClose &&
+  previous.onCloseOthers === next.onCloseOthers &&
+  previous.onCloseToRight === next.onCloseToRight &&
+  previous.onCloseSaved === next.onCloseSaved &&
+  previous.onCloseAll === next.onCloseAll &&
+  sameTabs(previous.tabs, next.tabs)
+))

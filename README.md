@@ -8,21 +8,21 @@
 
 <p align="center">Built with Electron, React, TypeScript, and electron-vite.</p>
 
-<p align="center"><strong>Current version:</strong> v1.0.5</p>
+<p align="center"><strong>Current version:</strong> v1.0.6</p>
 
 <p align="center">
-  <img src="docs/repository-open-graph.png" alt="reposytory-open-graph" width="100%" />
+  <img src="docs/repository-open-graph.png" alt="repository-open-graph" width="100%" />
 </p>
 
 <p align="center">
   <strong>Download:</strong>
-  <a href="https://github.com/alexishida/Moji/releases/download/v1.0.5/Moji.Setup.1.0.5.exe">Windows</a>
+  <a href="https://github.com/alexishida/Moji/releases/download/v1.0.6/Moji.Setup.1.0.6.exe">Windows</a>
   ·
-  <a href="https://github.com/alexishida/Moji/releases/download/v1.0.5/Moji-1.0.5-universal.dmg">macOS (DMG)</a>
+  <a href="https://github.com/alexishida/Moji/releases/download/v1.0.6/Moji-1.0.6-universal.dmg">macOS (DMG)</a>
   ·
-  <a href="https://github.com/alexishida/Moji/releases/download/v1.0.5/Moji-1.0.5-x86_64.AppImage">Linux (AppImage)</a>
+  <a href="https://github.com/alexishida/Moji/releases/download/v1.0.6/Moji-1.0.6-x86_64.AppImage">Linux (AppImage)</a>
   ·
-  <a href="https://github.com/alexishida/Moji/releases/download/v1.0.5/Moji-1.0.5-amd64.deb">Linux (DEB)</a>
+  <a href="https://github.com/alexishida/Moji/releases/download/v1.0.6/Moji-1.0.6-amd64.deb">Linux (DEB)</a>
 </p>
 
 
@@ -40,19 +40,24 @@
 - **Outline navigation**: collapsible heading tree available in Preview and Editor modes. Preview uses scroll-spy; clicking any heading scrolls preview or moves editor cursor to its Markdown source.
 - **Search and replace**: top-bar search finds visible Markdown text even across inline formatting, distinguishes the active match, and shows the active/total occurrence count. Preview offers previous/next navigation; Editor separates navigation from replace-one/replace-all controls.
 - **Editor mode**: CodeMirror 6 Markdown editor with line numbers, history, wrapping, localized untitled document names, Markdown formatting shortcuts, and save/save as flows.
+- **Live preview**: while editing, toggle a resizable split view from the top bar (or `Ctrl`+`\`) to keep the rendered preview beside the source editor. Scrolling either pane moves the other to the matching part of the document, and the pane ratio is remembered. The toggle is disabled in view mode and when the workspace is too narrow for two readable panes.
 - **Untitled document recovery**: documents without a filesystem path are saved as internal recovery drafts and reopened after restarting Moji. Saving as a real file or closing the tab removes the recovery draft.
+- **Large documents**: files are streamed from the main process in UTF-8 chunks and decoded incrementally, Markdown is parsed and highlighted in a Web Worker, and documents above 20 MB switch the preview to block virtualization so only the visible part stays in the DOM.
+- **Batch open with progress**: selecting many files opens them with bounded concurrency, a progress banner, and a cancel action that keeps whatever already opened.
 - **Export mode**: export the active document as HTML, PDF, or PNG. PDF supports A4, Letter, Legal, portrait, and landscape; long code lines wrap in PDF and PNG exports.
+- **Export progress**: HTML, PDF, and PNG exports report their current phase and can be cancelled; a cancelled or failed export never leaves a partial file behind.
 - **Diagram exports**: rendered Mermaid diagrams are embedded as self-contained SVG in HTML, PDF, and PNG exports.
-- **Settings view**: centered in-workspace panel for language, untitled-document recovery, preview typography, reading width, and a localized shortcut reference.
+- **Local images**: images referenced relative to the document are served through an authorized `moji-asset://` protocol, restricted to directories of documents you actually opened, loaded lazily and cached in memory.
+- **Settings view**: centered in-workspace panel for language, untitled-document recovery, preview typography, editor and preview font sizes, reading width, and a localized shortcut reference.
 - **About view**: in-workspace panel showing app name, version (from `package.json`), author, repository link, and the story behind the name.
 - **Markdown guide**: bundled localized reference documents (`samples/markdown-guide.<locale>.md`) opened from the status bar.
 - **Recent files**: Welcome screen shows recently opened Markdown files and lets you reopen or remove entries.
-- **Remembered app state**: window size/position, recent files, last used folder, language, preview typography, reading width, Markdown preview theme, and untitled-document recovery preference are persisted in user settings.
+- **Remembered app state**: window size/position, recent files, last used folder, language, preview typography, editor and preview font sizes, reading width, Markdown preview theme, live preview split and pane ratio, and untitled-document recovery preference are persisted in user settings.
 - **Update checks**: installed Windows NSIS and Linux AppImage builds check GitHub Releases and link to the release page when a newer version is available, so you can choose the correct artifact.
 - **Markdown themes**: dark/light toggle for rendered Markdown. App chrome remains dark; exports always use the light theme.
 - **Internationalization**: English, Portuguese (Brazil), Spanish, Japanese, Chinese, and Russian. Initial language follows the OS when possible and user choice is persisted.
 - **Security**: sandboxed renderer, context isolation, `nodeIntegration: false`, DOMPurify sanitization, and external links opened in the OS browser.
-- **Keyboard shortcuts**: common file, search, replace, tab, preview, export, fullscreen, and font-size actions; Settings lists every available shortcut.
+- **Keyboard shortcuts**: common file, search (Ctrl+G / Ctrl+Shift+G for next and previous match), replace, tab, preview, split view, export, fullscreen, and font-size (Ctrl+Plus / Ctrl+Minus / Ctrl+0, in Editor mode too) actions, plus Ctrl+M to leave editor focus and Ctrl+Q to quit through the unsaved-changes guard; Settings lists every available shortcut.
 
 ## Screenshots
 
@@ -69,6 +74,10 @@
 <p align="center">
   <img src="docs/scr-mermaid.jpg" alt="Mermaid diagrams" width="45%" />
   <img src="docs/scr-mermaid-dialog.jpg" alt="Mermaid diagram viewer" width="45%" />
+</p>
+
+<p align="center">
+  <img src="docs/scr-split.jpg" alt="Split view" width="45%" />
 </p>
 
 
@@ -106,7 +115,6 @@ Update from GitHub Releases by downloading a new DMG. Signing and notarizing fut
 npm install
 npm run dev
 npm run typecheck
-npm test
 npm run build
 ```
 
@@ -115,9 +123,13 @@ Useful scripts:
 - `npm run dev`: launch Electron with hot reload.
 - `npm run dev:update`: launch development mode and simulate an available `99.0.0` update without network access.
 - `npm run typecheck`: run TypeScript checks without emitting files.
-- `npm test`: run the Vitest suite once (`npm run test:watch` for watch mode).
+- `npm run verify`: the gate the `dist*` scripts run first. Currently it is `typecheck` alone: this repository has no automated test suite.
 - `npm run build`: build main, preload, and renderer into `out/`.
 - `npm run preview`: run the built app preview.
+- `npm run benchmark:corpus`: generate a local 1/5/20/50 MB Markdown corpus under `.tmp/benchmark-corpus/`.
+- `npm run benchmark:ipc`: measure the cost of moving a document across the process boundary.
+- `npm run benchmark:record`: build, generate the corpus, and record a run into `docs/baseline-v1.json`.
+- `npm run benchmark:compare`: compare a run against the recorded baseline and the budgets in `docs/performance-budget.md`.
 
 ## Packaging
 
@@ -149,12 +161,15 @@ To sign locally, install an Apple Developer ID certificate in the keychain and d
 
 ### Publishing a release
 
-1. Update `version` in `package.json` and `package-lock.json`.
-2. Commit changes, then create and push the matching tag, such as `v1.0.5`.
-3. `.github/workflows/release.yml` validates tag, then builds Windows, Linux, and macOS in that order, uploading each platform's artifacts to a draft release. No binary is attached by hand.
-4. Workflow makes GitHub Release public once Windows and Linux have succeeded: NSIS, AppImage, DEB, and the `latest.yml` / `latest-linux.yml` update metadata.
+Releases are built and published by hand. There is no CI workflow in this repository.
 
-A Windows or Linux failure leaves the release as a draft. A macOS failure does not: the publish step waits for the macOS job to finish, so the release is never made public while the DMG is still uploading, but it does not require it to have succeeded. macOS is unsigned and secondary, and a broken DMG should not hold back a good Windows and Linux release. The macOS job still fails visibly in the workflow.
+1. Update `version` in `package.json` and `package-lock.json`.
+2. Run `npm run verify` (typecheck). The `dist*` scripts already run `verify` first, so a release cannot be produced from a failing tree.
+3. Build each platform on that platform: `npm run dist:win`, `npm run dist:linux`, `npm run dist:mac`. Cross-building is not set up, and `electron-builder.yml` publishes to a draft GitHub Release.
+4. Commit the version bump, then create and push the matching tag, such as `v1.0.5`.
+5. Upload the artifacts to the draft release and publish it once Windows and Linux are in place: NSIS, AppImage, DEB, and the `latest.yml` / `latest-linux.yml` update metadata that `electron-updater` reads.
+
+macOS is unsigned and secondary. A missing or broken DMG should not hold back a good Windows and Linux release, so publish without it rather than waiting.
 
 `electron-updater` checks GitHub Releases only in packaged Windows NSIS builds and Linux AppImages. Development, deb, and macOS builds do not check for updates. When a newer version is found, Moji opens GitHub Releases for the user to choose and install the correct artifact. Windows production releases should use an Authenticode certificate through electron-builder signing environment variables; never store certificate credentials in repository.
 
@@ -162,30 +177,44 @@ A Windows or Linux failure leaves the release as a draft. A macOS failure does n
 
 ```text
 electron/
-  main.ts        Window lifecycle, persisted bounds, file opening, single-instance flow, close guard, macOS application menu, IPC registration
-  preload.ts     Safe renderer API exposed through contextBridge
-  shared.ts      Shared IPC names, settings, export types, languages, recent-file limits, supported extensions
-  updater.ts     GitHub release checks, update download state, and NSIS/AppImage installation
-  settings.ts    User settings persistence, window bounds, recent files, preview theme, and last dialog directory
-  drafts.ts      Internal recovery storage for untitled documents across app sessions
-  export.ts      HTML/PDF/PNG export implementation with remembered output directory
-  png.ts         Streaming PNG encoder used to keep tall-document exports within memory
+  main.ts             Window lifecycle, persisted bounds, file opening, single-instance flow, close guard, macOS application menu, IPC registration
+  preload.ts          Safe renderer API exposed through contextBridge, including the chunked document read
+  shared.ts           Shared IPC names, settings, export types, languages, recent-file limits, supported extensions
+  ipcInput.ts         Normalization of every value the renderer sends over IPC
+  fileCapabilities.ts Paths the user actually chose; the only paths writes and asset reads are allowed on
+  assetPaths.ts       Authorization for the moji-asset:// protocol, resolved through realpath
+  assetCache.ts       Bounded in-memory LRU cache for served images
+  documentStream.ts   Chunked file reads, paired with documentDecoder.ts for streaming UTF-8 decoding
+  openPool.ts         Bounded-concurrency map used by the multi-file open session
+  settings.ts         User settings persistence, window bounds, recent files, preview theme, and last dialog directory
+  drafts.ts           Recovery storage for untitled documents (draftStore/draftJournal/draftCapacity)
+  export.ts           HTML/PDF/PNG export implementation with progress, cancellation, and remembered output directory
+  png.ts              Streaming PNG encoder (pngWorker/pngScanlines) that keeps tall-document exports within memory
+  updater.ts          GitHub release checks for packaged NSIS and AppImage builds
+  performance.ts      Local numeric measurements, plus the benchmark.ts runner
 
 src/
-  App.tsx        Renderer state, document actions, close guard wiring, mode switching
-  components/    Top bar, tabs, sidebar, outline tree, preview, Mermaid viewer, editor, export/settings/about dialogs, confirm dialog, welcome view
-  lib/           Markdown rendering, Mermaid rendering, outline extraction, preview scroll-spy, export HTML, hooks
+  App.tsx        Renderer state, document actions, close guard wiring, mode switching, split-view scroll sync
+  components/    Top bar, tabs, sidebar, outline tree, preview, split view, Mermaid viewer, editor, export/settings/about dialogs, progress banners, confirm dialog, welcome view
+  hooks/         Grouped app state and the observed workspace width
+  workers/       Markdown parse/highlight/render worker
+  lib/           Markdown and Mermaid rendering, outline extraction, preview scroll/search/virtualization, split-view scroll mapping, draft journaling, export HTML, metrics
   locales/       en, pt-BR, es, ja, zh, ru translation files
   styles/        Theme tokens, app shell CSS, Markdown preview CSS
+  types/         Preload API typings and Vite environment types
+  assets/        App logo used by the welcome and about views
 
 samples/         Bundled Markdown documents (full Markdown guide)
+scripts/         electron-vite runner, Electron binary install, benchmark corpus/run/compare
+docs/            README screenshots, performance budget, recorded benchmark baseline
 ```
 
 ## Documentation
 
 - `.ai-framework/RULES.md`: project rules for AI-assisted changes.
 - `.ai-framework/DESIGN.md`: visual system, tokens, layout, and component rules.
-- `openspec/specs/`: current behavior specs.
+- `openspec/specs/`: current behavior specs (app-shell, appearance, automatic-updates, document-export, document-translation, internationalization, markdown-editing, markdown-viewing).
+- `docs/performance-budget.md`: performance budgets the benchmark scripts compare against.
 
 ## License
 
