@@ -1194,6 +1194,7 @@ export function App(): JSX.Element {
       'es': 'markdown-guide.es.md',
       'ja': 'markdown-guide.ja.md',
       'zh': 'markdown-guide.zh.md',
+      'zh-TW': 'markdown-guide.zh-TW.md',
       'ru': 'markdown-guide.ru.md',
     }
     const guideFile = guideFiles[settings.language] ?? guideFiles['en']
