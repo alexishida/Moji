@@ -152,7 +152,7 @@ export const TopBar = memo(function TopBar(props: TopBarProps): JSX.Element {
             <button
               className="filegroup__btn"
               onClick={props.onSave}
-              disabled={!props.hasDoc}
+              disabled={!props.hasDoc || props.readOnly}
               title={props.readOnly ? t('notice.readOnlyGuide') : t('toolbar.save')}
             >
               <IconSave width={15} height={15} />
@@ -288,7 +288,7 @@ export const TopBar = memo(function TopBar(props: TopBarProps): JSX.Element {
                   : ''
               }`}
               onClick={() => props.onSetMode('edit')}
-              disabled={!props.hasDoc || props.readOnly}
+              disabled={!props.hasDoc}
               role="tab"
               aria-selected={!props.exportOpen && !props.settingsOpen && !props.aboutOpen && props.mode === 'edit'}
             >

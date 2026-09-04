@@ -300,7 +300,7 @@ export function App(): JSX.Element {
   // The split pairs the live preview with the source editor, so it only exists while editing.
   // The toggle stays disabled outside edit mode instead of silently switching modes, keeping the
   // button's enabled state predictable while viewing.
-  const canToggleSplit = mode === 'edit' && hasDoc && activeDoc?.readOnly !== true && !panelOpen && splitFits
+  const canToggleSplit = mode === 'edit' && hasDoc && !panelOpen && splitFits
   const splitActive = canToggleSplit && settings.splitView
   const previewVisible = mode === 'view' || splitActive
 
@@ -552,7 +552,7 @@ export function App(): JSX.Element {
   }, [])
 
   const updateActiveRevision = useCallback((documentId: string, nextStats: EditorDocumentStats) => {
-    if (stateRef.current.activeDocId !== documentId || stateRef.current.activeDoc?.readOnly) return
+    if (stateRef.current.activeDocId !== documentId) return
     setDocuments((prev) => prev.map((doc) => (
       doc.id === documentId
         ? { ...doc, revision: doc.revision + 1, stats: { ...doc.stats, ...nextStats } }
@@ -1105,7 +1105,6 @@ export function App(): JSX.Element {
 
   const setModeSafe = useCallback((next: 'view' | 'edit') => {
     if (!stateRef.current.hasDoc) return
-    if (next === 'edit' && stateRef.current.activeDoc?.readOnly) return
     if (stateRef.current.mode === 'edit' && next === 'view') materializeEditorContent()
     setExportDialogFormat(null)
     setSettingsOpen(false)
@@ -1211,13 +1210,11 @@ export function App(): JSX.Element {
   }, [addDocuments, flash, materializeEditorContent, settings.language, t])
 
   const selectDocument = useCallback((docId: string) => {
-    const selected = stateRef.current.documents.find((doc) => doc.id === docId)
     if (docId !== stateRef.current.activeDocId) {
       materializeEditorContent()
       void flushPendingDrafts()
     }
     setActiveDocId(docId)
-    if (selected?.readOnly) setMode('view')
     setExportDialogFormat(null)
     setSettingsOpen(false)
     setAboutOpen(false)
@@ -1590,7 +1587,7 @@ export function App(): JSX.Element {
 
   const focusReplace = useCallback(() => {
     const doc = stateRef.current.activeDoc
-    if (!doc || doc.readOnly || stateRef.current.exportDialogOpen) return
+    if (!doc || stateRef.current.exportDialogOpen) return
     setSettingsOpen(false)
     setAboutOpen(false)
     setMode('edit')
@@ -1610,7 +1607,7 @@ export function App(): JSX.Element {
   const toggleMode = useCallback(() => {
     const s = stateRef.current
     if (!s.hasDoc) return
-    if (s.mode === 'view' && !s.activeDoc?.readOnly) setModeSafe('edit')
+    if (s.mode === 'view') setModeSafe('edit')
     else setModeSafe('view')
   }, [setModeSafe])
 
