@@ -55,7 +55,7 @@
 - **Remembered app state**: window size/position, recent files, last used folder, language, preview typography, editor and preview font sizes, reading width, Markdown preview theme, live preview split and pane ratio, and untitled-document recovery preference are persisted in user settings.
 - **Update checks**: installed Windows NSIS and Linux AppImage builds check GitHub Releases and link to the release page when a newer version is available, so you can choose the correct artifact.
 - **Markdown themes**: dark/light toggle for rendered Markdown. App chrome remains dark; exports always use the light theme.
-- **Internationalization**: English, Portuguese (Brazil), Spanish, Japanese, Chinese (Simplified), Chinese (Traditional, Taiwan), and Russian. Initial language follows the OS when possible and user choice is persisted.
+- **Internationalization**: English, Portuguese (Brazil), Spanish, Japanese, Chinese, and Russian. Initial language follows the OS when possible and user choice is persisted.
 - **Security**: sandboxed renderer, context isolation, `nodeIntegration: false`, DOMPurify sanitization, and external links opened in the OS browser.
 - **Keyboard shortcuts**: common file, search (Ctrl+G / Ctrl+Shift+G for next and previous match), replace, tab, preview, split view, export, fullscreen, and font-size (Ctrl+Plus / Ctrl+Minus / Ctrl+0, in Editor mode too) actions, plus Ctrl+M to leave editor focus and Ctrl+Q to quit through the unsaved-changes guard; Settings lists every available shortcut.
 
