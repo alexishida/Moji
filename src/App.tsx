@@ -486,7 +486,14 @@ export function App(): JSX.Element {
     (items: DocumentInput[], nextMode: 'view' | 'edit' = 'view') => {
       if (items.length === 0) return
 
-       const currentDocs = stateRef.current.documents
+       const editorContent = stateRef.current.mode === 'edit' ? editorRef.current?.getContent() : undefined
+       // CodeMirror owns text between materialization points. Build from that latest text instead
+       // of a stale React snapshot, or adding another file can overwrite the last editor changes.
+       const currentDocs = stateRef.current.documents.map((doc) => (
+         doc.id === stateRef.current.activeDocId && editorContent !== undefined && editorContent !== doc.content
+           ? { ...doc, content: editorContent }
+           : doc
+       ))
        const nextDocs = [...currentDocs]
        const addedDocs: DocumentState[] = []
        let nextActiveId: string | null = null
@@ -954,6 +961,7 @@ export function App(): JSX.Element {
     })
     activeOpenSessionIdRef.current = res.sessionId
     setOpenProgress(showProgress ? { completed: 0, total: res.total, canceling: false } : null)
+    void window.api.startOpenMany(res.sessionId)
   }, [flash, materializeEditorContent, t])
 
   const cancelExport = useCallback(() => {
@@ -1672,11 +1680,9 @@ export function App(): JSX.Element {
       const key = event.key.toLowerCase()
       const primary = event.ctrlKey || event.metaKey
       // A layout like pt-BR's ABNT2 produces `\` (and other symbols) through AltGr, which
-      // Chromium reports as Ctrl+Alt. `getModifierState('AltGraph')` tells that apart from a
-      // deliberate Ctrl+Alt chord, so shortcuts like Ctrl+\ keep working on such keyboards
-      // instead of being dropped by the `!event.altKey` guard below.
+      // Chromium reports as Ctrl+Alt. Never consume that text input as an app shortcut.
       const altGraph = typeof event.getModifierState === 'function' && event.getModifierState('AltGraph')
-      const onlyPrimary = primary && (!event.altKey || altGraph)
+      const onlyPrimary = primary && !event.altKey && !altGraph
 
       if (event.key === 'Escape') {
         event.preventDefault()

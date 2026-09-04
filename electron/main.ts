@@ -51,6 +51,7 @@ let closePending = false
 const capabilities = new FileCapabilities()
 const assetCache = new AssetCache(readFile)
 const openManySessions = new Map<string, AbortController>()
+const pendingOpenManySessions = new Map<string, { filePaths: string[]; sender: Electron.WebContents }>()
 
 protocol.registerSchemesAsPrivileged([{
   scheme: 'moji-asset',
@@ -417,6 +418,7 @@ function forceCloseOrQuit(): void {
 }
 
 function requestClose(): void {
+  if (closePending) return
   closePending = true
   mainWindow?.webContents.send(IPC.requestClose)
 }
@@ -625,6 +627,7 @@ function createWindow(): void {
       persistWindowBoundsTimer = null
     }
     closePending = false
+    pendingOpenManySessions.clear()
     mainWindow = null
   })
 
@@ -746,12 +749,23 @@ function registerIpc(): void {
     if (canceled || filePaths.length === 0) return { ok: false, canceled: true }
     rememberDialogDirectory(filePaths[0])
     const sessionId = randomUUID()
-    void runOpenManySession(sessionId, filePaths, event.sender)
+    // Renderer registers its local session after this invoke resolves, then explicitly starts
+    // the work. Starting here can send progress before that registration and silently lose files.
+    pendingOpenManySessions.set(sessionId, { filePaths, sender: event.sender })
     return { ok: true, sessionId, total: filePaths.length }
+  })
+
+  handleFromRenderer(IPC.startOpenMany, (event, sessionId: unknown): void => {
+    if (typeof sessionId !== 'string') return
+    const pending = pendingOpenManySessions.get(sessionId)
+    if (!pending || pending.sender !== event.sender) return
+    pendingOpenManySessions.delete(sessionId)
+    void runOpenManySession(sessionId, pending.filePaths, event.sender)
   })
 
   handleFromRenderer(IPC.cancelOpenMany, (_e, sessionId: unknown): void => {
     if (typeof sessionId !== 'string') return
+    pendingOpenManySessions.delete(sessionId)
     openManySessions.get(sessionId)?.abort()
   })
 

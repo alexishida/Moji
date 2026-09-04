@@ -99,6 +99,7 @@ const api = {
   removeDraft: (id: string): Promise<DraftResult> => ipcRenderer.invoke(IPC.removeDraft, id),
 
   openDialog: (): Promise<OpenDialogResult> => ipcRenderer.invoke(IPC.openDialog),
+  startOpenMany: (sessionId: string): Promise<void> => ipcRenderer.invoke(IPC.startOpenMany, sessionId),
   cancelOpenMany: (sessionId: string): Promise<void> => ipcRenderer.invoke(IPC.cancelOpenMany, sessionId),
   readPath: (filePath: string): Promise<OpenResult> => readDocumentStream(filePath),
   openLocalPath: (fileUrl: string): Promise<WriteResult> => ipcRenderer.invoke(IPC.openLocalPath, fileUrl),

@@ -246,6 +246,7 @@ export interface DiagramPngRequest {
 /** IPC channel names. */
 export const IPC = {
   openDialog: 'file:open-dialog',
+  startOpenMany: 'file:open-many-start',
   cancelOpenMany: 'file:open-many-cancel',
   readPathStream: 'file:read-path-stream',
   openLocalPath: 'file:open-local-path',
