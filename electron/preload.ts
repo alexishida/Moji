@@ -122,8 +122,11 @@ const api = {
   checkForUpdate: (): Promise<UpdateState> => ipcRenderer.invoke(IPC.checkForUpdate),
   getPerformanceReport: (): Promise<PerformanceReport> => ipcRenderer.invoke(IPC.getPerformanceReport),
 
-  /** Resolve the absolute path of a File obtained from a drag-and-drop event. */
-  getDroppedPath: (file: File): string => webUtils.getPathForFile(file),
+  /** Resolve and authorize only a real File obtained from a drag-and-drop event. */
+  getDroppedPath: (file: File): Promise<string> => {
+    const filePath = webUtils.getPathForFile(file)
+    return filePath ? ipcRenderer.invoke(IPC.authorizeDroppedPath, filePath) : Promise.resolve('')
+  },
 
   onOpenDocument: (cb: (doc: DocumentMetadata) => void): (() => void) => {
     const listener = (_e: unknown, doc: DocumentMetadata): void => cb(doc)
