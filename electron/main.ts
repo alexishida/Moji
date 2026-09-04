@@ -89,10 +89,19 @@ const LARGE_DOCUMENT_SIZE_LIMIT = 20 * 1024 * 1024
 const DOCUMENT_OPEN_CONCURRENCY = 3
 const SAMPLE_FILES = new Set([
   'markdown-guide.en.md',
+  'markdown-guide.en-GB.md',
   'markdown-guide.pt-BR.md',
+  'markdown-guide.pt-PT.md',
   'markdown-guide.es.md',
+  'markdown-guide.fr.md',
+  'markdown-guide.de.md',
+  'markdown-guide.it.md',
+  'markdown-guide.nl.md',
+  'markdown-guide.ar.md',
+  'markdown-guide.hi.md',
   'markdown-guide.ja.md',
   'markdown-guide.zh.md',
+  'markdown-guide.zh-TW.md',
   'markdown-guide.ru.md',
 ])
 

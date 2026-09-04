@@ -2,7 +2,7 @@
 
 export type Theme = 'light' | 'dark'
 
-export const SUPPORTED_LANGUAGES = ['en', 'pt-BR', 'es', 'ja', 'zh', 'ru'] as const
+export const SUPPORTED_LANGUAGES = ['en', 'en-GB', 'pt-BR', 'pt-PT', 'es', 'fr', 'de', 'it', 'nl', 'ar', 'hi', 'ja', 'zh', 'zh-TW', 'ru'] as const
 export type Language = (typeof SUPPORTED_LANGUAGES)[number]
 export const DEFAULT_LANGUAGE: Language = 'en'
 

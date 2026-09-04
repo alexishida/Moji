@@ -266,6 +266,11 @@ export function App(): JSX.Element {
   const [editorHeadingRequest, setEditorHeadingRequest] = useState<{ line: number; request: number } | null>(null)
   const [previewHeadingRequest, setPreviewHeadingRequest] = useState<{ id: string; request: number } | null>(null)
 
+  useEffect(() => {
+    document.documentElement.lang = settings.language
+    document.documentElement.dir = settings.language === 'ar' ? 'rtl' : 'ltr'
+  }, [settings.language])
+
   const { dialogOpen, setDialogOpen, exportDialogFormat, setExportDialogFormat, settingsOpen, setSettingsOpen, aboutOpen, setAboutOpen, outlineVisible, setOutlineVisible, searchFocusRequest, setSearchFocusRequest, replaceFocusRequest, setReplaceFocusRequest, topBarDismissRequest, setTopBarDismissRequest } = usePanelState()
   const dialogResolver = useRef<((c: ConfirmChoice) => void) | null>(null)
   const nextDocSeq = useRef(1)
@@ -1189,10 +1194,19 @@ export function App(): JSX.Element {
   const doGuide = useCallback(async () => {
     const guideFiles: Record<string, string> = {
       'en': 'markdown-guide.en.md',
+      'en-GB': 'markdown-guide.en-GB.md',
       'pt-BR': 'markdown-guide.pt-BR.md',
+      'pt-PT': 'markdown-guide.pt-PT.md',
       'es': 'markdown-guide.es.md',
+      'fr': 'markdown-guide.fr.md',
+      'de': 'markdown-guide.de.md',
+      'it': 'markdown-guide.it.md',
+      'nl': 'markdown-guide.nl.md',
+      'ar': 'markdown-guide.ar.md',
+      'hi': 'markdown-guide.hi.md',
       'ja': 'markdown-guide.ja.md',
       'zh': 'markdown-guide.zh.md',
+      'zh-TW': 'markdown-guide.zh-TW.md',
       'ru': 'markdown-guide.ru.md',
     }
     const guideFile = guideFiles[settings.language] ?? guideFiles['en']
