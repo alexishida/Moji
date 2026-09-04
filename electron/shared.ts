@@ -248,6 +248,7 @@ export const IPC = {
   openDialog: 'file:open-dialog',
   startOpenMany: 'file:open-many-start',
   cancelOpenMany: 'file:open-many-cancel',
+  authorizeDroppedPath: 'file:authorize-dropped-path',
   readPathStream: 'file:read-path-stream',
   openLocalPath: 'file:open-local-path',
   readSample: 'file:read-sample',

@@ -1,4 +1,6 @@
+import { realpath, stat } from 'node:fs/promises'
 import { dirname, resolve } from 'node:path'
+import { isPathWithin } from './assetPaths'
 
 function capabilityPath(filePath: string): string {
   const resolved = resolve(filePath)
@@ -50,6 +52,21 @@ export class FileCapabilities {
   /** True when this exact file was granted. Symlinks are resolved by the caller. */
   allows(filePath: unknown): filePath is string {
     return typeof filePath === 'string' && this.files.has(capabilityPath(filePath))
+  }
+
+  /** Resolve a clicked local link only when it remains inside an opened document directory. */
+  async resolveLinkedPath(filePath: unknown): Promise<string | null> {
+    if (typeof filePath !== 'string') return null
+    try {
+      const [candidate, candidateStat] = await Promise.all([realpath(filePath), stat(filePath)])
+      if (!candidateStat.isFile()) return null
+      for (const directory of this.assetDirectories) {
+        if (isPathWithin(await realpath(directory), candidate)) return candidate
+      }
+      return null
+    } catch {
+      return null
+    }
   }
 
   /** Directories an asset may be read from, for `authorizedAsset`. */

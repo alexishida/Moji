@@ -1886,10 +1886,11 @@ export function App(): JSX.Element {
       e.preventDefault()
       dragDepth.current = 0
       setDragging(false)
-      const paths = Array.from(e.dataTransfer.files)
-        .map((file) => window.api.getDroppedPath(file))
-        .filter((path): path is string => Boolean(path))
-      if (paths.length > 0) void openPaths(paths)
+      const files = Array.from(e.dataTransfer.files)
+      void Promise.all(files.map((file) => window.api.getDroppedPath(file))).then((resolved) => {
+        const paths = resolved.filter((path) => Boolean(path))
+        if (paths.length > 0) void openPaths(paths)
+      })
     },
     [openPaths]
   )

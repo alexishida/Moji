@@ -256,6 +256,12 @@ async function streamDocumentToPort(filePath: unknown, port: Electron.MessagePor
   }
 
   try {
+    // Renderer-supplied paths never grant themselves. A user or OS open entry point must have
+    // authorized this exact file before its bytes can cross the IPC boundary.
+    if (!capabilities.allows(filePath)) {
+      postError('forbidden')
+      return
+    }
     const result = await resolveDocumentMetadata(filePath)
     if (!result.ok) {
       postError(result.error)
@@ -264,11 +270,6 @@ async function streamDocumentToPort(filePath: unknown, port: Electron.MessagePor
     const metadata = result.metadata
 
     sizeBytes = metadata.sizeBytes
-    // Opening is how a file earns its capability. Recent files and drag-and-drop reach
-    // this point with a path the renderer supplied, and both are legitimate ways for a
-    // person to open a document, so the read itself is the grant — it is writing and
-    // asset loading that are then confined to what has actually been opened.
-    grantDocument(metadata.path)
     port.postMessage({ type: 'meta', ...metadata } satisfies DocumentStreamMessage)
     for await (const chunk of readFileChunks(metadata.path)) {
       chunks += 1
@@ -340,9 +341,11 @@ async function openLocalPath(fileUrl: unknown): Promise<WriteResult> {
 
   try {
     const filePath = fileURLToPath(fileUrl)
-    if (!isAbsolute(filePath) || !existsSync(filePath)) return { ok: false, error: 'File not found.' }
-    const error = await shell.openPath(filePath)
-    return error ? { ok: false, error } : { ok: true, path: filePath }
+    if (!isAbsolute(filePath)) return { ok: false, error: 'File not found.' }
+    const authorizedPath = await capabilities.resolveLinkedPath(filePath)
+    if (!authorizedPath) return { ok: false, error: 'forbidden' }
+    const error = await shell.openPath(authorizedPath)
+    return error ? { ok: false, error } : { ok: true, path: authorizedPath }
   } catch (err) {
     return { ok: false, error: (err as Error).message }
   }
@@ -563,6 +566,12 @@ function createWindow(): void {
   rendererReady = false
   closePending = false
 
+  // Paths in persisted recent history came from earlier user-authorized opens. Restore them
+  // before the renderer can request their bytes.
+  for (const filePath of getSettings().recentFiles) {
+    if (isMarkdown(filePath)) grantDocument(filePath)
+  }
+
   const iconPath = app.isPackaged ? join(process.resourcesPath, 'icon.png') : join(app.getAppPath(), 'build', 'icon.png')
   mainWindow = new BrowserWindow({
     ...windowOptionsFromSettings(),
@@ -695,7 +704,11 @@ function draftFailure(err: unknown): { error: string; problem?: DraftPersistProb
 function registerIpc(): void {
   handleFromRenderer(IPC.getSettings, (): Settings => getSettings())
 
-  handleFromRenderer(IPC.setSettings, (_e, patch: unknown): Settings => updateSettings(sanitizeSettingsPatch(patch)))
+  handleFromRenderer(IPC.setSettings, (_e, value: unknown): Settings => {
+    const patch = sanitizeSettingsPatch(value)
+    if (patch.recentFiles) patch.recentFiles = patch.recentFiles.filter((filePath) => capabilities.allows(filePath))
+    return updateSettings(patch)
+  })
 
   handleFromRenderer(IPC.getDrafts, (): Promise<AutoSaveDraft[]> => getDrafts())
 
@@ -767,6 +780,13 @@ function registerIpc(): void {
     if (typeof sessionId !== 'string') return
     pendingOpenManySessions.delete(sessionId)
     openManySessions.get(sessionId)?.abort()
+  })
+
+  handleFromRenderer(IPC.authorizeDroppedPath, async (_e, filePath: unknown): Promise<string> => {
+    const metadata = await statDocument(filePath)
+    if (!metadata) return ''
+    grantDocument(metadata.path)
+    return metadata.path
   })
 
   onFromRenderer(IPC.readPathStream, (event, filePath: unknown): void => {
