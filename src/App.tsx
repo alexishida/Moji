@@ -300,7 +300,7 @@ export function App(): JSX.Element {
   // The split pairs the live preview with the source editor, so it only exists while editing.
   // The toggle stays disabled outside edit mode instead of silently switching modes, keeping the
   // button's enabled state predictable while viewing.
-  const canToggleSplit = mode === 'edit' && hasDoc && !panelOpen && splitFits
+  const canToggleSplit = mode === 'edit' && hasDoc && activeDoc?.readOnly !== true && !panelOpen && splitFits
   const splitActive = canToggleSplit && settings.splitView
   const previewVisible = mode === 'view' || splitActive
 
@@ -552,7 +552,7 @@ export function App(): JSX.Element {
   }, [])
 
   const updateActiveRevision = useCallback((documentId: string, nextStats: EditorDocumentStats) => {
-    if (stateRef.current.activeDocId !== documentId) return
+    if (stateRef.current.activeDocId !== documentId || stateRef.current.activeDoc?.readOnly) return
     setDocuments((prev) => prev.map((doc) => (
       doc.id === documentId
         ? { ...doc, revision: doc.revision + 1, stats: { ...doc.stats, ...nextStats } }
@@ -894,7 +894,7 @@ export function App(): JSX.Element {
   const confirmUnsavedDocument = useCallback(
     async (docId: string): Promise<'proceed' | 'cancel'> => {
       const doc = stateRef.current.documents.find((item) => item.id === docId)
-      if (!doc || !needsUnsavedConfirmation(doc, stateRef.current.autoSave)) return 'proceed'
+      if (!doc || doc.readOnly || !needsUnsavedConfirmation(doc, stateRef.current.autoSave)) return 'proceed'
 
       setActiveDocId(docId)
       const choice = await askUnsaved()
@@ -1587,7 +1587,7 @@ export function App(): JSX.Element {
 
   const focusReplace = useCallback(() => {
     const doc = stateRef.current.activeDoc
-    if (!doc || stateRef.current.exportDialogOpen) return
+    if (!doc || doc.readOnly || stateRef.current.exportDialogOpen) return
     setSettingsOpen(false)
     setAboutOpen(false)
     setMode('edit')
@@ -2032,6 +2032,7 @@ export function App(): JSX.Element {
                       documentId={activeDoc.id}
                       documentIds={documentIds}
                       value={content}
+                      readOnly={activeDoc.readOnly}
                       theme={'dark'}
                       fontSize={settings.editorFontSize}
                       searchTerm={debouncedSearchTerm}

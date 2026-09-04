@@ -253,7 +253,7 @@
     "openFailed": "Não foi possível abrir o arquivo: {{error}}",
     "errorReason": { "notFound": "Arquivo não encontrado.", "permissionDenied": "Permissão negada.", "busy": "Arquivo em uso." },
     "noDocument": "Abra um documento primeiro.",
-    "readOnlyGuide": "O guia Markdown incluído pode ser editado, mas não pode ser salvo.",
+    "readOnlyGuide": "O guia Markdown incluído é somente leitura e não pode ser salvo.",
     "replaceNeedsSearch": "Digite um termo para buscar.",
     "replaceNone": "Nenhuma ocorrência encontrada.",
     "replaceOneSuccess": "{{count}} ocorrência substituída.",
