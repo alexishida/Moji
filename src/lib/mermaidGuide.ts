@@ -50,12 +50,6 @@ const LABELS: Record<Language, MermaidGuideLabels> = {
     journey: '用户旅程', git: 'Git 图', mindmap: '思维导图', timeline: '时间线', quadrant: '四象限图',
     sankey: '桑基图', xy: 'XY 图表', requirement: '需求图', block: '块图', c4: 'C4 上下文图'
   },
-  'zh-TW': {
-    more: '更多 Mermaid 範例', description: '已安裝的 Mermaid 版本也支援以下圖表類型。',
-    gantt: '甘特圖', classDiagram: '類別圖', state: '狀態圖', entityRelationship: '實體關係圖',
-    journey: '使用者旅程', git: 'Git 圖', mindmap: '心智圖', timeline: '時間軸', quadrant: '象限圖',
-    sankey: '桑基圖', xy: 'XY 圖表', requirement: '需求圖', block: '區塊圖', c4: 'C4 上下文圖'
-  },
   ru: {
     more: 'Другие примеры Mermaid', description: 'Установленная версия Mermaid также поддерживает следующие типы диаграмм.',
     gantt: 'Диаграмма Ганта', classDiagram: 'Диаграмма классов', state: 'Диаграмма состояний', entityRelationship: 'ER-диаграмма',
