@@ -17,6 +17,7 @@ interface EditorProps {
   documentId: string
   documentIds: readonly string[]
   value: string
+  readOnly: boolean
   theme: Theme
   fontSize: number
   searchTerm: string
@@ -323,7 +324,7 @@ function countIdleStats(state: EditorState): EditorIdleStats {
 }
 
 /** CodeMirror 6 Markdown source editor with theme-aware styling. */
-export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor({ documentId, documentIds, value, theme, fontSize, searchTerm, activeSearchIndex, highlightActive, headingToReveal, outlineVisible, onSearchMatchCountChange, onChange, onEdits, onIdleStatsChange, onOutlineChange, onBlur, onVisibleLineChange }, ref): JSX.Element {
+export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor({ documentId, documentIds, value, readOnly, theme, fontSize, searchTerm, activeSearchIndex, highlightActive, headingToReveal, outlineVisible, onSearchMatchCountChange, onChange, onEdits, onIdleStatsChange, onOutlineChange, onBlur, onVisibleLineChange }, ref): JSX.Element {
   const hostRef = useRef<HTMLDivElement>(null)
   const viewRef = useRef<EditorView | null>(null)
   const stateCacheRef = useRef(new Map<string, EditorState>())
@@ -333,6 +334,7 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor({ do
   const outlineVisibleRef = useRef(outlineVisible)
   outlineVisibleRef.current = outlineVisible
   const themeCompartment = useRef(new Compartment())
+  const readOnlyCompartment = useRef(new Compartment())
   const onChangeRef = useRef(onChange)
   onChangeRef.current = onChange
   const onEditsRef = useRef(onEdits)
@@ -384,6 +386,7 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor({ do
     doc: content,
     extensions: [
         lineNumbers(),
+        readOnlyCompartment.current.of(EditorState.readOnly.of(readOnly)),
         history(),
         keymap.of([...markdownKeymap, ...defaultKeymap, ...historyKeymap, ...editorSearchKeymap]),
         markdown(),
@@ -513,6 +516,12 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor({ do
       effects: themeCompartment.current.reconfigure(theme === 'dark' ? oneDarkProExtensions : [])
     })
   }, [theme])
+
+  useEffect(() => {
+    viewRef.current?.dispatch({
+      effects: readOnlyCompartment.current.reconfigure(EditorState.readOnly.of(readOnly))
+    })
+  }, [readOnly])
 
   useEffect(() => {
     const view = viewRef.current

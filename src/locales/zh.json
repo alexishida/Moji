@@ -253,7 +253,7 @@
     "openFailed": "无法打开文件：{{error}}",
     "errorReason": { "notFound": "找不到文件。", "permissionDenied": "权限被拒绝。", "busy": "文件正在使用中。" },
     "noDocument": "请先打开一个文档。",
-    "readOnlyGuide": "内置 Markdown 指南可以编辑，但无法保存。",
+    "readOnlyGuide": "内置 Markdown 指南为只读内容，无法保存。",
     "replaceNeedsSearch": "请先输入搜索词。",
     "replaceNone": "未找到匹配项。",
     "replaceOneSuccess": "已替换 {{count}} 处。",

@@ -253,7 +253,7 @@
     "openFailed": "ファイルを開けませんでした: {{error}}",
     "errorReason": { "notFound": "ファイルが見つかりません。", "permissionDenied": "アクセスが拒否されました。", "busy": "ファイルは使用中です。" },
     "noDocument": "まずドキュメントを開いてください。",
-    "readOnlyGuide": "付属の Markdown ガイドは編集できますが、保存はできません。",
+    "readOnlyGuide": "付属の Markdown ガイドは読み取り専用のため保存できません。",
     "replaceNeedsSearch": "検索語を入力してください。",
     "replaceNone": "一致する項目がありません。",
     "replaceOneSuccess": "{{count}} 件を置換しました。",
