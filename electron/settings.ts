@@ -54,8 +54,10 @@ function writeFileAtomicSync(file: string, data: string): void {
 /** Pick the closest shipped language for an OS locale like "pt-BR" or "es-419". */
 export function resolveLanguage(locale: string): Language {
   if (!locale) return DEFAULT_LANGUAGE
-  const exact = SUPPORTED_LANGUAGES.find((l) => l.toLowerCase() === locale.toLowerCase())
+  const normalized = locale.toLowerCase()
+  const exact = SUPPORTED_LANGUAGES.find((l) => l.toLowerCase() === normalized)
   if (exact) return exact
+  if (normalized === 'zh-hant' || normalized.startsWith('zh-hant-')) return 'zh-TW'
   const base = locale.split('-')[0].toLowerCase()
   const byBase = SUPPORTED_LANGUAGES.find((l) => l.split('-')[0].toLowerCase() === base)
   return byBase ?? DEFAULT_LANGUAGE

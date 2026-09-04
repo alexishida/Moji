@@ -38,7 +38,7 @@ Projeto atual: Moji, aplicativo desktop Electron + React + TypeScript para abrir
 - `src/components/`: componentes React incluindo `AboutDialog`, `ConfirmDialog`, `DocumentTabs`, `Editor`, `ExportDialog`, `ExportProgress`, `FontSizeButton`, `MermaidDiagramDialog`, `OpenProgress`, `OutlineTree`, `Preview`, `SettingsButton`, `SettingsDialog`, `Sidebar`, `SplitView`, `StatusBar`, `TopBar`, `UpdateNotice`, `Welcome`, `icons`.
 - `SplitView.tsx`: exibe editor e preview lado a lado durante a edicao (controlado por `settings.splitView`), com divisor ajustavel (`settings.splitRatio`, 20-80%) e largura minima de workspace (`SPLIT_MIN_WIDTH_PX`) abaixo da qual o split nao cabe.
 - `src/lib/`: utilitarios incluindo `draftEdits`, `draftFailure`, `editorIndent`, `exportHtml`, `markdown`, `markdownCore`, `markdownWorkerClient`/`markdownWorkerProtocol` (renderizacao Markdown em worker), `mermaid`/`mermaidGuide`, `outline`, `performanceMetrics`, `previewLayoutMetrics`, `previewSchedule`, `previewScroll`, `previewSearch`, `previewSelection`, `previewVirtualization`, `search`, `splitScroll` (sincroniza rolagem entre editor e preview no split view), `useDebounced`.
-- `src/locales/`: arquivos JSON de traducao para `en`, `pt-BR`, `es`, `ja`, `zh`, `ru`.
+- `src/locales/`: arquivos JSON de traducao para todos os idiomas definidos em `SUPPORTED_LANGUAGES`.
 - `src/styles/`: `theme.css` (tokens), `markdown.css` (preview/exportacao), `app.css` (layout).
 - `src/types/`: `api.d.ts` (tipagem da API do preload), `vite-env.d.ts`.
 
@@ -65,7 +65,7 @@ Projeto atual: Moji, aplicativo desktop Electron + React + TypeScript para abrir
 
 ### Idiomas suportados
 
-`en`, `pt-BR`, `es`, `ja`, `zh`, `ru` (definido em `SUPPORTED_LANGUAGES` no `electron/shared.ts`).
+`en`, `en-GB`, `pt-BR`, `pt-PT`, `es`, `fr`, `de`, `it`, `nl`, `ar`, `hi`, `ja`, `zh`, `zh-TW`, `ru` (definido em `SUPPORTED_LANGUAGES` no `electron/shared.ts`).
 
 ## Regras de Codigo
 
