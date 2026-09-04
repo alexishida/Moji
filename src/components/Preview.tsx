@@ -191,8 +191,7 @@ export function Preview({
     if (!virtualized || !headingRequest || requestedHeadingBlockIndex === null) return
     if (requestedHeadingBlockIndex < virtualRange.start || requestedHeadingBlockIndex >= virtualRange.end) return
     const frame = requestAnimationFrame(() => {
-      const candidate = document.getElementById(headingRequest.id)
-      const target = candidate && bodyRef.current?.contains(candidate) ? candidate : null
+      const target = bodyRef.current ? findPreviewHeadingTarget(bodyRef.current, `#${headingRequest.id}`) : null
       if (target) scrollPreviewHeadingIntoView(target, 'auto')
     })
     return () => cancelAnimationFrame(frame)
@@ -368,8 +367,8 @@ export function Preview({
           pane.scrollTo({ top, behavior: 'smooth' })
           setVirtualViewport({ scrollTop: top, height: pane.clientHeight })
           requestAnimationFrame(() => {
-            const candidate = document.getElementById(headingId)
-            if (candidate && bodyRef.current?.contains(candidate)) scrollPreviewHeadingIntoView(candidate)
+            const candidate = bodyRef.current ? findPreviewHeadingTarget(bodyRef.current, `#${headingId}`) : null
+            if (candidate) scrollPreviewHeadingIntoView(candidate)
           })
         }
       }

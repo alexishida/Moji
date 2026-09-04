@@ -12,10 +12,16 @@ export function findPreviewHeadingTarget(root: HTMLElement, href: string): HTMLE
   if (!href.startsWith('#') || href.length < 2) return null
   try {
     const fragment = href.slice(1)
-    const ids = [fragment, decodeURIComponent(fragment)]
-    for (const id of ids) {
-      const target = root.ownerDocument.getElementById(id)
-      if (target instanceof HTMLElement && root.contains(target)) return target
+    const identifiers = [fragment, decodeURIComponent(fragment)]
+    for (const identifier of identifiers) {
+      // Do not use document.getElementById here. A preview can coexist with another
+      // preview (during a view transition) or a diagram SVG with an unrelated matching
+      // id. getElementById returns only that first global match, so the old containment
+      // check discarded the actual target in this preview.
+      const target = Array.from(root.querySelectorAll<HTMLElement>('[id], a[name]')).find((element) => (
+        element.id === identifier || (element.tagName === 'A' && element.getAttribute('name') === identifier)
+      ))
+      if (target) return target
     }
     return null
   } catch {
