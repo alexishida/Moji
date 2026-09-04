@@ -79,8 +79,12 @@ export async function authorizedAsset(
     const [assetPath, assetStat] = await Promise.all([realpath(filePath), stat(filePath)])
     if (!assetStat.isFile()) return null
     for (const assetDirectory of allowedDirectories) {
-      if (isPathWithin(await realpath(assetDirectory), assetPath)) {
-        return { path: assetPath, size: assetStat.size, mtimeMs: assetStat.mtimeMs }
+      try {
+        if (isPathWithin(await realpath(assetDirectory), assetPath)) {
+          return { path: assetPath, size: assetStat.size, mtimeMs: assetStat.mtimeMs }
+        }
+      } catch {
+        // A previously opened directory may have been removed; keep checking remaining grants.
       }
     }
     return null

@@ -61,7 +61,11 @@ export class FileCapabilities {
       const [candidate, candidateStat] = await Promise.all([realpath(filePath), stat(filePath)])
       if (!candidateStat.isFile()) return null
       for (const directory of this.assetDirectories) {
-        if (isPathWithin(await realpath(directory), candidate)) return candidate
+        try {
+          if (isPathWithin(await realpath(directory), candidate)) return candidate
+        } catch {
+          // A stale recent-document directory must not hide valid grants that follow it.
+        }
       }
       return null
     } catch {
