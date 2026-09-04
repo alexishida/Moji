@@ -93,6 +93,7 @@ const SAMPLE_FILES = new Set([
   'markdown-guide.es.md',
   'markdown-guide.ja.md',
   'markdown-guide.zh.md',
+  'markdown-guide.zh-TW.md',
   'markdown-guide.ru.md',
 ])
 

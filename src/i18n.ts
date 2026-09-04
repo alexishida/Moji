@@ -5,6 +5,7 @@ import en from './locales/en.json'
 import ptBR from './locales/pt-BR.json'
 import es from './locales/es.json'
 import zh from './locales/zh.json'
+import zhTW from './locales/zh-TW.json'
 import ja from './locales/ja.json'
 import ru from './locales/ru.json'
 
@@ -16,6 +17,7 @@ export const LANGUAGES = [
   { code: 'es', label: 'Español' },
   { code: 'ja', label: '日本語' },
   { code: 'zh', label: '中文（简体）' },
+  { code: 'zh-TW', label: '中文（繁體，台灣）' },
   { code: 'ru', label: 'Русский' }
 ] as const
 
@@ -26,6 +28,7 @@ void i18n.use(initReactI18next).init({
     es: { translation: es },
     ja: { translation: ja },
     zh: { translation: zh },
+    'zh-TW': { translation: zhTW },
     ru: { translation: ru }
   },
   lng: 'en',
