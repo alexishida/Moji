@@ -342,21 +342,24 @@ async function writeExportSource(html: string, assetBaseUrl?: string): Promise<E
     }
   }
 
-  const handle = await open(path, 'w')
   try {
-    if (head) {
-      const insertAt = head.index + head[0].length
-      await handle.write(html.slice(0, insertAt))
-      await handle.write(`<base href="${escapeAttribute(base as string)}">`)
-      await handle.write(html.slice(insertAt))
-    } else {
-      await handle.write(html)
+    const handle = await open(path, 'w')
+    try {
+      if (head) {
+        const insertAt = head.index + head[0].length
+        await handle.write(html.slice(0, insertAt))
+        await handle.write(`<base href="${escapeAttribute(base as string)}">`)
+        await handle.write(html.slice(insertAt))
+      } else {
+        await handle.write(html)
+      }
+    } finally {
+      await handle.close()
     }
   } catch (err) {
+    // Windows cannot unlink an open file. Close the handle first, then remove a partial source.
     await discard()
     throw err
-  } finally {
-    await handle.close()
   }
 
   return { path, discard }

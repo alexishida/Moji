@@ -31,21 +31,17 @@ function settingsFile(): string {
  */
 function writeFileAtomicSync(file: string, data: string): void {
   const temporary = `${file}.tmp`
-  let wrote = false
   try {
     writeFileSync(temporary, data, 'utf-8')
-    wrote = true
     renameSync(temporary, file)
   } catch (err) {
     // A failed write (disk full) or a failed rename over a locked destination must not leave
     // a sibling `.tmp` behind in the user-data directory; the next write would overwrite it,
     // but that is cleanup-by-accident, not by design.
-    if (wrote) {
-      try {
-        unlinkSync(temporary)
-      } catch {
-        // Already gone.
-      }
+    try {
+      unlinkSync(temporary)
+    } catch {
+      // Already gone, or the write failed before creating it.
     }
     throw err
   }
