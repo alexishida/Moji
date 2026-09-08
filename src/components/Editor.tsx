@@ -209,29 +209,35 @@ interface SearchDecorations {
 }
 
 function buildSearchDecorations(
-  state: EditorState,
-  rawTerm: string,
+  matches: SearchMatch[],
   activeIndex: number | null,
   highlightActive: boolean
-): SearchDecorations {
+): DecorationSet {
+  const builder = new RangeSetBuilder<Decoration>()
+  for (let index = 0; index < matches.length; index += 1) {
+    const { from, to } = matches[index]
+    const isActive = highlightActive && index === activeIndex
+    builder.add(from, to, isActive ? externalSearchActiveMark : externalSearchMark)
+  }
+  return builder.finish()
+}
+
+function findSearchMatches(state: EditorState, rawTerm: string): SearchMatch[] {
   const term = rawTerm.trim()
-  if (!term) return { decorations: Decoration.none, matches: [] }
+  if (!term) return []
 
   const query = new SearchQuery({ search: term, caseSensitive: false, literal: true })
-  if (!query.valid) return { decorations: Decoration.none, matches: [] }
+  if (!query.valid) return []
 
-  const builder = new RangeSetBuilder<Decoration>()
   const matches: SearchMatch[] = []
   const cursor = query.getCursor(state)
   for (let index = 0, match = cursor.next(); !match.done && index < MAX_SEARCH_DECORATIONS; index += 1, match = cursor.next()) {
     const { from, to } = match.value
     if (from !== to) {
-      const isActive = highlightActive && index === activeIndex
-      builder.add(from, to, isActive ? externalSearchActiveMark : externalSearchMark)
       matches.push({ from, to })
     }
   }
-  return { decorations: builder.finish(), matches }
+  return matches
 }
 
 const externalSearchHighlight = StateField.define<{
@@ -260,7 +266,13 @@ const externalSearchHighlight = StateField.define<{
       !tr.docChanged
     )
       return value
-    const result = buildSearchDecorations(tr.state, term, activeIndex, highlightActive)
+    const matches = tr.docChanged || term !== value.term
+      ? findSearchMatches(tr.state, term)
+      : value.matches
+    const result: SearchDecorations = {
+      matches,
+      decorations: buildSearchDecorations(matches, activeIndex, highlightActive)
+    }
     return { term, activeIndex, highlightActive, ...result }
   },
   provide: (field) => EditorView.decorations.from(field, (value) => value.decorations)

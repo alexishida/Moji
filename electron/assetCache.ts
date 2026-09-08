@@ -9,12 +9,17 @@ interface CacheEntry extends AssetMetadata {
   bytes: Buffer
 }
 
+interface PendingRead extends AssetMetadata {
+  promise: Promise<Buffer>
+}
+
 /**
  * Bounded LRU cache. Callers stat an asset before each lookup, so changed files
  * naturally miss the cache and replace their previous bytes.
  */
 export class AssetCache {
   private readonly entries = new Map<string, CacheEntry>()
+  private readonly pendingReads = new Map<string, PendingRead>()
   private usedBytes = 0
 
   constructor(
@@ -32,12 +37,27 @@ export class AssetCache {
     }
 
     if (cached) this.delete(path)
-    const bytes = await this.readFile(path)
-    if (bytes.length <= this.maxBytes) this.store(path, { ...metadata, bytes })
-    return bytes
+    const pending = this.pendingReads.get(path)
+    if (pending && pending.size === metadata.size && pending.mtimeMs === metadata.mtimeMs) {
+      return pending.promise
+    }
+
+    const read = { ...metadata, promise: this.readFile(path) }
+    this.pendingReads.set(path, read)
+    try {
+      const bytes = await read.promise
+      // A slower read of an older version must not replace the latest cached bytes.
+      if (this.pendingReads.get(path) === read && bytes.length === metadata.size && bytes.length <= this.maxBytes) {
+        this.store(path, { ...metadata, bytes })
+      }
+      return bytes
+    } finally {
+      if (this.pendingReads.get(path) === read) this.pendingReads.delete(path)
+    }
   }
 
   private store(path: string, entry: CacheEntry): void {
+    this.delete(path)
     while (this.entries.size >= this.maxEntries || this.usedBytes + entry.bytes.length > this.maxBytes) {
       const oldestPath = this.entries.keys().next().value as string | undefined
       if (!oldestPath) return
