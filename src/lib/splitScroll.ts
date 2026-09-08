@@ -53,6 +53,8 @@ export interface PreviewScrollGeometry {
   maxScrollTop: number
   /** Line count of the document being edited. */
   totalLines: number
+  /** The first visible source line cannot represent reaching the bottom on its own. */
+  editorAtBottom?: boolean
 }
 
 /**
@@ -68,6 +70,7 @@ export function previewTopForEditorLine(
 ): number {
   const { contentHeight, maxScrollTop, totalLines } = geometry
   if (maxScrollTop <= 0) return 0
+  if (geometry.editorAtBottom) return maxScrollTop
 
   const lines = Math.max(1, totalLines)
   const target = Math.min(Math.max(0, line), lines)
@@ -77,7 +80,7 @@ export function previewTopForEditorLine(
   if (target <= 0) return 0
 
   if (anchors.length === 0) {
-    return clamp((target / lines) * maxScrollTop, maxScrollTop)
+    return clamp((target / lines) * contentHeight, maxScrollTop)
   }
 
   let index = -1
@@ -103,7 +106,7 @@ export function editorLineForPreviewTop(
   anchors: readonly SplitAnchor[],
   geometry: PreviewScrollGeometry
 ): number {
-  const { maxScrollTop, totalLines } = geometry
+  const { contentHeight, maxScrollTop, totalLines } = geometry
   if (maxScrollTop <= 0) return 0
 
   const lines = Math.max(1, totalLines)
@@ -117,7 +120,7 @@ export function editorLineForPreviewTop(
   if (target >= maxScrollTop) return lines
 
   if (anchors.length === 0) {
-    return clamp((target / maxScrollTop) * lines, lines)
+    return clamp((target / contentHeight) * lines, lines)
   }
 
   let index = -1
@@ -127,16 +130,12 @@ export function editorLineForPreviewTop(
   }
 
   const start = index < 0 ? { line: 0, top: 0 } : anchors[index]
-  // `target` is clamped to `maxScrollTop` above, which is normally well short of
-  // `contentHeight` (the preview can never scroll the last screenful of content to the top).
-  // Closing the last segment at `contentHeight` therefore left `progress` short of 1 even when
-  // the preview was scrolled all the way down, so the editor never reached its last line.
-  // Closing it at `maxScrollTop` instead — the largest `target` this function ever receives —
-  // lets that case reach `lines` exactly. `Math.max` guards a heading anchor within one
-  // viewport of the end, whose own `top` can already exceed `maxScrollTop`.
+  // Use the same final anchor as the forward mapping. A different endpoint makes
+  // a preview scroll followed by an edit drift to another source position.
+  // The exact bottom is handled separately above.
   const end = index + 1 < anchors.length
     ? anchors[index + 1]
-    : { line: lines, top: Math.max(maxScrollTop, start.top) }
+    : { line: lines, top: contentHeight }
   const span = end.top - start.top
   const progress = span > 0 ? (target - start.top) / span : 0
 

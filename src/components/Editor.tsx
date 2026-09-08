@@ -41,6 +41,8 @@ export interface EditorHandle {
   replaceContent: (content: string) => void
   /** Zero-based source line at the top of the viewport. */
   getTopVisibleLine: () => number
+  /** Whether a scrollable editor has reached the end of its document. */
+  isScrolledToBottom: () => boolean
   /** Scroll so `line` (zero-based, fractional allowed) sits at the top of the viewport. */
   scrollToLine: (line: number) => void
 }
@@ -281,8 +283,10 @@ const externalSearchHighlight = StateField.define<{
 /** Reads layout, so it must never run while CodeMirror is applying an update. */
 function topVisibleLine(view: EditorView): number {
   const rect = view.scrollDOM.getBoundingClientRect()
-  const position = view.posAtCoords({ x: rect.left + 1, y: rect.top + 1 }, false)
-  return view.state.doc.lineAt(position).number - 1
+  const height = Math.max(0, rect.top - view.documentTop)
+  const block = view.lineBlockAtHeight(height)
+  const fraction = block.height > 0 ? Math.min(1, Math.max(0, (height - block.top) / block.height)) : 0
+  return view.state.doc.lineAt(block.from).number - 1 + fraction
 }
 
 /**
@@ -292,16 +296,28 @@ function topVisibleLine(view: EditorView): number {
  * distance is measured there and applied to `scrollTop`; the fractional part of `line` moves
  * inside a wrapped line, which keeps the preview mapping continuous instead of stepping.
  */
-function scrollLineToTop(view: EditorView, line: number): void {
+function scrollLineToTop(view: EditorView, line: number): number {
   const doc = view.state.doc
   const index = Math.min(Math.max(0, Math.floor(line)), doc.lines - 1)
   const fraction = Math.min(Math.max(line - index, 0), 1)
-  const block = view.lineBlockAt(doc.line(index + 1).from)
   const scroller = view.scrollDOM
-  const delta = view.documentTop + block.top + fraction * block.height - scroller.getBoundingClientRect().top
-  const maxScrollTop = Math.max(0, scroller.scrollHeight - scroller.clientHeight)
-  const next = Math.min(Math.max(0, scroller.scrollTop + delta), maxScrollTop)
-  if (Math.abs(scroller.scrollTop - next) > 1) scroller.scrollTop = next
+  const readScrollTop = (): number | null => {
+    if (view.state.doc !== doc) return null
+    const block = view.lineBlockAt(doc.line(index + 1).from)
+    const delta = view.documentTop + block.top + fraction * block.height - scroller.getBoundingClientRect().top
+    const maxScrollTop = Math.max(0, scroller.scrollHeight - scroller.clientHeight)
+    return Math.min(Math.max(0, scroller.scrollTop + delta), maxScrollTop)
+  }
+  const applyScrollTop = (next: number | null): void => {
+    if (next !== null && Math.abs(scroller.scrollTop - next) > 1) scroller.scrollTop = next
+  }
+  // Let CodeMirror resolve offscreen height estimates and scroll anchoring first.
+  // Writing scrollTop directly here can be shifted again by its pending layout pass.
+  view.dispatch({ effects: EditorView.scrollIntoView(doc.line(index + 1).from, { y: 'start', yMargin: 0 }) })
+  return window.requestAnimationFrame(() => {
+    if (view.state.doc !== doc || !view.dom.isConnected) return
+    view.requestMeasure({ key: scrollLineToTop, read: readScrollTop, write: applyScrollTop })
+  })
 }
 
 function activeElementAcceptsText(): boolean {
@@ -362,6 +378,7 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor({ do
   const onVisibleLineChangeRef = useRef(onVisibleLineChange)
   onVisibleLineChangeRef.current = onVisibleLineChange
   const visibleLineFrame = useRef(0)
+  const scrollToLineFrame = useRef(0)
 
   // Deferred to the next frame: the editor refuses layout reads inside an update, and a
   // scroll can fire many times per frame.
@@ -387,10 +404,17 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor({ do
       const view = viewRef.current
       return view ? topVisibleLine(view) : 0
     },
+    isScrolledToBottom: () => {
+      const scroller = viewRef.current?.scrollDOM
+      if (!scroller) return false
+      const maxScrollTop = scroller.scrollHeight - scroller.clientHeight
+      return maxScrollTop > 0 && maxScrollTop - scroller.scrollTop <= 2
+    },
     scrollToLine: (line: number) => {
       const view = viewRef.current
       if (!view) return
-      scrollLineToTop(view, line)
+      window.cancelAnimationFrame(scrollToLineFrame.current)
+      scrollToLineFrame.current = scrollLineToTop(view, line)
     }
   }), [value])
 
@@ -456,6 +480,7 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor({ do
       if (idleStatsTimerRef.current !== null) window.clearTimeout(idleStatsTimerRef.current)
       if (outlineTimerRef.current !== null) window.clearTimeout(outlineTimerRef.current)
       if (visibleLineFrame.current !== 0) window.cancelAnimationFrame(visibleLineFrame.current)
+      window.cancelAnimationFrame(scrollToLineFrame.current)
       view.destroy()
       viewRef.current = null
     }

@@ -1490,6 +1490,16 @@ export function App(): JSX.Element {
     // A realign follows a re-render, not a scroll, so it must not take the sync from the preview.
     if (!realign && !claimScrollOwner('editor')) return
 
+    const pane = previewPaneRef.current
+    if (!pane) return
+    const editorAtBottom = editorRef.current?.isScrolledToBottom() ?? false
+    if (virtualized && editorAtBottom) {
+      syncedHeadingRef.current = null
+      const top = Math.max(0, pane.scrollHeight - pane.clientHeight)
+      if (Math.abs(pane.scrollTop - top) > 1) pane.scrollTo({ top, behavior: 'auto' })
+      return
+    }
+
     if (virtualized) {
       const id = headingIdForLine(line, headingLines)
       if (!id || id === syncedHeadingRef.current) return
@@ -1498,12 +1508,11 @@ export function App(): JSX.Element {
       return
     }
 
-    const pane = previewPaneRef.current
-    if (!pane) return
     const top = previewTopForEditorLine(line, splitAnchorsFor(pane, headingLines), {
       contentHeight: pane.scrollHeight,
       maxScrollTop: Math.max(0, pane.scrollHeight - pane.clientHeight),
-      totalLines
+      totalLines,
+      editorAtBottom
     })
     if (Math.abs(pane.scrollTop - top) > 1) pane.scrollTo({ top, behavior: 'auto' })
   }, [claimScrollOwner, splitAnchorsFor])
@@ -1563,7 +1572,11 @@ export function App(): JSX.Element {
       syncPreviewToEditorLine(editorRef.current?.getTopVisibleLine() ?? editorTopLineRef.current, true)
     })
     return () => window.cancelAnimationFrame(frame)
-  }, [html, settings.previewFluidWidth, settings.previewFontSize, settings.previewWidth, splitActive, syncPreviewToEditorLine])
+  }, [
+    html, preview.blocks, mdTheme, settings.previewFluidWidth, settings.previewFontSize,
+    settings.previewLineHeight, settings.previewFontFamily, settings.previewWidth,
+    settings.splitRatio, splitActive, syncPreviewToEditorLine
+  ])
 
   // A lone editor produces no scroll event on mode/tab/outline changes, so the outline's active
   // entry is re-derived from the current viewport top instead of waiting for the next scroll.
