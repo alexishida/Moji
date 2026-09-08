@@ -10,6 +10,7 @@ import {
   buildVirtualOffsets,
   buildVirtualSearchIndex,
   calculateVirtualRange,
+  findVirtualBlockForAnchor,
   findVirtualBlockForHeading,
   findVirtualBlockForSearch,
   getVirtualActiveHeadingId
@@ -104,6 +105,11 @@ export function Preview({
   const [domPatchVersion, setDomPatchVersion] = useState(0)
   const [searchScanVersion, setSearchScanVersion] = useState(0)
   const virtualScrollAnchor = useRef<{ index: number; distance: number } | null>(null)
+  const [pendingAnchor, setPendingAnchor] = useState<{
+    href: string
+    blockIndex: number
+    blocks: MarkdownRenderBlock[]
+  } | null>(null)
   /**
    * Content anchor that preserves the reading position across the theme remount.
    *
@@ -180,22 +186,29 @@ export function Preview({
 
   useEffect(() => {
     if (!virtualized || requestedHeadingBlockIndex === null || !headingRequest) return
-    const pane = paneRef.current
-    if (!pane) return
-    const top = virtualOffsetsRef.current[requestedHeadingBlockIndex] ?? 0
-    pane.scrollTo({ top, behavior: 'auto' })
-    setVirtualViewport({ scrollTop: top, height: pane.clientHeight })
-  }, [headingRequest, requestedHeadingBlockIndex, virtualized])
+    setPendingAnchor({ href: `#${headingRequest.id}`, blockIndex: requestedHeadingBlockIndex, blocks: virtualBlocks })
+  }, [headingRequest, requestedHeadingBlockIndex, virtualBlocks, virtualized])
 
-  useEffect(() => {
-    if (!virtualized || !headingRequest || requestedHeadingBlockIndex === null) return
-    if (requestedHeadingBlockIndex < virtualRange.start || requestedHeadingBlockIndex >= virtualRange.end) return
-    const frame = requestAnimationFrame(() => {
-      const target = bodyRef.current ? findPreviewHeadingTarget(bodyRef.current, `#${headingRequest.id}`) : null
+  useLayoutEffect(() => {
+    const pane = paneRef.current
+    const body = bodyRef.current
+    if (!virtualized || !pendingAnchor || pendingAnchor.blocks !== virtualBlocks || !pane || !body) return
+    const { blockIndex, href } = pendingAnchor
+    if (blockIndex < virtualRange.start || blockIndex >= virtualRange.end) {
+      // Jump before mounting the destination. Smooth scrolling through estimated
+      // heights can remount the old range and cancel the jump with scrollTop = 0.
+      pane.scrollTo({ top: virtualOffsets[blockIndex] ?? 0, behavior: 'auto' })
+    } else {
+      const target = findPreviewHeadingTarget(body, href)
       if (target) scrollPreviewHeadingIntoView(target, 'auto')
-    })
-    return () => cancelAnimationFrame(frame)
-  }, [headingRequest, requestedHeadingBlockIndex, virtualRange.end, virtualRange.start, virtualized])
+      const measured = virtualBlocks.slice(virtualRange.start, virtualRange.end)
+        .every((_, offset) => measuredBlockHeights.has(virtualRange.start + offset))
+      // ResizeObserver replaces estimates after mount. Keep the target until
+      // those measurements have also updated the spacers above it.
+      if (!target || measured) setPendingAnchor(null)
+    }
+    setVirtualViewport({ scrollTop: pane.scrollTop, height: pane.clientHeight })
+  }, [pendingAnchor, measuredBlockHeights, virtualBlocks, virtualOffsets, virtualRange.end, virtualRange.start, virtualized])
 
   const openDiagramAt = useCallback((index: number): void => {
     const diagrams = previewGraphics(bodyRef.current)
@@ -226,6 +239,7 @@ export function Preview({
 
   useEffect(() => {
     setMeasuredBlockHeights(new Map())
+    setPendingAnchor((previous) => previous?.blocks === virtualBlocks ? previous : null)
   }, [mdTheme, virtualBlocks])
 
   useEffect(() => {
@@ -346,31 +360,12 @@ export function Preview({
     const href = anchor.getAttribute('href') ?? ''
     if (href.startsWith('#')) {
       e.preventDefault()
-      const target = bodyRef.current ? findPreviewHeadingTarget(bodyRef.current, href) : null
-      if (target) {
-        scrollPreviewHeadingIntoView(target)
-      } else if (virtualized) {
-        const fragment = href.slice(1)
-        let decodedHeadingId = fragment
-        try {
-          decodedHeadingId = decodeURIComponent(fragment)
-        } catch {
-          // Keep malformed fragments literal.
-        }
-        const headingId = [fragment, decodedHeadingId].find((id) => (
-          findVirtualBlockForHeading(virtualBlocks, id) !== null
-        )) ?? fragment
-        const blockIndex = findVirtualBlockForHeading(virtualBlocks, headingId)
-        const pane = paneRef.current
-        if (blockIndex !== null && pane) {
-          const top = virtualOffsetsRef.current[blockIndex] ?? 0
-          pane.scrollTo({ top, behavior: 'smooth' })
-          setVirtualViewport({ scrollTop: top, height: pane.clientHeight })
-          requestAnimationFrame(() => {
-            const candidate = bodyRef.current ? findPreviewHeadingTarget(bodyRef.current, `#${headingId}`) : null
-            if (candidate) scrollPreviewHeadingIntoView(candidate)
-          })
-        }
+      if (virtualized) {
+        const blockIndex = findVirtualBlockForAnchor(virtualBlocks, href)
+        if (blockIndex !== null) setPendingAnchor({ href, blockIndex, blocks: virtualBlocks })
+      } else {
+        const target = bodyRef.current ? findPreviewHeadingTarget(bodyRef.current, href) : null
+        if (target) scrollPreviewHeadingIntoView(target)
       }
       return
     }
