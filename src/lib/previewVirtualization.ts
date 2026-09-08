@@ -1,5 +1,6 @@
 import type { MarkdownRenderBlock } from './markdown'
 import { countLiteralMatches } from './search'
+import { findPreviewHeadingTarget, previewFragmentIdentifiers } from './previewScroll'
 
 export interface VirtualRange {
   start: number
@@ -58,6 +59,24 @@ export function calculateVirtualRange(
 export function findVirtualBlockForHeading(blocks: MarkdownRenderBlock[], headingId: string): number | null {
   const index = blocks.findIndex((block) => block.headingIds.includes(headingId))
   return index >= 0 ? index : null
+}
+
+/** Resolve unmounted HTML anchors as well as generated heading IDs. */
+export function findVirtualBlockForAnchor(blocks: MarkdownRenderBlock[], href: string): number | null {
+  const identifiers = previewFragmentIdentifiers(href)
+  if (identifiers.length === 0) return null
+  for (const identifier of identifiers) {
+    const index = findVirtualBlockForHeading(blocks, identifier)
+    if (index !== null) return index
+  }
+  // HTML anchors are not part of the outline. Parse only on navigation, in an
+  // inert template, so they remain reachable without mounting the whole document.
+  const template = document.createElement('template')
+  for (let index = 0; index < blocks.length; index += 1) {
+    template.innerHTML = blocks[index].html
+    if (findPreviewHeadingTarget(template.content, href)) return index
+  }
+  return null
 }
 
 export function buildVirtualSearchIndex(
