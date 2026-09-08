@@ -100,6 +100,7 @@ Projeto atual: Moji, aplicativo desktop Electron + React + TypeScript para abrir
 
 - O split view (editor + preview lado a lado) so aparece durante edicao e e controlado por `settings.splitView`; a proporcao entre os paineis usa `settings.splitRatio` (20-80%, padrao 50%) e nao pode ser aplicada quando o workspace for menor que `SPLIT_MIN_WIDTH_PX`.
 - Rolagem do editor e do preview deve permanecer sincronizada no split view (`src/lib/splitScroll.ts`); a sincronizacao usa a posicao logica no documento, nao apenas pixels, para se manter correta apos re-render do preview (ex.: troca de tema).
+- Ao chegar ao fim da rolagem do editor, alinhar o preview ao fim tambem, inclusive apos digitar ou inserir linhas. Considerar a fracao visivel de linhas quebradas e aguardar a medicao do CodeMirror ao sincronizar a partir do preview, evitando saltos na edicao seguinte.
 - Patches de DOM do preview (tema, highlight, mermaid) devem ser reaplicados apos qualquer re-render que substitua o HTML, inclusive dentro do split view.
 
 ## Modais e Dialogos
