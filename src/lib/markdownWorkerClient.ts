@@ -17,12 +17,16 @@ export class MarkdownWorkerRequestCanceledError extends Error {
 let worker: Worker | null = null
 let nextRequestId = 0
 let pendingRequest: PendingRequest | null = null
+let inFlightRequestId: number | null = null
+let queuedRequest: MarkdownWorkerRequest | null = null
 
 function resetWorker(error: Error): void {
   worker?.terminate()
   worker = null
   pendingRequest?.reject(error)
   pendingRequest = null
+  inFlightRequestId = null
+  queuedRequest = null
 }
 
 function createMarkdownWorker(): Worker {
@@ -36,15 +40,31 @@ function getWorker(): Worker {
   if (worker) return worker
   worker = createMarkdownWorker()
   worker.onmessage = ({ data }: MessageEvent<MarkdownWorkerResponse>) => {
-    if (data.type !== 'render-markdown-result' || data.requestId !== pendingRequest?.requestId) return
-    const pending = pendingRequest
-    pendingRequest = null
-    if (data.ok) pending.resolve(data.result)
-    else pending.reject(new Error(data.error))
+    if (data.type !== 'render-markdown-result' || data.requestId !== inFlightRequestId) return
+    inFlightRequestId = null
+    if (data.requestId === pendingRequest?.requestId) {
+      const pending = pendingRequest
+      pendingRequest = null
+      if (data.ok) pending.resolve(data.result)
+      else pending.reject(new Error(data.error))
+    }
+    postLatestRequest()
   }
   worker.onerror = (event) => resetWorker(new Error(event.message || 'Markdown worker failed'))
   worker.onmessageerror = () => resetWorker(new Error('Markdown worker returned an invalid response'))
   return worker
+}
+
+function postLatestRequest(): void {
+  if (inFlightRequestId !== null || !queuedRequest) return
+  const request = queuedRequest
+  queuedRequest = null
+  inFlightRequestId = request.requestId
+  try {
+    getWorker().postMessage(request)
+  } catch (error) {
+    resetWorker(error instanceof Error ? error : new Error('Markdown worker request failed'))
+  }
 }
 
 /** One current request plus one latest request; superseded callers fail immediately. */
@@ -64,7 +84,10 @@ export function requestMarkdownRender(
       source,
       options
     }
-    getWorker().postMessage(request)
+    // Coalesce before postMessage: cloning obsolete documents can itself block the UI,
+    // and a worker busy parsing synchronously cannot drain its incoming message queue.
+    queuedRequest = request
+    postLatestRequest()
   })
 }
 

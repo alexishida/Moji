@@ -384,7 +384,7 @@ function splitTopLevelBlocks(tokens: MarkdownToken[]): MarkdownToken[][] {
       currentChars = 0
       currentLines = 0
     }
-    current.push(...atomic)
+    for (const token of atomic) current.push(token)
     currentChars += chars
     currentLines += lines
   }
@@ -410,15 +410,27 @@ function plainTextFromTokens(tokens: MarkdownToken[]): string {
 }
 
 function estimatedBlockHeight(tokens: MarkdownToken[], text: string): number {
-  const mapped = tokens.flatMap((token) => token.map ? [token.map] : [])
-  const sourceLines = mapped.length > 0
-    ? Math.max(...mapped.map((map) => map[1])) - Math.min(...mapped.map((map) => map[0]))
+  let firstLine = Infinity
+  let lastLine = -Infinity
+  let imageCount = 0
+  let tableRows = 0
+  let displayMath = 0
+  for (const token of tokens) {
+    if (token.map) {
+      firstLine = Math.min(firstLine, token.map[0])
+      lastLine = Math.max(lastLine, token.map[1])
+    }
+    if (token.type === 'image') imageCount += 1
+    if (token.type === 'tr_open') tableRows += 1
+    if (token.type === 'math_block') displayMath += 1
+    for (const child of token.children ?? []) {
+      if (child.type === 'image') imageCount += 1
+    }
+  }
+  const sourceLines = firstLine !== Infinity
+    ? lastLine - firstLine
     : Math.max(1, Math.ceil(text.length / 80))
   const wrappedLines = Math.max(1, Math.ceil(text.length / 88))
-  const imageCount = tokens.filter((token) => token.type === 'image').length +
-    tokens.flatMap((token) => token.children ?? []).filter((token) => token.type === 'image').length
-  const tableRows = tokens.filter((token) => token.type === 'tr_open').length
-  const displayMath = tokens.filter((token) => token.type === 'math_block').length
   return Math.max(48, Math.max(sourceLines, wrappedLines) * 24, imageCount * 360, tableRows * 34, displayMath * 96)
 }
 
