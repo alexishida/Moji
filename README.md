@@ -8,7 +8,7 @@
 
 <p align="center">Built with Electron, React, TypeScript, and electron-vite.</p>
 
-<p align="center"><strong>Current version:</strong> v1.0.6</p>
+<p align="center"><strong>Current version:</strong> v1.0.7</p>
 
 <p align="center">
   <img src="docs/repository-open-graph.png" alt="repository-open-graph" width="100%" />
@@ -16,13 +16,13 @@
 
 <p align="center">
   <strong>Download:</strong>
-  <a href="https://github.com/alexishida/Moji/releases/download/v1.0.6/Moji.Setup.1.0.6.exe">Windows</a>
+  <a href="https://github.com/alexishida/Moji/releases/download/v1.0.7/Moji.Setup.1.0.7.exe">Windows</a>
   ·
-  <a href="https://github.com/alexishida/Moji/releases/download/v1.0.6/Moji-1.0.6-universal.dmg">macOS (DMG)</a>
+  <a href="https://github.com/alexishida/Moji/releases/download/v1.0.7/Moji-1.0.7-universal.dmg">macOS (DMG)</a>
   ·
-  <a href="https://github.com/alexishida/Moji/releases/download/v1.0.6/Moji-1.0.6-x86_64.AppImage">Linux (AppImage)</a>
+  <a href="https://github.com/alexishida/Moji/releases/download/v1.0.7/Moji-1.0.7-x86_64.AppImage">Linux (AppImage)</a>
   ·
-  <a href="https://github.com/alexishida/Moji/releases/download/v1.0.6/Moji-1.0.6-amd64.deb">Linux (DEB)</a>
+  <a href="https://github.com/alexishida/Moji/releases/download/v1.0.7/Moji-1.0.7-amd64.deb">Linux (DEB)</a>
 </p>
 
 
