@@ -1,5 +1,8 @@
 /* Clean reading typography for the rendered Markdown preview. */
 .markdown-body {
+  /* Keep mounted blocks at their actual height: offscreen placeholder heights
+     change the scroll range during thumb dragging. Very large documents use
+     the explicit virtual preview. */
   /* Configured percentage, but never narrower than the readable floor -- which in turn
      never exceeds the available width, so narrow windows still fit. */
   max-width: max(var(--reading-width), min(100%, var(--reading-width-min)));
@@ -368,22 +371,4 @@
   padding: 0.4em 0;
   overflow-x: auto;
   overflow-y: hidden;
-}
-
-/*
- * Large block-level content can be skipped until it approaches viewport. Keep
- * this screen-only and scoped to preview pane: exports must lay out every
- * block, and headings remain available to anchors and scroll-spy immediately.
- * The fallback size limits scroll-bar changes before Chromium learns a block's
- * real dimensions.
- */
-@media screen {
-  .pane[data-md-theme] .markdown-body > table,
-  .pane[data-md-theme] .markdown-body > blockquote,
-  .pane[data-md-theme] .markdown-body > .code-block,
-  .pane[data-md-theme] .markdown-body > .mermaid-diagram,
-  .pane[data-md-theme] .markdown-body > .katex-display {
-    content-visibility: auto;
-    contain-intrinsic-size: auto 12rem;
-  }
 }

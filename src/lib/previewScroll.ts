@@ -54,13 +54,16 @@ export function getActivePreviewHeadingId(
   const maxScrollTop = Math.max(0, scroller.scrollHeight - scroller.clientHeight)
   if (maxScrollTop - scroller.scrollTop <= 2) return headings[headings.length - 1].id
 
-  const probeTop = scroller.scrollTop + offset
-  let current = headings[0].id
-
-  for (const heading of headings) {
-    if (getHeadingTopInScroller(scroller, heading) <= probeTop) current = heading.id
-    else break
+  const probeTop = scroller.getBoundingClientRect().top + offset
+  // Headings follow document order. Read only O(log n) positions, rather than
+  // measuring every preceding heading on each frame near the end of a document.
+  let low = 0
+  let high = headings.length
+  while (low < high) {
+    const middle = Math.floor((low + high) / 2)
+    if (headings[middle].getBoundingClientRect().top <= probeTop) low = middle + 1
+    else high = middle
   }
 
-  return current
+  return headings[Math.max(0, low - 1)].id
 }

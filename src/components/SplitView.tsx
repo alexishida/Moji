@@ -13,6 +13,7 @@ interface SplitViewProps {
   preview: ReactNode
   onRatioChange: (ratio: number) => void
   onFocusPane: (pane: 'editor' | 'preview') => void
+  onScrollIntent: (pane: 'editor' | 'preview') => void
 }
 
 const KEYBOARD_STEP = 2
@@ -23,7 +24,7 @@ const KEYBOARD_STEP = 2
  * The editor keeps the same position in the tree whether or not the preview is showing, so
  * toggling the split never remounts CodeMirror and never drops undo history or the caret.
  */
-export function SplitView({ split, viewOnly = false, ratio, editor, preview, onRatioChange, onFocusPane }: SplitViewProps): JSX.Element {
+export function SplitView({ split, viewOnly = false, ratio, editor, preview, onRatioChange, onFocusPane, onScrollIntent }: SplitViewProps): JSX.Element {
   const { t } = useTranslation()
   const containerRef = useRef<HTMLDivElement>(null)
   const [dragRatio, setDragRatio] = useState<number | null>(null)
@@ -86,7 +87,12 @@ export function SplitView({ split, viewOnly = false, ratio, editor, preview, onR
       className={`split ${split ? 'split--active' : ''} ${viewOnly ? 'split--view-only' : ''} ${dragRatio !== null ? 'split--dragging' : ''}`}
       style={{ '--split-ratio': `${current}%` } as CSSProperties}
     >
-      <div className="split__pane split__pane--editor" onPointerDownCapture={() => onFocusPane('editor')}>
+      <div
+        className="split__pane split__pane--editor"
+        onPointerDownCapture={() => { onFocusPane('editor'); onScrollIntent('editor') }}
+        onWheelCapture={() => onScrollIntent('editor')}
+        onKeyDownCapture={() => onScrollIntent('editor')}
+      >
         {editor}
       </div>
 
@@ -109,7 +115,12 @@ export function SplitView({ split, viewOnly = false, ratio, editor, preview, onR
             onKeyDown={onKeyDown}
             onDoubleClick={() => onRatioChange(SPLIT_RATIO_DEFAULT)}
           />}
-          <div className="split__pane split__pane--preview" onPointerDownCapture={() => onFocusPane('preview')}>
+          <div
+            className="split__pane split__pane--preview"
+            onPointerDownCapture={() => { onFocusPane('preview'); onScrollIntent('preview') }}
+            onWheelCapture={() => onScrollIntent('preview')}
+            onKeyDownCapture={() => onScrollIntent('preview')}
+          >
             {preview}
           </div>
         </>
