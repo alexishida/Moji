@@ -61,9 +61,9 @@ export const TopBar = memo(function TopBar(props: TopBarProps): JSX.Element {
   const replaceInputRef = useRef<HTMLInputElement>(null)
   const canSearch = props.hasDoc && !props.exportOpen
   const canFind = canSearch && props.searchMatchCount > 0
-  const canOpenReplace = props.hasDoc && props.mode === 'edit' && !props.exportOpen
-  const canReplace = canFind && props.mode === 'edit' && !props.exportOpen
-  const replacePanel = props.mode === 'edit'
+  const canOpenReplace = props.hasDoc && props.mode === 'edit' && !props.readOnly && !props.exportOpen
+  const canReplace = canFind && canOpenReplace
+  const replacePanel = props.mode === 'edit' && !props.readOnly
   const panelVisible = canSearch && searchPanelOpen && (replacePanel || searchTerm.trim() !== '')
   const occurrenceLabel =
     props.searchMatchCount > 0

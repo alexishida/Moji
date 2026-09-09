@@ -305,7 +305,7 @@ export function App(): JSX.Element {
   // The split pairs the live preview with the source editor, so it only exists while editing.
   // The toggle stays disabled outside edit mode instead of silently switching modes, keeping the
   // button's enabled state predictable while viewing.
-  const canToggleSplit = mode === 'edit' && hasDoc && activeDoc?.readOnly !== true && !panelOpen && splitFits
+  const canToggleSplit = mode === 'edit' && hasDoc && !panelOpen && splitFits
   const splitActive = canToggleSplit && settings.splitView
   const previewVisible = mode === 'view' || splitActive
 
@@ -1175,7 +1175,7 @@ export function App(): JSX.Element {
         return
       }
 
-      if (stateRef.current.mode !== 'edit') return
+      if (stateRef.current.mode !== 'edit' || doc.readOnly) return
 
       if (!term) {
         flash(t('notice.replaceNeedsSearch'), true)
@@ -1222,11 +1222,13 @@ export function App(): JSX.Element {
     if (res.ok) {
       materializeEditorContent()
       addDocuments([{
-      path: res.path,
-      content: res.content.replace('<!-- MERMAID_EXAMPLES -->', getExtraMermaidGuideExamples(settings.language)),
-      sizeProfile: res.sizeProfile,
-      readOnly: true
-      }])
+        path: res.path,
+        content: res.content.replace('<!-- MERMAID_EXAMPLES -->', getExtraMermaidGuideExamples(settings.language)),
+        sizeProfile: res.sizeProfile,
+        readOnly: true
+      }], 'edit')
+      setSettings((previous) => ({ ...previous, splitView: true }))
+      void window.api.setSettings({ splitView: true })
     }
     else flash(t('notice.openFailed', { error: friendlyErrorMessage(res.error ?? '', t) }), true)
   }, [addDocuments, flash, materializeEditorContent, settings.language, t])
