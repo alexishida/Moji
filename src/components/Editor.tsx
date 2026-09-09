@@ -45,6 +45,8 @@ export interface EditorHandle {
   isScrolledToBottom: () => boolean
   /** Scroll so `line` (zero-based, fractional allowed) sits at the top of the viewport. */
   scrollToLine: (line: number) => void
+  /** Discard pending preview-driven measurements when the user takes over the editor. */
+  cancelScrollSync: () => void
 }
 
 export interface EditorDocumentStats {
@@ -299,26 +301,26 @@ function topVisibleLine(view: EditorView): number {
  * distance is measured there and applied to `scrollTop`; the fractional part of `line` moves
  * inside a wrapped line, which keeps the preview mapping continuous instead of stepping.
  */
-function scrollLineToTop(view: EditorView, line: number): number {
+function scrollLineToTop(view: EditorView, line: number, isCurrent: () => boolean): number {
   const doc = view.state.doc
   const index = Math.min(Math.max(0, Math.floor(line)), doc.lines - 1)
   const fraction = Math.min(Math.max(line - index, 0), 1)
   const scroller = view.scrollDOM
   const readScrollTop = (): number | null => {
-    if (view.state.doc !== doc) return null
+    if (!isCurrent() || view.state.doc !== doc) return null
     const block = view.lineBlockAt(doc.line(index + 1).from)
     const delta = view.documentTop + block.top + fraction * block.height - scroller.getBoundingClientRect().top
     const maxScrollTop = Math.max(0, scroller.scrollHeight - scroller.clientHeight)
     return Math.min(Math.max(0, scroller.scrollTop + delta), maxScrollTop)
   }
   const applyScrollTop = (next: number | null): void => {
-    if (next !== null && Math.abs(scroller.scrollTop - next) > 1) scroller.scrollTop = next
+    if (isCurrent() && next !== null && Math.abs(scroller.scrollTop - next) > 1) scroller.scrollTop = next
   }
   // Let CodeMirror resolve offscreen height estimates and scroll anchoring first.
   // Writing scrollTop directly here can be shifted again by its pending layout pass.
   view.dispatch({ effects: EditorView.scrollIntoView(doc.line(index + 1).from, { y: 'start', yMargin: 0 }) })
   return window.requestAnimationFrame(() => {
-    if (view.state.doc !== doc || !view.dom.isConnected) return
+    if (!isCurrent() || view.state.doc !== doc || !view.dom.isConnected) return
     view.requestMeasure({ key: scrollLineToTop, read: readScrollTop, write: applyScrollTop })
   })
 }
@@ -382,6 +384,7 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor({ do
   onVisibleLineChangeRef.current = onVisibleLineChange
   const visibleLineFrame = useRef(0)
   const scrollToLineFrame = useRef(0)
+  const scrollSyncGeneration = useRef(0)
 
   // Deferred to the next frame: the editor refuses layout reads inside an update, and a
   // scroll can fire many times per frame.
@@ -417,7 +420,12 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor({ do
       const view = viewRef.current
       if (!view) return
       window.cancelAnimationFrame(scrollToLineFrame.current)
-      scrollToLineFrame.current = scrollLineToTop(view, line)
+      const generation = ++scrollSyncGeneration.current
+      scrollToLineFrame.current = scrollLineToTop(view, line, () => generation === scrollSyncGeneration.current)
+    },
+    cancelScrollSync: () => {
+      scrollSyncGeneration.current += 1
+      window.cancelAnimationFrame(scrollToLineFrame.current)
     }
   }), [value])
 
