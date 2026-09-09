@@ -22,7 +22,7 @@ O app Electron usa um shell em camadas:
 - **Body** (`.body`): sidebar + area principal.
 - **Sidebar** (`.sidebar`): coluna de `--sidebar-w`, visivel com documento aberto. Nos modos preview e editor mostra a arvore de outline gerada dos headings (aninhada por nivel); no preview destaca heading ativo.
 - **Main/workspace** (`.main`, `.workspace`): renderiza welcome, preview, editor, dialogo inline de exportacao, painel inline de configuracoes ou painel inline de sobre.
-- **Status bar** (`.statusbar`): rodape de `--statusbar-h`. Esquerda mostra a marca; direita mostra o link de guia Markdown (abre o sample embutido) e contagens de linhas, tokens e palavras do documento ativo.
+- **Status bar** (`.statusbar`): rodape de `--statusbar-h`. Esquerda mostra a marca; direita mostra o link de guia Markdown (abre o sample embutido no editor com split ativado, codigo-fonte somente leitura a esquerda e preview a direita) e contagens de linhas, tokens e palavras do documento ativo. O guia reutiliza o divisor, a rolagem sincronizada e o limite minimo de largura do split; busca permanece disponivel, com salvar e substituir desabilitados.
 
 ## Temas
 

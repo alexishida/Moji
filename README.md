@@ -50,7 +50,7 @@
 - **Local images**: images referenced relative to the document are served through an authorized `moji-asset://` protocol, restricted to directories of documents you actually opened, loaded lazily and cached in memory.
 - **Settings view**: centered in-workspace panel for language, untitled-document recovery, preview typography, editor and preview font sizes, reading width, and a localized shortcut reference.
 - **About view**: in-workspace panel showing app name, version (from `package.json`), author, repository link, and the story behind the name.
-- **Markdown guide**: bundled localized reference documents (`samples/markdown-guide.<locale>.md`) opened from the status bar.
+- **Markdown guide**: bundled localized reference documents (`samples/markdown-guide.<locale>.md`) opened from the status bar in Editor mode with split view enabled, showing the read-only Markdown source beside its rendered preview. You can select and copy examples; narrow workspaces show the source until there is room for both panes.
 - **Recent files**: Welcome screen shows recently opened Markdown files and lets you reopen or remove entries.
 - **Remembered app state**: window size/position, recent files, last used folder, language, preview typography, editor and preview font sizes, reading width, Markdown preview theme, live preview split and pane ratio, and untitled-document recovery preference are persisted in user settings.
 - **Update checks**: installed Windows NSIS and Linux AppImage builds check GitHub Releases and link to the release page when a newer version is available, so you can choose the correct artifact.

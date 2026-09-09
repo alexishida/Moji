@@ -111,6 +111,7 @@ const oneDarkProExtensions = [oneDarkProEditorTheme, syntaxHighlighting(oneDarkP
 
 function wrapMarkdown(before: string, after = before, placeholder = ''): Command {
   return (view) => {
+    if (view.state.readOnly) return false
     const transaction = view.state.changeByRange((range) => {
       const selected = view.state.sliceDoc(range.from, range.to)
       const inner = selected || placeholder
@@ -130,6 +131,7 @@ function wrapMarkdown(before: string, after = before, placeholder = ''): Command
 }
 
 const insertLink: Command = (view) => {
+  if (view.state.readOnly) return false
   const transaction = view.state.changeByRange((range) => {
     const selected = view.state.sliceDoc(range.from, range.to) || 'text'
     const before = `[${selected}](`
@@ -147,6 +149,7 @@ const insertLink: Command = (view) => {
 
 function toggleLinePrefix(prefix: string): Command {
   return (view) => {
+    if (view.state.readOnly) return false
     const changes = view.state.changeByRange((range) => {
       const line = view.state.doc.lineAt(range.from)
       const text = line.text
