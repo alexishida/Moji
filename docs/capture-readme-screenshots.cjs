@@ -5,12 +5,12 @@
  *
  * Requires Playwright with Chromium installed. The script launches Electron,
  * opens samples/markdown-guide.en.md, and writes the README screenshots in docs/.
- * Native Windows capture is deliberate: Playwright page screenshots omit title-bar
- * controls, while this preserves minimize, maximize, and close buttons.
+ * Captures are produced by Playwright so they remain reliable with Electron's
+ * GPU-backed windows.
  */
 
 const { existsSync, readFileSync, rmSync } = require('node:fs')
-const { spawn, execFileSync } = require('node:child_process')
+const { spawn } = require('node:child_process')
 const os = require('node:os')
 const path = require('node:path')
 const { chromium } = require('playwright')
@@ -25,22 +25,12 @@ if (!existsSync(electron) || !existsSync(main)) {
   throw new Error('Electron build missing. Run `npm run build` first.')
 }
 
-function capture(processId, file) {
-  execFileSync(
-    'powershell.exe',
-    [
-      '-NoProfile',
-      '-ExecutionPolicy',
-      'Bypass',
-      '-File',
-      path.join(__dirname, 'capture-window.ps1'),
-      '-ProcessId',
-      String(processId),
-      '-OutputPath',
-      path.join(__dirname, file)
-    ],
-    { stdio: 'inherit' }
-  )
+async function capture(page, file) {
+  await page.screenshot({
+    path: path.join(__dirname, file),
+    type: 'jpeg',
+    quality: 90
+  })
 }
 
 async function connect() {
@@ -75,7 +65,14 @@ async function connect() {
 
     await page.locator('.markdown-body').waitFor()
     await page.waitForTimeout(500)
-    capture(app.pid, 'scr-main.jpg')
+
+    const toolbarButtons = page.locator('.topbar__right .iconbtn')
+    await toolbarButtons.nth((await toolbarButtons.count()) - 2).click()
+    await page.locator('.settings-field__control').first().selectOption('en')
+    await page.locator('.settings-dialog .iconbtn').click()
+    await page.locator('.settings-dialog').waitFor({ state: 'detached' })
+
+    await capture(page, 'scr-main.jpg')
 
     // Bundled guides are read-only. New tab keeps editor screenshot faithful while
     // retaining the exact markdown-guide.en.md content.
@@ -83,13 +80,13 @@ async function connect() {
     await page.locator('.segment__btn').nth(1).click()
     await page.locator('.cm-editor').waitFor()
     await page.locator('.cm-content').fill(readFileSync(guide, 'utf8'))
-    capture(app.pid, 'scr-edit.jpg')
+    await capture(page, 'scr-edit.jpg')
 
     // Split view: keep the guide in the editor with the live preview beside it.
     await page.locator('.topbar__right .iconbtn').nth(2).click()
     await page.locator('.split--active').waitFor()
     await page.waitForTimeout(500)
-    capture(app.pid, 'scr-split.jpg')
+    await capture(page, 'scr-split.jpg')
 
     await page.locator('.topbar__right .iconbtn').nth(2).click()
     await page.locator('.split--active').waitFor({ state: 'detached' })
@@ -102,21 +99,21 @@ async function connect() {
     await page.locator('.segment__btn').first().click()
     await page.locator('.mermaid-diagram').first().scrollIntoViewIfNeeded()
     await page.waitForTimeout(300)
-    capture(app.pid, 'scr-mermaid.jpg')
+    await capture(page, 'scr-mermaid.jpg')
 
     await page.locator('.mermaid-diagram').first().click()
     await page.locator('.diagram-modal').waitFor()
-    capture(app.pid, 'scr-mermaid-dialog.jpg')
+    await capture(page, 'scr-mermaid-dialog.jpg')
 
     await page.locator('.diagram-modal__close').click()
     await page.locator('.segment__btn').nth(2).click()
     await page.locator('.export-dialog').waitFor()
-    capture(app.pid, 'scr-export.jpg')
+    await capture(page, 'scr-export.jpg')
 
     await page.locator('.export-dialog .iconbtn').click()
     await page.locator('.document-tab__close').click()
     await page.locator('.welcome').waitFor()
-    capture(app.pid, 'scr-welcome.jpg')
+    await capture(page, 'scr-welcome.jpg')
 
     await browser.close()
   } finally {
