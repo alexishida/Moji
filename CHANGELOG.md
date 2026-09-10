@@ -12,6 +12,9 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
+- Split-view scrolling now follows the pane the user last interacted with, including scrollbar clicks that do not emit a scroll event. Delayed CodeMirror measurements can no longer reverse the sync direction, and stale preview-driven editor scrolls are cancelled when the user takes control.
+- Split-view heading positions are recalculated after preview layout changes, keeping editor and preview aligned after fonts, images, or rendered content change size. The preview no longer uses estimated off-screen block heights that could make scrollbar dragging jump.
+- Preview scroll-spy now finds the active heading with a binary search and schedules its updates per animation frame, reducing work on large documents.
 - In-page anchors now resolve reliably in virtualized previews, including explicit HTML anchors outside the mounted viewport and URL-encoded fragment identifiers.
 
 ## [1.0.6] - 2026-08-19
