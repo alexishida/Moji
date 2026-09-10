@@ -115,9 +115,8 @@ export function Preview({
    *
    * The body is keyed by theme, so toggling light/dark remounts it from pristine HTML. The
    * browser keeps `scrollTop` in pixels across that swap, but it is not a stable anchor: on the
-   * fresh body a `content-visibility` block is unmeasured until it nears the viewport, and
-   * diagrams/images re-render at (possibly different) sizes, all of which changes the content
-   * height and drifts the visible text. Holding the id of the heading nearest the viewport top
+   * fresh body diagrams/images re-render at (possibly different) sizes, changing the content
+   * height and drifting the visible text. Holding the id of the heading nearest the viewport top
    * plus its pixel gap to the pane top lets the restore effect below re-anchor on that same
    * heading once the new body is mounted.
    */
@@ -541,9 +540,9 @@ export function Preview({
   ])
 
   // Theme changes remount the body (`key={...mdTheme}`), so the pane's preserved `scrollTop`
-  // no longer corresponds to the same content — blocks collapse to their unmeasured/intrinsic
-  // size and diagrams/images re-render at potentially different heights. Re-anchor on the
-  // heading `readingAnchorRef` captured before the swap, putting it back at the same visual
+  // no longer corresponds to the same content — diagrams/images re-render at potentially
+  // different heights. Re-anchor on the heading `readingAnchorRef` captured before the swap,
+  // putting it back at the same visual
   // offset instead of letting the reflow drag the reading position.
   //
   // Declared before the scroll-spy effect below: that effect also re-runs on `bodyVersion`
@@ -597,10 +596,19 @@ export function Preview({
       }
     }
 
+    let frame = 0
+    const scheduleActiveHeading = (): void => {
+      if (frame !== 0) return
+      frame = requestAnimationFrame(() => {
+        frame = 0
+        updateActiveHeading()
+      })
+    }
     updateActiveHeading()
-    scroller.addEventListener('scroll', updateActiveHeading, { passive: true })
+    scroller.addEventListener('scroll', scheduleActiveHeading, { passive: true })
     return () => {
-      scroller.removeEventListener('scroll', updateActiveHeading)
+      cancelAnimationFrame(frame)
+      scroller.removeEventListener('scroll', scheduleActiveHeading)
       onPreviewHeadingsChange([])
     }
   }, [
