@@ -4,6 +4,16 @@ All notable changes to this project will be documented in this file.
 
 Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [1.0.7] - 2026-09-08
+
+### Added
+
+- The bundled Markdown guide now opens in Editor mode with the read-only source beside its rendered preview, so examples can be inspected and copied while keeping the source and result aligned.
+
+### Fixed
+
+- In-page anchors now resolve reliably in virtualized previews, including explicit HTML anchors outside the mounted viewport and URL-encoded fragment identifiers.
+
 ## [1.0.6] - 2026-08-19
 
 ### Added
