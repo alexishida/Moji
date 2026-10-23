@@ -15,6 +15,7 @@
   },
   "toolbar": {
     "open": "打开",
+    "openFolder": "打开文件夹",
     "preview": "预览",
     "editor": "编辑器",
     "viewMode": "查看模式",
@@ -43,6 +44,8 @@
     "hideOutline": "隐藏大纲",
     "showLivePreview": "显示实时预览",
     "hideLivePreview": "隐藏实时预览",
+    "showExplorer": "显示资源管理器",
+    "hideExplorer": "隐藏资源管理器",
     "livePreviewTooNarrow": "空间不足，无法显示实时预览",
     "resizeSplit": "调整窗格宽度",
     "settings": "设置",
@@ -57,6 +60,31 @@
     "collapseAll": "全部折叠",
     "noHeadings": "还没有标题。添加标题以构建大纲。",
     "noDocument": "打开或创建一个文档以查看其大纲。"
+  },
+  "explorer": {
+    "title": "资源管理器",
+    "newFile": "新建文件",
+    "newFileIn": "在 {{name}} 中新建文件",
+    "rename": "重命名",
+    "renameNamed": "重命名 {{name}}",
+    "open": "打开",
+    "fileName": "文件名",
+    "errors": {
+      "exists": "此处已存在同名文件。",
+      "invalidName": "请输入有效的文件名。",
+      "forbidden": "此位置不在资源管理器的文件夹中。",
+      "failed": "无法完成：{{error}}"
+    },
+    "addFolder": "添加文件夹",
+    "openFolder": "打开文件夹",
+    "refresh": "刷新",
+    "removeFolder": "从资源管理器中移除文件夹",
+    "empty": "加载文件夹以浏览其中的 Markdown 文件。",
+    "loading": "正在加载…",
+    "unavailable": "无法读取此文件夹。",
+    "noMarkdown": "此文件夹中没有 Markdown 文件。",
+    "truncated": "仅显示前 {{count}} 个文件。",
+    "fileUnavailable": "该文件已不在资源管理器的文件夹中"
   },
   "statusbar": {
     "brand": "Moji v{{version}}",
@@ -105,6 +133,7 @@
     "tagline": "轻量简洁的 Markdown 阅读器",
     "title": "Moji v{{version}}",
     "openButton": "打开文件",
+    "openFolderButton": "打开文件夹",
     "newButton": "新建文件",
     "dropHint": "或将 .md 文件拖入此窗口任意位置",
     "recent": {
@@ -158,6 +187,7 @@
     "shortcutActions": {
       "newDocument": "新建文档",
       "open": "打开文件",
+      "openFolder": "打开文件夹",
       "save": "保存",
       "saveAs": "另存为",
       "closeTab": "关闭当前标签",
@@ -168,6 +198,7 @@
       "findPrevious": "上一个匹配",
       "toggleEdit": "切换编辑/预览",
       "toggleSplit": "切换实时预览",
+      "toggleExplorer": "切换资源管理器",
       "export": "导出",
       "settings": "设置",
       "fullscreen": "全屏",

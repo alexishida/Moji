@@ -52,7 +52,8 @@
 - **About view**: in-workspace panel showing app name, version (from `package.json`), author, repository link, and the story behind the name.
 - **Markdown guide**: bundled localized reference documents (`samples/markdown-guide.<locale>.md`) opened from the status bar in Editor mode with split view enabled, showing the read-only Markdown source beside its rendered preview. You can select and copy examples; narrow workspaces show the source until there is room for both panes.
 - **Recent files**: Welcome screen shows recently opened Markdown files and lets you reopen or remove entries.
-- **Remembered app state**: window size/position, recent files, last used folder, language, preview typography, editor and preview font sizes, reading width, Markdown preview theme, live preview split and pane ratio, and untitled-document recovery preference are persisted in user settings.
+- **Explorer**: *Open Folder* (top bar, Welcome screen, or Ctrl+Shift+O) loads a folder into the explorer, the full-height column on the left that hosts the tabs, outline, and workspace beside it. It lists every Markdown file in the loaded folders as a collapsible tree (other files, hidden folders, and `node_modules` are skipped). Clicking a file opens it in a tab and the active document is highlighted. *New file* creates an empty `.md` file in the selected folder and lets you name it inline; files can be renamed inline (pencil button, F2, or right-click) without leaving the app, and open tabs follow the new name. Folders persist between sessions, refresh when the window regains focus, and can be removed individually. Show or hide the explorer from the top bar or with Ctrl+Shift+B.
+- **Remembered app state**: window size/position, recent files, explorer folders and visibility, last used folder, language, preview typography, editor and preview font sizes, reading width, Markdown preview theme, live preview split and pane ratio, and untitled-document recovery preference are persisted in user settings.
 - **Update checks**: installed Windows NSIS and Linux AppImage builds check GitHub Releases and link to the release page when a newer version is available, so you can choose the correct artifact.
 - **Markdown themes**: dark/light toggle for rendered Markdown. App chrome remains dark; exports always use the light theme.
 - **Internationalization**: English (United States and United Kingdom), Portuguese (Brazil and Portugal), Spanish, French, German, Italian, Dutch, Arabic, Hindi, Japanese, Chinese (Simplified and Traditional, Taiwan), and Russian. Initial language follows the OS when possible and user choice is persisted.
@@ -186,6 +187,7 @@ electron/
   assetCache.ts       Bounded in-memory LRU cache for served images
   documentStream.ts   Chunked file reads, paired with documentDecoder.ts for streaming UTF-8 decoding
   openPool.ts         Bounded-concurrency map used by the multi-file open session
+  explorer.ts         Explorer: Markdown-only folder scan, folder-scoped file authorization, create/rename inside loaded folders
   settings.ts         User settings persistence, window bounds, recent files, preview theme, and last dialog directory
   drafts.ts           Recovery storage for untitled documents (draftStore/draftJournal/draftCapacity)
   export.ts           HTML/PDF/PNG export implementation with progress, cancellation, and remembered output directory

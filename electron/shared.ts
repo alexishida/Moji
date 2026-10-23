@@ -11,6 +11,13 @@ export const MARKDOWN_EXTENSIONS = ['.md', '.markdown'] as const
 /** Max entries kept in the recent-files list shown on the Welcome screen. */
 export const MAX_RECENT_FILES = 3
 
+/** Max folders kept in the explorer sidebar at once. */
+export const MAX_EXPLORER_FOLDERS = 10
+/** Folder depth the explorer descends before it stops scanning. */
+export const EXPLORER_MAX_DEPTH = 12
+/** Markdown files listed per folder before the explorer stops scanning and marks it truncated. */
+export const EXPLORER_MAX_FILES = 5000
+
 export const PREVIEW_WIDTH_MIN = 20
 export const PREVIEW_WIDTH_MAX = 100
 export const PREVIEW_WIDTH_STEP = 5
@@ -63,6 +70,10 @@ export interface Settings {
   autoSave: boolean
   /** Absolute paths of recently opened documents, most-recent first. */
   recentFiles: string[]
+  /** Folders loaded in the explorer sidebar, in the order they were added. */
+  explorerFolders: string[]
+  /** Whether the explorer sidebar is shown. */
+  explorerVisible: boolean
   lastDialogDirectory?: string
   windowBounds?: WindowBounds
 }
@@ -139,6 +150,29 @@ export type DraftAppendResult =
 /** Result of an operation that reads/opens a file. */
 export type OpenResult =
   | { ok: true; path: string; content: string; sizeBytes: number; sizeProfile: DocumentSizeProfile }
+  | { ok: false; canceled?: boolean; error?: string }
+
+/** One entry of the explorer tree: a Markdown file or a folder that contains one. */
+export interface ExplorerNode {
+  name: string
+  path: string
+  kind: 'file' | 'directory'
+  children?: ExplorerNode[]
+}
+
+/** Markdown-only tree of a folder loaded in the explorer sidebar. */
+export type ExplorerScanResult =
+  | { ok: true; root: ExplorerNode; fileCount: number; truncated: boolean }
+  | { ok: false; path: string; error: string }
+
+/** Result of creating or renaming a file from the explorer. `exists` / `invalid-name` are user errors. */
+export type ExplorerFileResult =
+  | { ok: true; path: string }
+  | { ok: false; error: 'forbidden' | 'exists' | 'invalid-name' | string }
+
+/** Result of picking a folder for the explorer. */
+export type ExplorerFolderResult =
+  | { ok: true; path: string }
   | { ok: false; canceled?: boolean; error?: string }
 
 /** Result of starting a multi-file open session from the OS dialog. Documents stream in afterward via `openManyProgress`. */
@@ -252,6 +286,12 @@ export const IPC = {
   readPathStream: 'file:read-path-stream',
   openLocalPath: 'file:open-local-path',
   readSample: 'file:read-sample',
+  explorerPickFolder: 'explorer:pick-folder',
+  explorerScan: 'explorer:scan',
+  explorerAuthorizeFile: 'explorer:authorize-file',
+  explorerRemoveFolder: 'explorer:remove-folder',
+  explorerCreateFile: 'explorer:create-file',
+  explorerRenameFile: 'explorer:rename-file',
   save: 'file:save',
   saveAs: 'file:save-as',
   export: 'doc:export',

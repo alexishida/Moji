@@ -15,6 +15,7 @@
   },
   "toolbar": {
     "open": "Open",
+    "openFolder": "Open Folder",
     "preview": "Preview",
     "editor": "Editor",
     "viewMode": "View mode",
@@ -43,6 +44,8 @@
     "hideOutline": "Hide outline",
     "showLivePreview": "Show live preview",
     "hideLivePreview": "Hide live preview",
+    "showExplorer": "Show explorer",
+    "hideExplorer": "Hide explorer",
     "livePreviewTooNarrow": "Not enough room for the live preview",
     "resizeSplit": "Resize the panes",
     "settings": "Settings",
@@ -57,6 +60,31 @@
     "collapseAll": "Collapse all",
     "noHeadings": "No headings yet. Add a heading to build the outline.",
     "noDocument": "Open or create a document to see its outline."
+  },
+  "explorer": {
+    "title": "Explorer",
+    "newFile": "New file",
+    "newFileIn": "New file in {{name}}",
+    "rename": "Rename",
+    "renameNamed": "Rename {{name}}",
+    "open": "Open",
+    "fileName": "File name",
+    "errors": {
+      "exists": "A file with this name already exists here.",
+      "invalidName": "Enter a valid file name.",
+      "forbidden": "This location is not in an explorer folder.",
+      "failed": "Could not complete: {{error}}"
+    },
+    "addFolder": "Add folder",
+    "openFolder": "Open Folder",
+    "refresh": "Refresh",
+    "removeFolder": "Remove folder from explorer",
+    "empty": "Load a folder to browse its Markdown files.",
+    "loading": "Loading…",
+    "unavailable": "This folder could not be read.",
+    "noMarkdown": "No Markdown files in this folder.",
+    "truncated": "Showing the first {{count}} files.",
+    "fileUnavailable": "the file is no longer in an explorer folder"
   },
   "statusbar": {
     "brand": "Moji v{{version}}",
@@ -105,6 +133,7 @@
     "tagline": "A lightweight, simple Markdown reader",
     "title": "Moji v{{version}}",
     "openButton": "Open File",
+    "openFolderButton": "Open Folder",
     "newButton": "New File",
     "dropHint": "or drop a .md file anywhere in this window",
     "recent": {
@@ -158,6 +187,7 @@
     "shortcutActions": {
       "newDocument": "New document",
       "open": "Open file",
+      "openFolder": "Open folder",
       "save": "Save",
       "saveAs": "Save as",
       "closeTab": "Close current tab",
@@ -168,6 +198,7 @@
       "findPrevious": "Previous match",
       "toggleEdit": "Toggle editor/preview",
       "toggleSplit": "Toggle live preview",
+      "toggleExplorer": "Toggle explorer",
       "export": "Export",
       "settings": "Settings",
       "fullscreen": "Fullscreen",

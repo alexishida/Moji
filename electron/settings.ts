@@ -3,6 +3,7 @@ import { readFileSync, renameSync, unlinkSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import {
   DEFAULT_LANGUAGE,
+  MAX_EXPLORER_FOLDERS,
   MAX_RECENT_FILES,
   PREVIEW_WIDTH_DEFAULT,
   SPLIT_RATIO_DEFAULT,
@@ -73,7 +74,9 @@ function defaults(): Settings {
     splitRatio: SPLIT_RATIO_DEFAULT,
     previewWidth: PREVIEW_WIDTH_DEFAULT,
     autoSave: true,
-    recentFiles: []
+    recentFiles: [],
+    explorerFolders: [],
+    explorerVisible: true
   }
 }
 
@@ -109,7 +112,7 @@ function sanitizeWindowBounds(value: unknown): WindowBounds | undefined {
 }
 
 /** Keep only string paths, drop duplicates, and cap the list length. */
-function sanitizeRecentFiles(value: unknown): string[] {
+function sanitizePathList(value: unknown, max: number): string[] {
   if (!Array.isArray(value)) return []
   const seen = new Set<string>()
   const list: string[] = []
@@ -117,9 +120,17 @@ function sanitizeRecentFiles(value: unknown): string[] {
     if (typeof entry !== 'string' || entry.length === 0 || seen.has(entry)) continue
     seen.add(entry)
     list.push(entry)
-    if (list.length >= MAX_RECENT_FILES) break
+    if (list.length >= max) break
   }
   return list
+}
+
+function sanitizeRecentFiles(value: unknown): string[] {
+  return sanitizePathList(value, MAX_RECENT_FILES)
+}
+
+function sanitizeExplorerFolders(value: unknown): string[] {
+  return sanitizePathList(value, MAX_EXPLORER_FOLDERS)
 }
 
 export function getSettings(): Settings {
@@ -141,6 +152,8 @@ export function getSettings(): Settings {
       previewWidth: normalizePreviewWidth(raw.previewWidth, base.previewWidth),
       autoSave: typeof raw.autoSave === 'boolean' ? raw.autoSave : base.autoSave,
       recentFiles: sanitizeRecentFiles(raw.recentFiles),
+      explorerFolders: sanitizeExplorerFolders(raw.explorerFolders),
+      explorerVisible: typeof raw.explorerVisible === 'boolean' ? raw.explorerVisible : base.explorerVisible,
       lastDialogDirectory: typeof raw.lastDialogDirectory === 'string' ? raw.lastDialogDirectory : undefined,
       windowBounds: sanitizeWindowBounds(raw.windowBounds)
     }
@@ -166,6 +179,8 @@ export function updateSettings(patch: Partial<Settings>): Settings {
     previewWidth: normalizePreviewWidth(merged.previewWidth),
     autoSave: typeof merged.autoSave === 'boolean' ? merged.autoSave : true,
     recentFiles: sanitizeRecentFiles(merged.recentFiles),
+    explorerFolders: sanitizeExplorerFolders(merged.explorerFolders),
+    explorerVisible: typeof merged.explorerVisible === 'boolean' ? merged.explorerVisible : true,
     lastDialogDirectory: typeof merged.lastDialogDirectory === 'string' ? merged.lastDialogDirectory : undefined,
     windowBounds: sanitizeWindowBounds(merged.windowBounds)
   }

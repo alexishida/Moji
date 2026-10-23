@@ -92,6 +92,38 @@ The system SHALL treat quitting the application as distinct from closing its win
 - **WHEN** the user closes the window on macOS, leaving the app running, then reopens it from the Dock and makes an unsaved edit
 - **THEN** closing that window raises the unsaved-changes confirmation again, rather than discarding the work silently
 
+### Requirement: Explorer sidebar lists Markdown files of loaded folders
+The system SHALL provide an explorer sidebar where the user loads folders through the native folder picker and sees only the `.md` and `.markdown` files inside them, as a collapsible tree. The explorer SHALL be shown or hidden from the top bar or with Ctrl+Shift+B, and both the folder list and the visibility SHALL persist between sessions.
+
+#### Scenario: Load a folder
+- **WHEN** the user clicks "Add folder" in the explorer and picks a folder
+- **THEN** the folder appears as a root listing its Markdown files and the subfolders that contain them, skipping hidden folders, symlinks, and `node_modules`
+
+#### Scenario: Open a folder from the top bar
+- **WHEN** the user clicks "Open Folder" beside New / Open / Save, or presses Ctrl+Shift+O, and picks a folder
+- **THEN** the folder is added to the explorer and the explorer is shown if it was hidden
+
+#### Scenario: Create a new file in the explorer
+- **WHEN** the user chooses "New file" for a loaded folder and enters a name
+- **THEN** an empty Markdown file with that name (`.md` added when missing) is created in that folder without a native dialog, and it opens in the editor
+- **AND** if a file with that name already exists, nothing is overwritten and the error is shown next to the name field
+
+#### Scenario: Rename a file in the explorer
+- **WHEN** the user renames a file from the explorer
+- **THEN** the file is renamed in the same folder, and any open tab and recent-file entry follow the new name
+
+#### Scenario: Open a file from the explorer
+- **WHEN** the user clicks a Markdown file in the explorer
+- **THEN** the file opens in a tab and is highlighted as the active document
+
+#### Scenario: Hide and show the explorer
+- **WHEN** the user clicks the explorer button in the top bar or presses Ctrl+Shift+B
+- **THEN** the explorer toggles between hidden and visible, and the choice is kept after restart
+
+#### Scenario: File outside every loaded folder
+- **WHEN** the renderer asks to open, through the explorer, a path that is not a real Markdown file inside a loaded folder
+- **THEN** the request is refused and the file is not read
+
 ### Requirement: File access is limited to what the user opened
 The system SHALL write only to files the user has opened or chosen through a save dialog, and SHALL load local images only from directories of documents that have been opened.
 

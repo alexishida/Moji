@@ -2,7 +2,7 @@ import { memo, useState, useCallback, useEffect, useRef, type ChangeEvent, type 
 import { useTranslation } from 'react-i18next'
 import { SettingsButton } from './SettingsButton'
 import { FontSizeButton } from './FontSizeButton'
-import { IconMoon, IconSun, IconEye, IconPencil, IconDownload, IconOpen, IconFilePlus, IconSave, IconInfo, IconReplace, IconReplaceAll, IconX, IconLayoutWidth, IconSidebar, IconSplitPreview, IconChevronRight } from './icons'
+import { IconMoon, IconSun, IconEye, IconPencil, IconDownload, IconOpen, IconFilePlus, IconSave, IconInfo, IconReplace, IconReplaceAll, IconX, IconLayoutWidth, IconSidebar, IconSplitPreview, IconChevronRight, IconExplorer, IconFolderOpen } from './icons'
 import type { ExportFormat, Theme } from '../../electron/shared'
 
 interface TopBarProps {
@@ -16,6 +16,8 @@ interface TopBarProps {
   theme: Theme
   onSetMode: (mode: 'view' | 'edit') => void
   onOpen: () => void
+  /** Adds a folder to the explorer (and shows the explorer if hidden). */
+  onOpenFolder: () => void
   onSave: () => void
   onNew: () => void
   onToggleTheme: () => void
@@ -42,6 +44,8 @@ interface TopBarProps {
   outlineVisible: boolean
   canToggleOutline: boolean
   onToggleOutline: () => void
+  explorerVisible: boolean
+  onToggleExplorer: () => void
   splitView: boolean
   canToggleSplit: boolean
   /** False when the workspace is too narrow for two panes, which changes the tooltip. */
@@ -147,6 +151,11 @@ export const TopBar = memo(function TopBar(props: TopBarProps): JSX.Element {
             <button className="filegroup__btn" onClick={props.onOpen} title={t('toolbar.open')}>
               <IconOpen width={15} height={15} />
               {t('toolbar.open')}
+            </button>
+
+            <button className="filegroup__btn" onClick={props.onOpenFolder} title={t('toolbar.openFolder')}>
+              <IconFolderOpen width={15} height={15} />
+              {t('toolbar.openFolder')}
             </button>
 
             <button
@@ -309,6 +318,17 @@ export const TopBar = memo(function TopBar(props: TopBarProps): JSX.Element {
         </div>
 
         <div className="topbar__right">
+          <button
+            className={`iconbtn ${props.explorerVisible ? 'iconbtn--active' : ''}`}
+            type="button"
+            onClick={props.onToggleExplorer}
+            title={props.explorerVisible ? t('toolbar.hideExplorer') : t('toolbar.showExplorer')}
+            aria-label={props.explorerVisible ? t('toolbar.hideExplorer') : t('toolbar.showExplorer')}
+            aria-pressed={props.explorerVisible}
+          >
+            <IconExplorer />
+          </button>
+
           <button
             className={`iconbtn ${props.outlineVisible && props.canToggleOutline ? 'iconbtn--active' : ''}`}
             type="button"

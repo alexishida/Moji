@@ -267,3 +267,35 @@ export const IconSplitPreview = (p: IconProps): JSX.Element => (
     <path d="M15 9.5h3M15 12h3M15 14.5h2" />
   </svg>
 )
+
+/** Closed folder — explorer sidebar folders. */
+export const IconFolder = (p: IconProps): JSX.Element => (
+  <svg {...base} {...p}>
+    <path d="M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.93a2 2 0 0 1-1.66-.9l-.82-1.2A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13c0 1.1.9 2 2 2Z" />
+  </svg>
+)
+
+/** Folder with a plus — adds a folder to the explorer. */
+export const IconFolderPlus = (p: IconProps): JSX.Element => (
+  <svg {...base} {...p}>
+    <path d="M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.93a2 2 0 0 1-1.66-.9l-.82-1.2A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13c0 1.1.9 2 2 2Z" />
+    <path d="M12 10v6M9 13h6" />
+  </svg>
+)
+
+/** Panel with a file-tree column — toggles the explorer, matching `IconSidebar`'s frame. */
+export const IconExplorer = (p: IconProps): JSX.Element => (
+  <svg {...base} {...p}>
+    <rect x="3" y="4" width="18" height="16" rx="2" />
+    <path d="M10 4v16" />
+    <path d="M5.5 8h2M5.5 11.5h2M5.5 15h2" />
+  </svg>
+)
+
+/** Open folder outline — "Open Folder" action, sibling of `IconOpen`. */
+export const IconFolderOpen = (p: IconProps): JSX.Element => (
+  <svg {...base} {...p}>
+    <path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v1" />
+    <path d="M3 7v11a2 2 0 0 0 2 2h12.5a2 2 0 0 0 1.94-1.5L21.5 12H7.2a2 2 0 0 0-1.9 1.4L3 20" />
+  </svg>
+)

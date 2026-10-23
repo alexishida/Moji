@@ -15,6 +15,7 @@
   },
   "toolbar": {
     "open": "Abrir",
+    "openFolder": "Abrir Pasta",
     "preview": "Visualizar",
     "editor": "Editar",
     "viewMode": "Modo de exibição",
@@ -43,6 +44,8 @@
     "hideOutline": "Ocultar sumário",
     "showLivePreview": "Mostrar visualização ao vivo",
     "hideLivePreview": "Ocultar visualização ao vivo",
+    "showExplorer": "Mostrar explorador",
+    "hideExplorer": "Ocultar explorador",
     "livePreviewTooNarrow": "Espaço insuficiente para a visualização ao vivo",
     "resizeSplit": "Redimensionar os painéis",
     "settings": "Configurações",
@@ -57,6 +60,31 @@
     "collapseAll": "Recolher tudo",
     "noHeadings": "Nenhum título ainda. Adicione um título para montar o sumário.",
     "noDocument": "Abra ou crie um documento para ver o sumário."
+  },
+  "explorer": {
+    "title": "Explorador",
+    "newFile": "Novo arquivo",
+    "newFileIn": "Novo arquivo em {{name}}",
+    "rename": "Renomear",
+    "renameNamed": "Renomear {{name}}",
+    "open": "Abrir",
+    "fileName": "Nome do arquivo",
+    "errors": {
+      "exists": "Já existe um arquivo com esse nome aqui.",
+      "invalidName": "Digite um nome de arquivo válido.",
+      "forbidden": "Este local não está em uma pasta do explorador.",
+      "failed": "Não foi possível concluir: {{error}}"
+    },
+    "addFolder": "Adicionar pasta",
+    "openFolder": "Abrir Pasta",
+    "refresh": "Atualizar",
+    "removeFolder": "Remover pasta do explorador",
+    "empty": "Carregue uma pasta para navegar pelos arquivos Markdown.",
+    "loading": "Carregando…",
+    "unavailable": "Não foi possível ler esta pasta.",
+    "noMarkdown": "Nenhum arquivo Markdown nesta pasta.",
+    "truncated": "Mostrando os primeiros {{count}} arquivos.",
+    "fileUnavailable": "o arquivo não está mais em uma pasta do explorador"
   },
   "statusbar": {
     "brand": "Moji v{{version}}",
@@ -105,6 +133,7 @@
     "tagline": "Um leitor de Markdown leve e simples",
     "title": "Moji v{{version}}",
     "openButton": "Abrir arquivo",
+    "openFolderButton": "Abrir Pasta",
     "newButton": "Novo Arquivo",
     "dropHint": "ou arraste um arquivo .md para esta janela",
     "recent": {
@@ -158,6 +187,7 @@
     "shortcutActions": {
       "newDocument": "Novo documento",
       "open": "Abrir arquivo",
+      "openFolder": "Abrir pasta",
       "save": "Salvar",
       "saveAs": "Salvar como",
       "closeTab": "Fechar aba atual",
@@ -168,6 +198,7 @@
       "findPrevious": "Ocorrência anterior",
       "toggleEdit": "Alternar editor/visualização",
       "toggleSplit": "Alternar visualização ao vivo",
+      "toggleExplorer": "Alternar explorador",
       "export": "Exportar",
       "settings": "Configurações",
       "fullscreen": "Tela cheia",

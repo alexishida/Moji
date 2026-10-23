@@ -15,6 +15,7 @@
   },
   "toolbar": {
     "open": "Abrir",
+    "openFolder": "Abrir Carpeta",
     "preview": "Vista previa",
     "editor": "Editor",
     "viewMode": "Modo de vista",
@@ -43,6 +44,8 @@
     "hideOutline": "Ocultar índice",
     "showLivePreview": "Mostrar vista previa en vivo",
     "hideLivePreview": "Ocultar vista previa en vivo",
+    "showExplorer": "Mostrar explorador",
+    "hideExplorer": "Ocultar explorador",
     "livePreviewTooNarrow": "No hay espacio suficiente para la vista previa en vivo",
     "resizeSplit": "Redimensionar los paneles",
     "settings": "Ajustes",
@@ -57,6 +60,31 @@
     "collapseAll": "Contraer todo",
     "noHeadings": "Aún no hay encabezados. Agrega un encabezado para crear el esquema.",
     "noDocument": "Abre o crea un documento para ver su esquema."
+  },
+  "explorer": {
+    "title": "Explorador",
+    "newFile": "Nuevo archivo",
+    "newFileIn": "Nuevo archivo en {{name}}",
+    "rename": "Cambiar nombre",
+    "renameNamed": "Cambiar nombre de {{name}}",
+    "open": "Abrir",
+    "fileName": "Nombre del archivo",
+    "errors": {
+      "exists": "Ya existe un archivo con este nombre aquí.",
+      "invalidName": "Escribe un nombre de archivo válido.",
+      "forbidden": "Esta ubicación no está en una carpeta del explorador.",
+      "failed": "No se pudo completar: {{error}}"
+    },
+    "addFolder": "Añadir carpeta",
+    "openFolder": "Abrir Carpeta",
+    "refresh": "Actualizar",
+    "removeFolder": "Quitar carpeta del explorador",
+    "empty": "Carga una carpeta para explorar sus archivos Markdown.",
+    "loading": "Cargando…",
+    "unavailable": "No se pudo leer esta carpeta.",
+    "noMarkdown": "No hay archivos Markdown en esta carpeta.",
+    "truncated": "Mostrando los primeros {{count}} archivos.",
+    "fileUnavailable": "el archivo ya no está en una carpeta del explorador"
   },
   "statusbar": {
     "brand": "Moji v{{version}}",
@@ -105,6 +133,7 @@
     "tagline": "Un lector de Markdown ligero y sencillo",
     "title": "Moji v{{version}}",
     "openButton": "Abrir archivo",
+    "openFolderButton": "Abrir Carpeta",
     "newButton": "Nuevo archivo",
     "dropHint": "o suelta un archivo .md en cualquier parte de esta ventana",
     "recent": {
@@ -158,6 +187,7 @@
     "shortcutActions": {
       "newDocument": "Nuevo documento",
       "open": "Abrir archivo",
+      "openFolder": "Abrir carpeta",
       "save": "Guardar",
       "saveAs": "Guardar como",
       "closeTab": "Cerrar pestaña actual",
@@ -168,6 +198,7 @@
       "findPrevious": "Coincidencia anterior",
       "toggleEdit": "Alternar editor/vista previa",
       "toggleSplit": "Alternar vista previa en vivo",
+      "toggleExplorer": "Alternar explorador",
       "export": "Exportar",
       "settings": "Ajustes",
       "fullscreen": "Pantalla completa",

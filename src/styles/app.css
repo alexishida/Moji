@@ -426,6 +426,21 @@ body {
   min-height: 0;
 }
 
+/* Everything the explorer drives: document tabs on top, then outline + workspace. */
+.workarea {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+}
+
+.workarea__body {
+  flex: 1 1 auto;
+  display: flex;
+  min-height: 0;
+}
+
 .sidebar {
   width: var(--sidebar-w);
   flex: 0 0 auto;
@@ -670,6 +685,296 @@ body {
   color: var(--text-muted);
 }
 
+/* --- Explorer sidebar ---------------------------------------------------- */
+/* The explorer is the outermost column of the body: it runs from the top bar to the status bar,
+   and the document tabs, outline and workspace all sit inside `.workarea` to its right. Its
+   header shares the tab strip's height and chrome so both read as one continuous band. */
+.explorer {
+  width: var(--explorer-w);
+}
+
+.explorer__head {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  height: var(--tabstrip-h);
+  padding: 0 var(--space-2) 0 var(--space-4);
+  background: var(--chrome-bg);
+  border-bottom: 1px solid var(--border);
+}
+
+.explorer__title {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.explorer__actions {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.explorer__body {
+  padding-top: var(--space-2);
+}
+
+.outline-head__toggle:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.outline-head__toggle:disabled:hover {
+  color: var(--text-muted);
+  background: none;
+}
+
+.explorer__refresh--busy svg {
+  animation: explorer-spin 0.9s linear infinite;
+}
+
+@keyframes explorer-spin {
+  to { transform: rotate(360deg); }
+}
+
+.explorer__empty {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-3);
+  padding-top: var(--space-2);
+}
+
+.explorer__empty .outline__empty {
+  padding: 0 var(--space-2);
+}
+
+.explorer__add {
+  margin-left: var(--space-2);
+}
+
+.explorer-roots,
+.explorer-tree {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.explorer-root + .explorer-root {
+  margin-top: var(--space-2);
+}
+
+.explorer-root__row {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.explorer-item {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  width: 100%;
+  min-width: 0;
+  height: 26px;
+  padding: 0 var(--space-2) 0 4px;
+  font-family: inherit;
+  font-size: 13px;
+  text-align: left;
+  color: var(--text-muted);
+  background: none;
+  border: none;
+  border-radius: var(--radius-sm);
+  box-shadow: inset 2px 0 0 transparent;
+  cursor: pointer;
+  transition: background 0.12s, color 0.12s, box-shadow 0.12s;
+}
+
+.explorer-item:hover {
+  color: var(--text);
+  background: var(--nav-hover-bg);
+}
+
+.explorer-item:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
+.explorer-item--root {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  color: var(--text);
+}
+
+.explorer-item--active {
+  color: var(--nav-active-text);
+  background: var(--nav-active-bg);
+  box-shadow: inset 2px 0 0 var(--accent);
+}
+
+.explorer-item--active:hover {
+  color: var(--nav-active-text);
+  background: var(--nav-active-bg);
+}
+
+.explorer-item__chevron {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+}
+
+.explorer-item__chevron svg {
+  transition: transform 0.15s ease;
+}
+
+.explorer-item__chevron--open svg {
+  transform: rotate(90deg);
+}
+
+.explorer-item__icon {
+  flex: 0 0 auto;
+  margin-right: var(--space-1);
+  opacity: 0.85;
+}
+
+.explorer-item__name {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.explorer-root__actions {
+  position: absolute;
+  right: 2px;
+  display: flex;
+  gap: 1px;
+}
+
+/* Row actions (new file, rename, remove) stay out of the way until the row is hovered/focused. */
+.explorer-item__action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  color: var(--text-muted);
+  background: none;
+  border: none;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.12s, background 0.12s, color 0.12s;
+}
+
+.explorer-root__row:hover .explorer-item__action,
+.explorer-file:hover .explorer-item__action,
+.explorer-item__action:focus-visible {
+  opacity: 1;
+}
+
+.explorer-item__action:hover {
+  color: var(--text);
+  background: var(--bg-inset);
+}
+
+.explorer-item__action:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
+.explorer-file {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.explorer-file > .explorer-item__action {
+  position: absolute;
+  right: 2px;
+}
+
+.explorer-file:hover > .explorer-item--file {
+  padding-right: 28px;
+}
+
+.explorer-root__row:hover > .explorer-item--root {
+  padding-right: 52px;
+}
+
+/* Folder that "New file" targets: a faint tint, quieter than the active document. */
+.explorer-item--selected {
+  background: var(--nav-hover-bg);
+}
+
+.explorer-input {
+  list-style: none;
+  padding-right: var(--space-1);
+}
+
+.explorer-input__row {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  height: 26px;
+}
+
+.explorer-input__field {
+  flex: 1 1 auto;
+  min-width: 0;
+  height: 22px;
+  padding: 0 var(--space-1);
+  font-family: inherit;
+  font-size: 13px;
+  color: var(--text);
+  background: var(--bg-inset);
+  border: 1px solid var(--accent);
+  border-radius: var(--radius-sm);
+  outline: none;
+}
+
+.explorer-input__field--error {
+  border-color: var(--danger);
+}
+
+.explorer-input__error {
+  margin: 2px 0 var(--space-1) 36px;
+  padding: 4px var(--space-2);
+  font-size: 12px;
+  line-height: 1.35;
+  color: var(--text);
+  background: var(--bg-elevated);
+  border: 1px solid var(--danger);
+  border-radius: var(--radius-sm);
+}
+
+.explorer__status {
+  margin: var(--space-1) 0;
+  padding-left: 24px;
+}
+
+.explorer__status--error {
+  color: var(--danger);
+}
+
 /* --- Main area ----------------------------------------------------------- */
 .main {
   flex: 1 1 auto;
@@ -768,7 +1073,7 @@ body {
 /* --- Document tabs ------------------------------------------------------- */
 .document-tabs {
   display: flex;
-  height: 35px;
+  height: var(--tabstrip-h);
   flex: 0 0 auto;
   min-width: 0;
   overflow-x: auto;

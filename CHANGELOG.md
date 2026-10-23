@@ -4,6 +4,14 @@ All notable changes to this project will be documented in this file.
 
 Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [Unreleased]
+
+### Added
+
+- Explorer that lists the Markdown files (`.md`, `.markdown`) of one or more loaded folders as a collapsible tree. It is the outermost column of the window: document tabs, outline, and workspace sit to its right, and its header shares the tab strip's height. Folders are added with a new *Open Folder* button beside New / Open / Save (also on the Welcome screen and Ctrl+Shift+O), persist in settings, refresh on window focus or on demand, and can be removed individually. Clicking a file opens it in a tab, and the active document is revealed and highlighted.
+- New Markdown files can be created from the explorer (header button, per-folder button, or right-click) and are named inline before opening in the editor; existing files can be renamed inline with the pencil button, F2, or the context menu. Names that already exist are reported in place and nothing is overwritten; open tabs and recent files follow a rename.
+- The explorer is shown or hidden from a top-bar button grouped with the outline and split toggles, or with Ctrl+Shift+B, and the choice persists.
+
 ## [1.0.7] - 2026-09-09
 
 ### Added

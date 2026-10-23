@@ -22,6 +22,8 @@ function capabilityPath(filePath: string): string {
 export class FileCapabilities {
   private readonly files = new Set<string>()
   private readonly assetDirectories = new Set<string>()
+  /** Folders the user loaded into the explorer: Markdown files below them may be opened. */
+  private readonly folderRoots = new Map<string, string>()
 
   /**
    * Record a path the user chose, and return it resolved.
@@ -47,6 +49,33 @@ export class FileCapabilities {
     const resolved = resolve(filePath)
     this.assetDirectories.add(dirname(resolved))
     return resolved
+  }
+
+  /**
+   * Record a folder the user picked for the explorer, and return it resolved.
+   *
+   * This does not authorise any file by itself: each file still earns its own grant when the
+   * user opens it from the explorer, after `explorer.ts` confirms it lives inside the folder.
+   */
+  grantFolder(folderPath: string): string {
+    const resolved = resolve(folderPath)
+    this.folderRoots.set(capabilityPath(folderPath), resolved)
+    return resolved
+  }
+
+  /** Stops listing a folder. Files already opened from it keep their own grants. */
+  revokeFolder(folderPath: string): void {
+    this.folderRoots.delete(capabilityPath(folderPath))
+  }
+
+  /** True when this exact folder was loaded into the explorer. */
+  allowsFolder(folderPath: unknown): folderPath is string {
+    return typeof folderPath === 'string' && this.folderRoots.has(capabilityPath(folderPath))
+  }
+
+  /** Explorer folders, for `resolveExplorerFile`. */
+  get folders(): Iterable<string> {
+    return this.folderRoots.values()
   }
 
   /** True when this exact file was granted. Symlinks are resolved by the caller. */
@@ -82,5 +111,6 @@ export class FileCapabilities {
   clear(): void {
     this.files.clear()
     this.assetDirectories.clear()
+    this.folderRoots.clear()
   }
 }

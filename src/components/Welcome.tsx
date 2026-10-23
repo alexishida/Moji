@@ -1,9 +1,10 @@
 import { useTranslation } from 'react-i18next'
-import { IconFilePlus, IconFileText, IconOpen, IconX } from './icons'
+import { IconFilePlus, IconFileText, IconFolderOpen, IconOpen, IconX } from './icons'
 import logoMark from '../assets/logo-mark-light.png'
 
 interface WelcomeProps {
   onOpen: () => void
+  onOpenFolder: () => void
   onNew: () => void
   recentFiles: string[]
   onOpenRecent: (path: string) => void
@@ -18,7 +19,7 @@ function dirName(path: string): string {
   return path.slice(0, Math.max(0, path.length - fileName(path).length - 1))
 }
 
-export function Welcome({ onOpen, onNew, recentFiles, onOpenRecent, onForgetRecent }: WelcomeProps): JSX.Element {
+export function Welcome({ onOpen, onOpenFolder, onNew, recentFiles, onOpenRecent, onForgetRecent }: WelcomeProps): JSX.Element {
   const { t } = useTranslation()
   return (
     <div className="pane">
@@ -30,6 +31,10 @@ export function Welcome({ onOpen, onNew, recentFiles, onOpenRecent, onForgetRece
           <button className="btn btn--primary" onClick={onOpen}>
             <IconOpen width={16} height={16} />
             {t('welcome.openButton')}
+          </button>
+          <button className="btn" onClick={onOpenFolder}>
+            <IconFolderOpen width={16} height={16} />
+            {t('welcome.openFolderButton')}
           </button>
           <button className="btn" onClick={onNew}>
             <IconFilePlus width={16} height={16} />

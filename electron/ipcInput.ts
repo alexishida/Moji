@@ -49,6 +49,9 @@ export function sanitizeSettingsPatch(value: unknown): Partial<Settings> {
   if (typeof raw['splitRatio'] === 'number') patch.splitRatio = raw['splitRatio']
   if (typeof raw['previewWidth'] === 'number') patch.previewWidth = raw['previewWidth']
   if (typeof raw['autoSave'] === 'boolean') patch.autoSave = raw['autoSave']
+  if (typeof raw['explorerVisible'] === 'boolean') patch.explorerVisible = raw['explorerVisible']
+  // `explorerFolders` is deliberately not accepted here: folders are granted on restart, so only
+  // the main process (after the user picks one in the native dialog) may add to that list.
   if (Array.isArray(raw['recentFiles'])) patch.recentFiles = raw['recentFiles'].filter((p): p is string => typeof p === 'string')
   if (isWindowBounds(raw['windowBounds'])) patch.windowBounds = raw['windowBounds']
 

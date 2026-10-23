@@ -15,6 +15,7 @@
   },
   "toolbar": {
     "open": "開啟",
+    "openFolder": "開啟資料夾",
     "preview": "預覽",
     "editor": "編輯器",
     "viewMode": "檢視模式",
@@ -43,6 +44,8 @@
     "hideOutline": "隱藏大綱",
     "showLivePreview": "顯示即時預覽",
     "hideLivePreview": "隱藏即時預覽",
+    "showExplorer": "顯示檔案總管",
+    "hideExplorer": "隱藏檔案總管",
     "livePreviewTooNarrow": "空間不足，無法顯示即時預覽",
     "resizeSplit": "調整窗格大小",
     "settings": "設定",
@@ -57,6 +60,31 @@
     "collapseAll": "全部摺疊",
     "noHeadings": "尚無標題。新增標題以建立大綱。",
     "noDocument": "開啟或建立文件以檢視其大綱。"
+  },
+  "explorer": {
+    "title": "檔案總管",
+    "newFile": "新增檔案",
+    "newFileIn": "在 {{name}} 中新增檔案",
+    "rename": "重新命名",
+    "renameNamed": "重新命名 {{name}}",
+    "open": "開啟",
+    "fileName": "檔案名稱",
+    "errors": {
+      "exists": "此處已有同名檔案。",
+      "invalidName": "請輸入有效的檔案名稱。",
+      "forbidden": "此位置不在檔案總管的資料夾中。",
+      "failed": "無法完成：{{error}}"
+    },
+    "addFolder": "新增資料夾",
+    "openFolder": "開啟資料夾",
+    "refresh": "重新整理",
+    "removeFolder": "從檔案總管移除資料夾",
+    "empty": "載入資料夾以瀏覽其中的 Markdown 檔案。",
+    "loading": "載入中…",
+    "unavailable": "無法讀取此資料夾。",
+    "noMarkdown": "此資料夾中沒有 Markdown 檔案。",
+    "truncated": "僅顯示前 {{count}} 個檔案。",
+    "fileUnavailable": "該檔案已不在檔案總管的資料夾中"
   },
   "statusbar": {
     "brand": "Moji v{{version}}",
@@ -105,6 +133,7 @@
     "tagline": "輕量簡潔的 Markdown 閱讀器",
     "title": "Moji v{{version}}",
     "openButton": "開啟檔案",
+    "openFolderButton": "開啟資料夾",
     "newButton": "新增檔案",
     "dropHint": "或將 .md 檔案拖放至視窗任意位置",
     "recent": {
@@ -158,6 +187,7 @@
     "shortcutActions": {
       "newDocument": "新增文件",
       "open": "開啟檔案",
+      "openFolder": "開啟資料夾",
       "save": "儲存",
       "saveAs": "另存新檔",
       "closeTab": "關閉目前分頁",
@@ -168,6 +198,7 @@
       "findPrevious": "上一個符合項目",
       "toggleEdit": "切換編輯器／預覽",
       "toggleSplit": "切換即時預覽",
+      "toggleExplorer": "切換檔案總管",
       "export": "匯出",
       "settings": "設定",
       "fullscreen": "全螢幕",

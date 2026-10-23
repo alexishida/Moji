@@ -2,6 +2,7 @@ import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } fro
 import { useTranslation } from 'react-i18next'
 import { TopBar } from './components/TopBar'
 import { Sidebar } from './components/Sidebar'
+import { Explorer } from './components/Explorer'
 import { StatusBar } from './components/StatusBar'
 import { Preview } from './components/Preview'
 import { Welcome } from './components/Welcome'
@@ -180,6 +181,11 @@ function baseName(path: string | null): string | null {
 
 function documentName(doc: Pick<DocumentState, 'path' | 'title'>, fallback: string): string {
   return baseName(doc.path) ?? doc.title ?? fallback
+}
+
+/** Paths compare case-insensitively on Windows drives and UNC shares, exactly elsewhere. */
+function explorerPathKey(path: string): string {
+  return /^[a-zA-Z]:[\\/]/.test(path) || path.startsWith('\\\\') ? path.toLowerCase() : path
 }
 
 function markdownFileName(name: string): string {
@@ -404,7 +410,8 @@ export function App(): JSX.Element {
     canToggleSplit,
     splitView: settings.splitView,
     splitActive,
-    fontTarget
+    fontTarget,
+    explorerVisible: settings.explorerVisible
   })
   stateRef.current = {
     documents,
@@ -423,7 +430,8 @@ export function App(): JSX.Element {
     canToggleSplit,
     splitView: settings.splitView,
     splitActive,
-    fontTarget
+    fontTarget,
+    explorerVisible: settings.explorerVisible
   }
 
   const flash = useCallback((text: string, error = false) => {
@@ -1446,6 +1454,69 @@ export function App(): JSX.Element {
     [i18n]
   )
 
+  // --- Explorer sidebar ---------------------------------------------------
+  // Settings round-trip through IPC on every change and come back as fresh arrays; key the
+  // folder list by content so the explorer only rescans when the folders actually change.
+  const explorerFoldersKey = settings.explorerFolders.join('\n')
+  const explorerFolders = useMemo(() => (explorerFoldersKey ? explorerFoldersKey.split('\n') : []), [explorerFoldersKey])
+
+  const toggleExplorer = useCallback(() => {
+    changeSettings({ explorerVisible: !stateRef.current.explorerVisible })
+  }, [changeSettings])
+
+  const addExplorerFolder = useCallback(async () => {
+    const res = await window.api.explorerPickFolder()
+    if (!res.ok) {
+      if (!res.canceled) flash(t('notice.openFailed', { error: friendlyErrorMessage(res.error ?? '', t) }), true)
+      return
+    }
+    // Main persisted the folder; pull the list back instead of guessing its cap/order here.
+    const next = await window.api.getSettings()
+    setSettings((prev) => ({ ...prev, explorerFolders: next.explorerFolders, lastDialogDirectory: next.lastDialogDirectory }))
+    if (!stateRef.current.explorerVisible) changeSettings({ explorerVisible: true })
+  }, [changeSettings, flash, t])
+
+  const removeExplorerFolder = useCallback(async (path: string) => {
+    const folders = await window.api.explorerRemoveFolder(path)
+    setSettings((prev) => ({ ...prev, explorerFolders: folders }))
+  }, [])
+
+  const openExplorerFile = useCallback(async (path: string) => {
+    const authorized = await window.api.explorerAuthorizeFile(path)
+    if (!authorized) {
+      flash(t('notice.openFailed', { error: t('explorer.fileUnavailable') }), true)
+      return
+    }
+    await openPaths([authorized])
+  }, [flash, openPaths, t])
+
+  /** Creates an empty Markdown file in an explorer folder and opens it in the editor. */
+  const createExplorerFile = useCallback(async (directory: string, name: string): Promise<string | null> => {
+    const res = await window.api.explorerCreateFile(directory, name)
+    if (!res.ok) return res.error
+    const opened = await window.api.readPath(res.path)
+    if (!opened.ok) {
+      flash(t('notice.openFailed', { error: friendlyErrorMessage(opened.error ?? '', t) }), true)
+      return null
+    }
+    materializeEditorContent()
+    addDocuments([{ path: opened.path, content: opened.content, sizeProfile: opened.sizeProfile }], 'edit')
+    rememberRecent([opened.path])
+    return null
+  }, [addDocuments, flash, materializeEditorContent, rememberRecent, t])
+
+  /** Renames a file from the explorer and re-points any open tab and recent entry at the new name. */
+  const renameExplorerFile = useCallback(async (path: string, name: string): Promise<string | null> => {
+    const res = await window.api.explorerRenameFile(path, name)
+    if (!res.ok) return res.error
+    if (res.path !== path) {
+      const same = (candidate: string | null): boolean => candidate !== null && explorerPathKey(candidate) === explorerPathKey(path)
+      setDocuments((prev) => prev.map((doc) => (same(doc.path) ? { ...doc, path: res.path } : doc)))
+      setSettings((prev) => ({ ...prev, recentFiles: prev.recentFiles.map((entry) => (same(entry) ? res.path : entry)) }))
+    }
+    return null
+  }, [setDocuments, setSettings])
+
   const togglePreviewFluidWidth = useCallback(
     () => changeSettings({ previewFluidWidth: !settings.previewFluidWidth }),
     [changeSettings, settings.previewFluidWidth]
@@ -1787,6 +1858,11 @@ export function App(): JSX.Element {
         doNew()
         return
       }
+      if (key === 'o' && event.shiftKey) {
+        event.preventDefault()
+        void addExplorerFolder()
+        return
+      }
       if (key === 'o') {
         event.preventDefault()
         void doOpen()
@@ -1848,6 +1924,11 @@ export function App(): JSX.Element {
         toggleSplitView()
         return
       }
+      if (key === 'b' && event.shiftKey) {
+        event.preventDefault()
+        toggleExplorer()
+        return
+      }
       if (key === ',') {
         event.preventDefault()
         openSettings()
@@ -1880,6 +1961,7 @@ export function App(): JSX.Element {
     return () => window.removeEventListener('keydown', onKeyDown)
   }, [
     activeFontSize,
+    addExplorerFolder,
     changeFontSize,
     closeActivePanel,
     closeDocument,
@@ -1898,6 +1980,7 @@ export function App(): JSX.Element {
     defaultFontSize,
     selectAdjacentDocument,
     t,
+    toggleExplorer,
     toggleFullscreen,
     toggleMode,
     toggleSplitView
@@ -2021,6 +2104,7 @@ export function App(): JSX.Element {
         theme={mdTheme}
         onSetMode={setModeSafe}
         onOpen={doOpen}
+        onOpenFolder={addExplorerFolder}
         onNew={doNew}
         onSave={doSave}
         onSearch={doSearch}
@@ -2042,6 +2126,8 @@ export function App(): JSX.Element {
         outlineVisible={outlineVisible}
         canToggleOutline={canToggleOutline()}
         onToggleOutline={toggleOutline}
+        explorerVisible={settings.explorerVisible}
+        onToggleExplorer={toggleExplorer}
         splitView={settings.splitView}
         canToggleSplit={canToggleSplit}
         splitFits={splitFits}
@@ -2055,105 +2141,122 @@ export function App(): JSX.Element {
         dismissRequest={topBarDismissRequest}
       />
 
-      {hasDoc && (
-        <DocumentTabs
-          tabs={tabs}
-          activeId={activeDocId}
-          onSelect={selectDocument}
-          onClose={closeDocumentFromTab}
-          onCloseOthers={closeOtherDocuments}
-          onCloseToRight={closeDocumentsToRight}
-          onCloseSaved={closeSavedDocuments}
-          onCloseAll={closeAllDocuments}
-        />
-      )}
-
       <div className="body">
-        {hasDoc && !exportDialogFormat && !settingsOpen && !aboutOpen && outlineVisible && (
-          <Sidebar
-            hasDoc={hasDoc}
-            outline={outline}
-            activeId={activeHeadingId}
-            showOutline={!exportDialogFormat}
-            onSelectHeading={scrollToHeading}
+        {settings.explorerVisible && (
+          <Explorer
+            folders={explorerFolders}
+            activePath={activeDoc?.path ?? null}
+            onAddFolder={addExplorerFolder}
+            onRemoveFolder={removeExplorerFolder}
+            onOpenFile={openExplorerFile}
+            onCreateFile={createExplorerFile}
+            onRenameFile={renameExplorerFile}
           />
         )}
 
-        <main className="main" ref={mainRef}>
-          <div className="workspace">
-            {settingsOpen ? (
-              <div className="export-workspace export-workspace--settings">
-                <SettingsDialog
-                  settings={settings}
-                  onClose={() => setSettingsOpen(false)}
-                  onChange={changeSettings}
-                />
-              </div>
-            ) : aboutOpen ? (
-              <div className="export-workspace">
-                <AboutDialog
-                  version={packageJson.version}
-                  updateState={updateState}
-                  onClose={() => setAboutOpen(false)}
-                  onCheckForUpdates={checkForUpdate}
-                />
-              </div>
-            ) : !hasDoc ? (
-              <Welcome
-                onOpen={() => void doOpen()}
-                onNew={doNew}
-                recentFiles={settings.recentFiles}
-                onOpenRecent={openRecent}
-                onForgetRecent={(path) => forgetRecent([path])}
-              />
-            ) : exportDialogFormat ? (
-              <div className="export-workspace">
-                <Suspense fallback={null}>
-                  <ExportDialog
-                    initialFormat={exportDialogFormat}
-                    onCancel={() => setExportDialogFormat(null)}
-                    onExport={confirmExport}
-                  />
-                </Suspense>
-              </div>
-            ) : (
-              <SplitView
-                split={mode === 'edit' && splitActive}
-                viewOnly={mode === 'view'}
-                ratio={settings.splitRatio}
-                onRatioChange={changeSplitRatio}
-                onFocusPane={setSplitFocus}
-                onScrollIntent={onSplitScrollIntent}
-                editor={
-                  <Suspense fallback={null}>
-                    <Editor
-                      ref={editorRef}
-                      documentId={activeDoc.id}
-                      documentIds={documentIds}
-                      value={content}
-                      readOnly={activeDoc.readOnly}
-                      theme={'dark'}
-                      fontSize={settings.editorFontSize}
-                      searchTerm={debouncedSearchTerm}
-                      activeSearchIndex={activeSearchIndex}
-                      highlightActive={activeSearchIndex !== null}
-                      headingToReveal={editorHeadingRequest}
-                      outlineVisible={outlineVisible}
-                      onSearchMatchCountChange={setEditorSearchMatchCount}
-                      onChange={updateActiveRevision}
-                      onEdits={recordEditorEdits}
-                      onIdleStatsChange={updateIdleStats}
-                      onOutlineChange={updateEditorOutline}
-                      onBlur={() => void persistDraftDocument(activeDoc.id)}
-                      onVisibleLineChange={onEditorVisibleLineChange}
-                    />
-                  </Suspense>
-                }
-                preview={previewPane}
+        <div className="workarea">
+          {hasDoc && (
+            <DocumentTabs
+              tabs={tabs}
+              activeId={activeDocId}
+              onSelect={selectDocument}
+              onClose={closeDocumentFromTab}
+              onCloseOthers={closeOtherDocuments}
+              onCloseToRight={closeDocumentsToRight}
+              onCloseSaved={closeSavedDocuments}
+              onCloseAll={closeAllDocuments}
+            />
+          )}
+
+          <div className="workarea__body">
+            {hasDoc && !exportDialogFormat && !settingsOpen && !aboutOpen && outlineVisible && (
+              <Sidebar
+                hasDoc={hasDoc}
+                outline={outline}
+                activeId={activeHeadingId}
+                showOutline={!exportDialogFormat}
+                onSelectHeading={scrollToHeading}
               />
             )}
+
+            <main className="main" ref={mainRef}>
+              <div className="workspace">
+                {settingsOpen ? (
+                  <div className="export-workspace export-workspace--settings">
+                    <SettingsDialog
+                      settings={settings}
+                      onClose={() => setSettingsOpen(false)}
+                      onChange={changeSettings}
+                    />
+                  </div>
+                ) : aboutOpen ? (
+                  <div className="export-workspace">
+                    <AboutDialog
+                      version={packageJson.version}
+                      updateState={updateState}
+                      onClose={() => setAboutOpen(false)}
+                      onCheckForUpdates={checkForUpdate}
+                    />
+                  </div>
+                ) : !hasDoc ? (
+                  <Welcome
+                    onOpen={() => void doOpen()}
+                    onOpenFolder={() => void addExplorerFolder()}
+                    onNew={doNew}
+                    recentFiles={settings.recentFiles}
+                    onOpenRecent={openRecent}
+                    onForgetRecent={(path) => forgetRecent([path])}
+                  />
+                ) : exportDialogFormat ? (
+                  <div className="export-workspace">
+                    <Suspense fallback={null}>
+                      <ExportDialog
+                        initialFormat={exportDialogFormat}
+                        onCancel={() => setExportDialogFormat(null)}
+                        onExport={confirmExport}
+                      />
+                    </Suspense>
+                  </div>
+                ) : (
+                  <SplitView
+                    split={mode === 'edit' && splitActive}
+                    viewOnly={mode === 'view'}
+                    ratio={settings.splitRatio}
+                    onRatioChange={changeSplitRatio}
+                    onFocusPane={setSplitFocus}
+                    onScrollIntent={onSplitScrollIntent}
+                    editor={
+                      <Suspense fallback={null}>
+                        <Editor
+                          ref={editorRef}
+                          documentId={activeDoc.id}
+                          documentIds={documentIds}
+                          value={content}
+                          readOnly={activeDoc.readOnly}
+                          theme={'dark'}
+                          fontSize={settings.editorFontSize}
+                          searchTerm={debouncedSearchTerm}
+                          activeSearchIndex={activeSearchIndex}
+                          highlightActive={activeSearchIndex !== null}
+                          headingToReveal={editorHeadingRequest}
+                          outlineVisible={outlineVisible}
+                          onSearchMatchCountChange={setEditorSearchMatchCount}
+                          onChange={updateActiveRevision}
+                          onEdits={recordEditorEdits}
+                          onIdleStatsChange={updateIdleStats}
+                          onOutlineChange={updateEditorOutline}
+                          onBlur={() => void persistDraftDocument(activeDoc.id)}
+                          onVisibleLineChange={onEditorVisibleLineChange}
+                        />
+                      </Suspense>
+                    }
+                    preview={previewPane}
+                  />
+                )}
+              </div>
+            </main>
           </div>
-        </main>
+        </div>
       </div>
 
       <StatusBar hasDoc={hasDoc} stats={stats} onGuide={doGuide} />

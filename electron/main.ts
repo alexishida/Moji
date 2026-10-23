@@ -6,6 +6,7 @@ import { dirname, isAbsolute, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import {
   IPC,
+  MAX_EXPLORER_FOLDERS,
   type AutoSaveDraft,
   type DocumentMetadata,
   type DocumentSizeProfile,
@@ -13,6 +14,9 @@ import {
   type DraftAppendResult,
   type DraftPersistProblem,
   type DraftResult,
+  type ExplorerFileResult,
+  type ExplorerFolderResult,
+  type ExplorerScanResult,
   type OpenDialogResult,
   type OpenResult,
   type Settings,
@@ -31,6 +35,7 @@ import { cancelExport, exportDiagramPng, exportDocument } from './export'
 import { benchmarkRequested, recordBenchmark } from './benchmark'
 import { createUpdateController, type UpdateController } from './updater'
 import { mapWithConcurrency } from './openPool'
+import { createExplorerFile, renameExplorerFile, resolveExplorerFile, scanExplorerFolder } from './explorer'
 import { readFileChunks } from './documentStream'
 import { stripLeadingBom } from './documentDecoder'
 import { AssetCache } from './assetCache'
@@ -571,6 +576,10 @@ function createWindow(): void {
   for (const filePath of getSettings().recentFiles) {
     if (isMarkdown(filePath)) grantDocument(filePath)
   }
+  // Explorer folders were each picked by the user in the native folder dialog.
+  for (const folderPath of getSettings().explorerFolders) {
+    capabilities.grantFolder(folderPath)
+  }
 
   const iconPath = app.isPackaged ? join(process.resourcesPath, 'icon.png') : join(app.getAppPath(), 'build', 'icon.png')
   mainWindow = new BrowserWindow({
@@ -804,6 +813,65 @@ function registerIpc(): void {
   handleFromRenderer(IPC.readSample, (_e, name: unknown): Promise<OpenResult> => {
     const path = samplePath(name)
     return path ? readDocument(path, undefined, false) : Promise.resolve({ ok: false, error: 'unsupported' })
+  })
+
+  handleFromRenderer(IPC.explorerPickFolder, async (): Promise<ExplorerFolderResult> => {
+    const options: Electron.OpenDialogOptions = {
+      properties: ['openDirectory'],
+      defaultPath: lastDialogDirectory()
+    }
+    const { canceled, filePaths } = mainWindow
+      ? await dialog.showOpenDialog(mainWindow, options)
+      : await dialog.showOpenDialog(options)
+    if (canceled || filePaths.length === 0) return { ok: false, canceled: true }
+    const folderPath = capabilities.grantFolder(filePaths[0])
+    updateSettings({ lastDialogDirectory: folderPath })
+    const current = getSettings().explorerFolders
+    if (!current.includes(folderPath)) {
+      // Oldest folder drops off once the list is full, mirroring the recent-files cap.
+      const next = [...current, folderPath]
+      updateSettings({ explorerFolders: next.slice(Math.max(0, next.length - MAX_EXPLORER_FOLDERS)) })
+    }
+    return { ok: true, path: folderPath }
+  })
+
+  handleFromRenderer(IPC.explorerScan, (_e, folderPath: unknown): Promise<ExplorerScanResult> => {
+    if (!capabilities.allowsFolder(folderPath)) {
+      return Promise.resolve({ ok: false, path: typeof folderPath === 'string' ? folderPath : '', error: 'forbidden' })
+    }
+    return scanExplorerFolder(folderPath)
+  })
+
+  handleFromRenderer(IPC.explorerAuthorizeFile, async (_e, filePath: unknown): Promise<string> => {
+    const resolved = await resolveExplorerFile(filePath, capabilities.folders)
+    if (!resolved) return ''
+    grantDocument(resolved)
+    return resolved
+  })
+
+  handleFromRenderer(IPC.explorerCreateFile, async (_e, directory: unknown, name: unknown): Promise<ExplorerFileResult> => {
+    const result = await createExplorerFile(directory, name, capabilities.folders)
+    if (result.ok) grantDocument(result.path)
+    return result
+  })
+
+  handleFromRenderer(IPC.explorerRenameFile, async (_e, filePath: unknown, name: unknown): Promise<ExplorerFileResult> => {
+    const result = await renameExplorerFile(filePath, name, capabilities.folders)
+    if (result.ok) {
+      grantDocument(result.path)
+      // Recent history must not keep pointing at a name that no longer exists.
+      const recent = getSettings().recentFiles
+      if (typeof filePath === 'string' && recent.includes(filePath)) {
+        updateSettings({ recentFiles: recent.map((path) => (path === filePath ? result.path : path)) })
+      }
+    }
+    return result
+  })
+
+  handleFromRenderer(IPC.explorerRemoveFolder, (_e, folderPath: unknown): string[] => {
+    if (typeof folderPath !== 'string') return getSettings().explorerFolders
+    capabilities.revokeFolder(folderPath)
+    return updateSettings({ explorerFolders: getSettings().explorerFolders.filter((path) => path !== folderPath) }).explorerFolders
   })
 
   handleFromRenderer(IPC.save, async (_e, filePath: unknown, content: unknown): Promise<WriteResult> => {

@@ -8,6 +8,9 @@ import {
   type DocumentStreamMessage,
   type DraftAppendResult,
   type DraftEditPayload,
+  type ExplorerFileResult,
+  type ExplorerFolderResult,
+  type ExplorerScanResult,
   type ExportProgress,
   type ExportRequest,
   type OpenDialogResult,
@@ -104,6 +107,20 @@ const api = {
   readPath: (filePath: string): Promise<OpenResult> => readDocumentStream(filePath),
   openLocalPath: (fileUrl: string): Promise<WriteResult> => ipcRenderer.invoke(IPC.openLocalPath, fileUrl),
   readSample: (sampleName: string): Promise<OpenResult> => ipcRenderer.invoke(IPC.readSample, sampleName),
+  /** Native folder picker; the chosen folder is persisted in `settings.explorerFolders`. */
+  explorerPickFolder: (): Promise<ExplorerFolderResult> => ipcRenderer.invoke(IPC.explorerPickFolder),
+  /** Markdown-only tree of a folder previously picked through `explorerPickFolder`. */
+  explorerScan: (folderPath: string): Promise<ExplorerScanResult> => ipcRenderer.invoke(IPC.explorerScan, folderPath),
+  /** Grants a Markdown file inside an explorer folder so `readPath` may stream it; '' when refused. */
+  explorerAuthorizeFile: (filePath: string): Promise<string> => ipcRenderer.invoke(IPC.explorerAuthorizeFile, filePath),
+  /** Creates an empty Markdown file named `name` inside an explorer folder (or one of its subfolders). */
+  explorerCreateFile: (directory: string, name: string): Promise<ExplorerFileResult> =>
+    ipcRenderer.invoke(IPC.explorerCreateFile, directory, name),
+  /** Renames a Markdown file inside an explorer folder, keeping it in the same directory. */
+  explorerRenameFile: (filePath: string, name: string): Promise<ExplorerFileResult> =>
+    ipcRenderer.invoke(IPC.explorerRenameFile, filePath, name),
+  /** Removes a folder from the explorer and returns the remaining list. */
+  explorerRemoveFolder: (folderPath: string): Promise<string[]> => ipcRenderer.invoke(IPC.explorerRemoveFolder, folderPath),
   save: (filePath: string, content: string): Promise<WriteResult> => ipcRenderer.invoke(IPC.save, filePath, content),
   saveAs: (content: string, suggestedName?: string): Promise<WriteResult> =>
     ipcRenderer.invoke(IPC.saveAs, content, suggestedName),

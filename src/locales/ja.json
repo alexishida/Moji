@@ -15,6 +15,7 @@
   },
   "toolbar": {
     "open": "開く",
+    "openFolder": "フォルダーを開く",
     "preview": "プレビュー",
     "editor": "エディター",
     "viewMode": "表示モード",
@@ -43,6 +44,8 @@
     "hideOutline": "目次を非表示",
     "showLivePreview": "ライブプレビューを表示",
     "hideLivePreview": "ライブプレビューを非表示",
+    "showExplorer": "エクスプローラーを表示",
+    "hideExplorer": "エクスプローラーを非表示",
     "livePreviewTooNarrow": "ライブプレビューを表示する幅が足りません",
     "resizeSplit": "ペインの幅を変更",
     "settings": "設定",
@@ -57,6 +60,31 @@
     "collapseAll": "すべて折りたたむ",
     "noHeadings": "見出しがまだありません。見出しを追加するとアウトラインが作成されます。",
     "noDocument": "ドキュメントを開くか新規作成するとアウトラインが表示されます。"
+  },
+  "explorer": {
+    "title": "エクスプローラー",
+    "newFile": "新しいファイル",
+    "newFileIn": "{{name}} に新しいファイル",
+    "rename": "名前の変更",
+    "renameNamed": "{{name}} の名前を変更",
+    "open": "開く",
+    "fileName": "ファイル名",
+    "errors": {
+      "exists": "同じ名前のファイルがすでにあります。",
+      "invalidName": "有効なファイル名を入力してください。",
+      "forbidden": "この場所はエクスプローラーのフォルダー内にありません。",
+      "failed": "完了できませんでした: {{error}}"
+    },
+    "addFolder": "フォルダーを追加",
+    "openFolder": "フォルダーを開く",
+    "refresh": "更新",
+    "removeFolder": "エクスプローラーからフォルダーを削除",
+    "empty": "フォルダーを読み込むと Markdown ファイルを一覧できます。",
+    "loading": "読み込み中…",
+    "unavailable": "このフォルダーを読み取れませんでした。",
+    "noMarkdown": "このフォルダーに Markdown ファイルはありません。",
+    "truncated": "最初の {{count}} 件のファイルを表示しています。",
+    "fileUnavailable": "ファイルがエクスプローラーのフォルダー内にありません"
   },
   "statusbar": {
     "brand": "Moji v{{version}}",
@@ -105,6 +133,7 @@
     "tagline": "軽くてシンプルな Markdown リーダー",
     "title": "Moji v{{version}}",
     "openButton": "ファイルを開く",
+    "openFolderButton": "フォルダーを開く",
     "newButton": "新規ファイル",
     "dropHint": "または、このウィンドウのどこかに .md ファイルをドロップ",
     "recent": {
@@ -158,6 +187,7 @@
     "shortcutActions": {
       "newDocument": "新規ドキュメント",
       "open": "ファイルを開く",
+      "openFolder": "フォルダーを開く",
       "save": "保存",
       "saveAs": "名前を付けて保存",
       "closeTab": "現在のタブを閉じる",
@@ -168,6 +198,7 @@
       "findPrevious": "前の一致",
       "toggleEdit": "エディタ/プレビュー切替",
       "toggleSplit": "ライブプレビュー切替",
+      "toggleExplorer": "エクスプローラー切替",
       "export": "エクスポート",
       "settings": "設定",
       "fullscreen": "全画面",

@@ -22,6 +22,8 @@
   --topbar-h: 52px;
   --statusbar-h: 34px;
   --sidebar-w: 260px;
+  --explorer-w: 240px;
+  --tabstrip-h: 35px;
   --shadow: 0 1px 3px rgba(0, 0, 0, 0.08), 0 4px 16px rgba(0, 0, 0, 0.06);
 
   /* dark theme — app chrome + markdown default */
