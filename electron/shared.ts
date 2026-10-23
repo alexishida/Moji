@@ -170,6 +170,25 @@ export type ExplorerFileResult =
   | { ok: true; path: string }
   | { ok: false; error: 'forbidden' | 'exists' | 'invalid-name' | string }
 
+export type ExplorerTransferMode = 'copy' | 'move'
+
+/** Result of pasting (copy/cut) or dragging files in the explorer. `moved` lists every file that changed place. */
+export type ExplorerTransferResult =
+  | { ok: true; moved: Array<{ from: string; to: string }>; errors: string[] }
+  | { ok: false; error: string }
+
+/** Localized labels for the native "move to trash" confirmation, supplied by the renderer. */
+export interface ExplorerTrashPrompt {
+  message: string
+  detail: string
+  confirm: string
+  cancel: string
+}
+
+export type ExplorerTrashResult =
+  | { ok: true; removed: string[]; errors: string[] }
+  | { ok: false; canceled?: boolean; error?: string }
+
 /** Result of picking a folder for the explorer. */
 export type ExplorerFolderResult =
   | { ok: true; path: string }
@@ -292,6 +311,10 @@ export const IPC = {
   explorerRemoveFolder: 'explorer:remove-folder',
   explorerCreateFile: 'explorer:create-file',
   explorerRenameFile: 'explorer:rename-file',
+  explorerTransfer: 'explorer:transfer',
+  explorerTrash: 'explorer:trash',
+  revealInOs: 'file:reveal-in-os',
+  openWithDefaultApp: 'file:open-with-default-app',
   save: 'file:save',
   saveAs: 'file:save-as',
   export: 'doc:export',

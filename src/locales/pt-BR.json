@@ -6,6 +6,9 @@
   },
   "tabs": {
     "documents": "Documentos abertos",
+    "revealInExplorerView": "Mostrar no Explorador",
+    "save": "Salvar",
+    "saveAs": "Salvar Como…",
     "close": "Fechar aba",
     "closeThis": "Fechar",
     "closeOthers": "Fechar Outros",
@@ -63,6 +66,30 @@
   },
   "explorer": {
     "title": "Explorador",
+    "openInEditor": "Abrir no Editor",
+    "openWithDefaultApp": "Abrir com o App Padrão",
+    "revealInFileExplorer": "Mostrar no Explorador de Arquivos",
+    "revealInFinder": "Mostrar no Finder",
+    "openContainingFolder": "Abrir Pasta",
+    "cut": "Recortar",
+    "copy": "Copiar",
+    "paste": "Colar",
+    "pasteCount": "Colar {{count}} Arquivos",
+    "copyPath": "Copiar Caminho",
+    "copyRelativePath": "Copiar Caminho Relativo",
+    "duplicate": "Duplicar",
+    "renameEllipsis": "Renomear…",
+    "delete": "Excluir",
+    "deleteCount": "Excluir {{count}} Itens",
+    "collapseFolder": "Recolher Pasta",
+    "openInTab": "Aberto em uma aba",
+    "pathCopied": "Caminho copiado",
+    "confirmDelete": {
+      "one": "Mover \"{{name}}\" para a lixeira?",
+      "many": "Mover {{count}} itens para a lixeira?",
+      "detail": "Você pode restaurá-los da lixeira.",
+      "confirm": "Mover para a Lixeira"
+    },
     "newFile": "Novo arquivo",
     "newFileIn": "Novo arquivo em {{name}}",
     "rename": "Renomear",
@@ -71,6 +98,7 @@
     "fileName": "Nome do arquivo",
     "errors": {
       "exists": "Já existe um arquivo com esse nome aqui.",
+      "existsInTarget": "Já existe um arquivo com esse nome no destino.",
       "invalidName": "Digite um nome de arquivo válido.",
       "forbidden": "Este local não está em uma pasta do explorador.",
       "failed": "Não foi possível concluir: {{error}}"

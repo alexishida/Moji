@@ -2,7 +2,7 @@ import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } fro
 import { useTranslation } from 'react-i18next'
 import { TopBar } from './components/TopBar'
 import { Sidebar } from './components/Sidebar'
-import { Explorer } from './components/Explorer'
+import { Explorer, type ExplorerRequest } from './components/Explorer'
 import { StatusBar } from './components/StatusBar'
 import { Preview } from './components/Preview'
 import { Welcome } from './components/Welcome'
@@ -387,9 +387,21 @@ export function App(): JSX.Element {
       documents.map((doc) => ({
         id: doc.id,
         title: documentName(doc, t('app.untitled')),
-        dirty: doc.revision !== doc.savedRevision
+        dirty: doc.revision !== doc.savedRevision,
+        path: doc.path,
+        readOnly: doc.readOnly,
+        inExplorer: doc.path !== null && !doc.readOnly && settings.explorerFolders.some((folder) => {
+          const key = explorerPathKey(doc.path as string)
+          const root = explorerPathKey(folder)
+          return key.startsWith(root + '/') || key.startsWith(root + '\\')
+        })
       })),
-    [documents, t]
+    [documents, settings.explorerFolders, t]
+  )
+  const openDocumentPathsKey = documents.map((doc) => doc.path ?? '').join('\n')
+  const openDocumentPaths = useMemo(
+    () => (openDocumentPathsKey ? openDocumentPathsKey.split('\n').filter(Boolean) : []),
+    [openDocumentPathsKey]
   )
 
   // Keep a live snapshot for stable menu/IPC handlers.
@@ -411,7 +423,8 @@ export function App(): JSX.Element {
     splitView: settings.splitView,
     splitActive,
     fontTarget,
-    explorerVisible: settings.explorerVisible
+    explorerVisible: settings.explorerVisible,
+    explorerFolders: settings.explorerFolders
   })
   stateRef.current = {
     documents,
@@ -431,7 +444,8 @@ export function App(): JSX.Element {
     splitView: settings.splitView,
     splitActive,
     fontTarget,
-    explorerVisible: settings.explorerVisible
+    explorerVisible: settings.explorerVisible,
+    explorerFolders: settings.explorerFolders
   }
 
   const flash = useCallback((text: string, error = false) => {
@@ -998,7 +1012,7 @@ export function App(): JSX.Element {
   }, [])
 
   const openPaths = useCallback(
-    async (paths: string[]) => {
+    async (paths: string[], openMode: 'view' | 'edit' = 'view') => {
       const opened: DocumentInput[] = []
       const missing: string[] = []
       for (const path of paths) {
@@ -1016,7 +1030,7 @@ export function App(): JSX.Element {
         }
       }
       materializeEditorContent()
-      addDocuments(opened)
+      addDocuments(opened, openMode)
       rememberRecent(opened.map((doc) => doc.path))
       forgetRecent(missing)
     },
@@ -1481,13 +1495,15 @@ export function App(): JSX.Element {
     setSettings((prev) => ({ ...prev, explorerFolders: folders }))
   }, [])
 
-  const openExplorerFile = useCallback(async (path: string) => {
+  const openExplorerFile = useCallback(async (path: string, openMode: 'view' | 'edit' = 'view') => {
     const authorized = await window.api.explorerAuthorizeFile(path)
     if (!authorized) {
       flash(t('notice.openFailed', { error: t('explorer.fileUnavailable') }), true)
       return
     }
-    await openPaths([authorized])
+    // The mode travels with the open itself: switching afterwards would race the state update
+    // (with no document open yet, `setModeSafe` would see `hasDoc === false` and do nothing).
+    await openPaths([authorized], openMode)
   }, [flash, openPaths, t])
 
   /** Creates an empty Markdown file in an explorer folder and opens it in the editor. */
@@ -1516,6 +1532,140 @@ export function App(): JSX.Element {
     }
     return null
   }, [setDocuments, setSettings])
+
+  /** Keeps tabs and recent files pointing at files that moved (paste after cut, drag and drop). */
+  const followMovedFiles = useCallback((moved: Array<{ from: string; to: string }>) => {
+    if (moved.length === 0) return
+    const targets = new Map(moved.map(({ from, to }) => [explorerPathKey(from), to]))
+    const follow = (path: string | null): string | null => (path === null ? null : targets.get(explorerPathKey(path)) ?? path)
+    setDocuments((prev) => prev.map((doc) => {
+      const next = follow(doc.path)
+      return next === doc.path ? doc : { ...doc, path: next }
+    }))
+    setSettings((prev) => ({ ...prev, recentFiles: prev.recentFiles.map((entry) => follow(entry) as string) }))
+  }, [setDocuments, setSettings])
+
+  const transferExplorerFiles = useCallback(async (sources: string[], directory: string, mode: 'copy' | 'move'): Promise<string | null> => {
+    const res = await window.api.explorerTransfer(sources, directory, mode)
+    if (!res.ok) {
+      flash(t('explorer.errors.failed', { error: res.error }), true)
+      return res.error
+    }
+    if (mode === 'move') followMovedFiles(res.moved)
+    if (res.errors.length > 0) {
+      const first = res.errors[0]
+      flash(first === 'exists' ? t('explorer.errors.existsInTarget') : t('explorer.errors.failed', { error: first }), true)
+      return first
+    }
+    return null
+  }, [flash, followMovedFiles, t])
+
+  /**
+   * Moves explorer entries to the OS trash. Tabs for removed files close when they have nothing
+   * unsaved; a tab with unsaved edits stays open, and saving it writes the file back (VS Code does
+   * the same).
+   */
+  const deleteExplorerEntries = useCallback(async (paths: string[]): Promise<boolean> => {
+    const names = paths.map((path) => baseName(path) ?? path)
+    const res = await window.api.explorerTrash(paths, {
+      message: paths.length === 1
+        ? t('explorer.confirmDelete.one', { name: names[0] })
+        : t('explorer.confirmDelete.many', { count: paths.length }),
+      // Main prepends the exact paths being removed; this is only the wording around them.
+      detail: t('explorer.confirmDelete.detail'),
+      confirm: t('explorer.confirmDelete.confirm'),
+      cancel: t('dialog.cancel')
+    })
+    if (!res.ok) {
+      if (!res.canceled) flash(t('explorer.errors.failed', { error: res.error ?? '' }), true)
+      return false
+    }
+    if (res.errors.length > 0) flash(t('explorer.errors.failed', { error: res.errors[0] }), true)
+    const separator = /\\/.test(res.removed[0] ?? '') ? '\\' : '/'
+    const gone = res.removed.map(explorerPathKey)
+    const isGone = (path: string | null): boolean => path !== null && gone.some((removed) => {
+      const key = explorerPathKey(path)
+      return key === removed || key.startsWith(removed + separator)
+    })
+    const closable = stateRef.current.documents.filter((doc) => isGone(doc.path) && doc.revision === doc.savedRevision)
+    if (closable.length > 0) void closeDocuments(closable.map((doc) => doc.id))
+    setSettings((prev) => ({ ...prev, recentFiles: prev.recentFiles.filter((entry) => !isGone(entry)) }))
+    return true
+  }, [closeDocuments, flash, setSettings, t])
+
+  const revealInOs = useCallback(async (path: string) => {
+    if (!(await window.api.revealInOs(path))) flash(t('notice.openFailed', { error: t('explorer.fileUnavailable') }), true)
+  }, [flash, t])
+
+  const openWithDefaultApp = useCallback(async (path: string) => {
+    const res = await window.api.openWithDefaultApp(path)
+    if (!res.ok) flash(t('notice.openFailed', { error: friendlyErrorMessage(res.error ?? '', t) }), true)
+  }, [flash, t])
+
+  const copyText = useCallback((text: string) => {
+    void navigator.clipboard.writeText(text).then(
+      () => flash(t('explorer.pathCopied')),
+      () => flash(t('explorer.errors.failed', { error: 'clipboard' }), true)
+    )
+  }, [flash, t])
+
+  // --- Tab menu actions --------------------------------------------------
+  const [explorerRequest, setExplorerRequest] = useState<ExplorerRequest | null>(null)
+  const explorerRequestId = useRef(0)
+
+  /** Shows the explorer (if hidden) and asks it to reveal or rename the file. */
+  const requestExplorer = useCallback((kind: ExplorerRequest['kind'], path: string) => {
+    if (!stateRef.current.explorerVisible) changeSettings({ explorerVisible: true })
+    explorerRequestId.current += 1
+    setExplorerRequest({ kind, path, id: explorerRequestId.current })
+  }, [changeSettings])
+
+  /** Consumed once: a remounted explorer (hidden, then shown) must not replay an old request. */
+  const clearExplorerRequest = useCallback(() => setExplorerRequest(null), [])
+
+  const docPath = useCallback((id: string): string | null => (
+    stateRef.current.documents.find((doc) => doc.id === id)?.path ?? null
+  ), [])
+
+  const tabSave = useCallback((id: string) => void saveDocument(id), [saveDocument])
+  const tabSaveAs = useCallback((id: string) => void saveDocumentAs(id), [saveDocumentAs])
+  const tabCopyPath = useCallback((id: string, relative: boolean) => {
+    const path = docPath(id)
+    if (!path) return
+    if (!relative) {
+      copyText(path)
+      return
+    }
+    const key = explorerPathKey(path)
+    const root = stateRef.current.explorerFolders
+      .filter((folder) => key.startsWith(explorerPathKey(folder) + '/') || key.startsWith(explorerPathKey(folder) + '\\'))
+      .sort((a, b) => b.length - a.length)[0]
+    copyText(root ? path.slice(root.length).replace(/^[\\/]+/, '') : path)
+  }, [copyText, docPath])
+  const tabRevealInExplorer = useCallback((id: string) => {
+    const path = docPath(id)
+    if (path) requestExplorer('reveal', path)
+  }, [docPath, requestExplorer])
+  const tabRename = useCallback((id: string) => {
+    const path = docPath(id)
+    if (path) requestExplorer('rename', path)
+  }, [docPath, requestExplorer])
+  const tabRevealInOs = useCallback((id: string) => {
+    const path = docPath(id)
+    if (path) void revealInOs(path)
+  }, [docPath, revealInOs])
+  const tabOpenWithDefaultApp = useCallback((id: string) => {
+    const path = docPath(id)
+    if (path) void openWithDefaultApp(path)
+  }, [docPath, openWithDefaultApp])
+
+  const tabView = useMemo(() => ({
+    explorerVisible: settings.explorerVisible,
+    outlineVisible,
+    canToggleOutline: hasDoc && !panelOpen,
+    splitView: settings.splitView,
+    canToggleSplit
+  }), [canToggleSplit, hasDoc, outlineVisible, panelOpen, settings.explorerVisible, settings.splitView])
 
   const togglePreviewFluidWidth = useCallback(
     () => changeSettings({ previewFluidWidth: !settings.previewFluidWidth }),
@@ -2083,11 +2233,15 @@ export function App(): JSX.Element {
       className="app"
       onDragEnter={(e) => {
         e.preventDefault()
+        // Only files dragged in from the OS open a document; rows dragged inside the explorer
+        // carry no `Files` and must not raise the full-window drop overlay.
+        if (!e.dataTransfer.types.includes('Files')) return
         dragDepth.current += 1
         setDragging(true)
       }}
       onDragOver={(e) => e.preventDefault()}
-      onDragLeave={() => {
+      onDragLeave={(e) => {
+        if (!e.dataTransfer.types.includes('Files')) return
         dragDepth.current = Math.max(0, dragDepth.current - 1)
         if (dragDepth.current === 0) setDragging(false)
       }}
@@ -2151,6 +2305,14 @@ export function App(): JSX.Element {
             onOpenFile={openExplorerFile}
             onCreateFile={createExplorerFile}
             onRenameFile={renameExplorerFile}
+            openPaths={openDocumentPaths}
+            request={explorerRequest}
+            onRequestHandled={clearExplorerRequest}
+            onTransfer={transferExplorerFiles}
+            onDelete={deleteExplorerEntries}
+            onRevealInOs={revealInOs}
+            onOpenWithDefaultApp={openWithDefaultApp}
+            onCopyText={copyText}
           />
         )}
 
@@ -2165,6 +2327,18 @@ export function App(): JSX.Element {
               onCloseToRight={closeDocumentsToRight}
               onCloseSaved={closeSavedDocuments}
               onCloseAll={closeAllDocuments}
+              view={tabView}
+              onSave={tabSave}
+              onSaveAs={tabSaveAs}
+              onCopyPath={tabCopyPath}
+              onRevealInExplorer={tabRevealInExplorer}
+              onRevealInOs={tabRevealInOs}
+              onOpenWithDefaultApp={tabOpenWithDefaultApp}
+              onRename={tabRename}
+              onToggleExplorer={toggleExplorer}
+              onToggleOutline={toggleOutline}
+              onToggleSplit={toggleSplitView}
+              onNew={doNew}
             />
           )}
 

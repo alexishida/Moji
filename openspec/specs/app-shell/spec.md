@@ -112,6 +112,18 @@ The system SHALL provide an explorer sidebar where the user loads folders throug
 - **WHEN** the user renames a file from the explorer
 - **THEN** the file is renamed in the same folder, and any open tab and recent-file entry follow the new name
 
+#### Scenario: Delete from the explorer
+- **WHEN** the user chooses Delete for explorer entries (context menu or Delete key)
+- **THEN** a native confirmation names what will be removed, and on confirmation the entries move to the OS trash; a loaded root folder can only be removed from the explorer, never deleted
+
+#### Scenario: Cut, copy and paste in the explorer
+- **WHEN** the user copies or cuts Markdown files and pastes them into an explorer folder, or drags them onto one
+- **THEN** copies get a ` copy` suffix instead of overwriting, moves refuse to replace an existing file, and open tabs follow moved files
+
+#### Scenario: Tab context menu
+- **WHEN** the user right-clicks a document tab
+- **THEN** the menu offers close actions, Save, Save As, Copy Path, Copy Relative Path, Reveal in Explorer View, Reveal in File Explorer, Open with Default App, Rename, and toggles for the explorer, outline, and live preview, each disabled when it does not apply
+
 #### Scenario: Open a file from the explorer
 - **WHEN** the user clicks a Markdown file in the explorer
 - **THEN** the file opens in a tab and is highlighted as the active document

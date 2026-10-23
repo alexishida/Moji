@@ -17,6 +17,9 @@ import {
   type ExplorerFileResult,
   type ExplorerFolderResult,
   type ExplorerScanResult,
+  type ExplorerTransferResult,
+  type ExplorerTrashPrompt,
+  type ExplorerTrashResult,
   type OpenDialogResult,
   type OpenResult,
   type Settings,
@@ -35,7 +38,15 @@ import { cancelExport, exportDiagramPng, exportDocument } from './export'
 import { benchmarkRequested, recordBenchmark } from './benchmark'
 import { createUpdateController, type UpdateController } from './updater'
 import { mapWithConcurrency } from './openPool'
-import { createExplorerFile, renameExplorerFile, resolveExplorerFile, scanExplorerFolder } from './explorer'
+import {
+  createExplorerFile,
+  renameExplorerFile,
+  isListedExplorerDirectory,
+  resolveExplorerEntry,
+  resolveExplorerFile,
+  scanExplorerFolder,
+  transferExplorerFiles
+} from './explorer'
 import { readFileChunks } from './documentStream'
 import { stripLeadingBom } from './documentDecoder'
 import { AssetCache } from './assetCache'
@@ -143,6 +154,16 @@ function documentSizeProfile(sizeBytes: number): DocumentSizeProfile {
  */
 function grantDocument(documentPath: string): void {
   capabilities.grant(documentPath)
+}
+
+/**
+ * Resolves a path the renderer wants revealed or opened externally: a document the user opened, or
+ * anything (Markdown file or folder) the explorer lists. Nothing else on disk can be named.
+ */
+async function externallyOpenablePath(target: unknown): Promise<string | null> {
+  if (capabilities.allows(target)) return target
+  const entry = await resolveExplorerEntry(target, capabilities.folders)
+  return entry ? entry.path : null
 }
 
 function registerAssetProtocol(): void {
@@ -866,6 +887,91 @@ function registerIpc(): void {
       }
     }
     return result
+  })
+
+  handleFromRenderer(
+    IPC.explorerTransfer,
+    async (_e, sources: unknown, targetDirectory: unknown, mode: unknown): Promise<ExplorerTransferResult> => {
+      const result = await transferExplorerFiles(sources, targetDirectory, mode, capabilities.folders)
+      if (result.ok) {
+        for (const { from, to } of result.moved) {
+          grantDocument(to)
+          if (mode === 'move') {
+            const recent = getSettings().recentFiles
+            if (recent.includes(from)) updateSettings({ recentFiles: recent.map((path) => (path === from ? to : path)) })
+          }
+        }
+      }
+      return result
+    }
+  )
+
+  handleFromRenderer(IPC.explorerTrash, async (_e, targets: unknown, prompt: unknown): Promise<ExplorerTrashResult> => {
+    if (!Array.isArray(targets) || targets.length === 0) return { ok: false, error: 'invalid' }
+    const labels = prompt && typeof prompt === 'object' ? (prompt as Partial<ExplorerTrashPrompt>) : {}
+    const resolved: string[] = []
+    for (const target of targets.slice(0, 500)) {
+      const entry = await resolveExplorerEntry(target, capabilities.folders)
+      // A loaded root (or a folder holding one) is removed from the explorer, never deleted from
+      // here; folders the explorer does not list (`.git`, `node_modules`) are not deletable either.
+      if (!entry || entry.containsRoot) return { ok: false, error: 'forbidden' }
+      if (entry.kind === 'directory' && !isListedExplorerDirectory(entry.path, capabilities.folders)) {
+        return { ok: false, error: 'forbidden' }
+      }
+      if (!resolved.includes(entry.path)) resolved.push(entry.path)
+    }
+    // A file inside a folder that is also being deleted goes with the folder.
+    const separator = process.platform === 'win32' ? '\\' : '/'
+    const unique = resolved.filter((path) => !resolved.some((other) => other !== path && path.startsWith(other + separator)))
+    // The confirmation lives in main, not the renderer, and always names the exact paths that will
+    // go: the renderer only supplies the localized wording around them.
+    const shown = unique.slice(0, 10).join('\n') + (unique.length > 10 ? `\n… (+${unique.length - 10})` : '')
+    const detail = typeof labels.detail === 'string' ? `${shown}\n\n${labels.detail}` : shown
+    const options: Electron.MessageBoxOptions = {
+      type: 'warning',
+      message: typeof labels.message === 'string' ? labels.message : 'Move to trash?',
+      detail,
+      buttons: [
+        typeof labels.confirm === 'string' ? labels.confirm : 'Move to Trash',
+        typeof labels.cancel === 'string' ? labels.cancel : 'Cancel'
+      ],
+      defaultId: 0,
+      cancelId: 1,
+      noLink: true
+    }
+    const { response } = mainWindow
+      ? await dialog.showMessageBox(mainWindow, options)
+      : await dialog.showMessageBox(options)
+    if (response !== 0) return { ok: false, canceled: true }
+    const removed: string[] = []
+    const errors: string[] = []
+    for (const path of unique) {
+      try {
+        await shell.trashItem(path)
+        removed.push(path)
+      } catch (err) {
+        errors.push((err as Error).message)
+      }
+    }
+    if (removed.length === 0) return { ok: false, error: errors[0] ?? 'failed' }
+    const recent = getSettings().recentFiles
+    const remaining = recent.filter((path) => !removed.some((gone) => path === gone || path.startsWith(gone + separator)))
+    if (remaining.length !== recent.length) updateSettings({ recentFiles: remaining })
+    return { ok: true, removed, errors }
+  })
+
+  handleFromRenderer(IPC.revealInOs, async (_e, target: unknown): Promise<boolean> => {
+    const path = await externallyOpenablePath(target)
+    if (!path) return false
+    shell.showItemInFolder(path)
+    return true
+  })
+
+  handleFromRenderer(IPC.openWithDefaultApp, async (_e, target: unknown): Promise<WriteResult> => {
+    const path = await externallyOpenablePath(target)
+    if (!path) return { ok: false, error: 'forbidden' }
+    const error = await shell.openPath(path)
+    return error ? { ok: false, error } : { ok: true, path }
   })
 
   handleFromRenderer(IPC.explorerRemoveFolder, (_e, folderPath: unknown): string[] => {

@@ -6,6 +6,9 @@
   },
   "tabs": {
     "documents": "Documentos abiertos",
+    "revealInExplorerView": "Mostrar en el Explorador",
+    "save": "Guardar",
+    "saveAs": "Guardar Como…",
     "close": "Cerrar pestana",
     "closeThis": "Cerrar",
     "closeOthers": "Cerrar otras",
@@ -63,6 +66,30 @@
   },
   "explorer": {
     "title": "Explorador",
+    "openInEditor": "Abrir en el Editor",
+    "openWithDefaultApp": "Abrir con la App Predeterminada",
+    "revealInFileExplorer": "Mostrar en el Explorador de Archivos",
+    "revealInFinder": "Mostrar en Finder",
+    "openContainingFolder": "Abrir Carpeta Contenedora",
+    "cut": "Cortar",
+    "copy": "Copiar",
+    "paste": "Pegar",
+    "pasteCount": "Pegar {{count}} Archivos",
+    "copyPath": "Copiar Ruta",
+    "copyRelativePath": "Copiar Ruta Relativa",
+    "duplicate": "Duplicar",
+    "renameEllipsis": "Cambiar Nombre…",
+    "delete": "Eliminar",
+    "deleteCount": "Eliminar {{count}} Elementos",
+    "collapseFolder": "Contraer Carpeta",
+    "openInTab": "Abierto en una pestaña",
+    "pathCopied": "Ruta copiada",
+    "confirmDelete": {
+      "one": "¿Mover \"{{name}}\" a la papelera?",
+      "many": "¿Mover {{count}} elementos a la papelera?",
+      "detail": "Puedes restaurarlos desde la papelera.",
+      "confirm": "Mover a la Papelera"
+    },
     "newFile": "Nuevo archivo",
     "newFileIn": "Nuevo archivo en {{name}}",
     "rename": "Cambiar nombre",
@@ -71,6 +98,7 @@
     "fileName": "Nombre del archivo",
     "errors": {
       "exists": "Ya existe un archivo con este nombre aquí.",
+      "existsInTarget": "Ya existe un archivo con ese nombre en el destino.",
       "invalidName": "Escribe un nombre de archivo válido.",
       "forbidden": "Esta ubicación no está en una carpeta del explorador.",
       "failed": "No se pudo completar: {{error}}"

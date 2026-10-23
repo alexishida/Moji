@@ -1,5 +1,6 @@
-import { readdir, realpath, rename, stat, writeFile } from 'node:fs/promises'
-import { basename, dirname, join, resolve } from 'node:path'
+import { constants as fsConstants } from 'node:fs'
+import { copyFile, readdir, realpath, rename, stat, unlink, writeFile } from 'node:fs/promises'
+import { basename, dirname, extname, isAbsolute, join, relative, resolve } from 'node:path'
 import { isMarkdown, sanitizeFileNameComponent } from './ipcInput'
 import { isPathWithin } from './assetPaths'
 import {
@@ -7,7 +8,9 @@ import {
   EXPLORER_MAX_FILES,
   type ExplorerFileResult,
   type ExplorerNode,
-  type ExplorerScanResult
+  type ExplorerScanResult,
+  type ExplorerTransferMode,
+  type ExplorerTransferResult
 } from './shared'
 
 /** Directories that never hold documents worth browsing and can be enormous. */
@@ -164,23 +167,145 @@ export async function createExplorerFile(directory: unknown, name: unknown, root
 export async function renameExplorerFile(filePath: unknown, name: unknown, roots: Iterable<string>): Promise<ExplorerFileResult> {
   const source = await resolveExplorerFile(filePath, roots)
   if (!source) return { ok: false, error: 'forbidden' }
+  return renameMarkdownFile(source, name)
+}
+
+/**
+ * Renames an already-authorized Markdown file (`source` must have been checked by the caller)
+ * within its own folder, refusing to replace another file.
+ */
+export async function renameMarkdownFile(source: string, name: unknown): Promise<ExplorerFileResult> {
   const fileName = explorerFileName(name)
   if (!fileName) return { ok: false, error: 'invalid-name' }
   const target = join(dirname(source), fileName)
   if (target === source) return { ok: true, path: source }
   try {
     // A case-only rename on a case-insensitive disk is the same file, not a collision.
-    if (!sameFile(target, source)) {
-      try {
-        await stat(target)
-        return { ok: false, error: 'exists' }
-      } catch {
-        // Target is free.
-      }
-    }
+    if (!sameFile(target, source) && (await pathExists(target))) return { ok: false, error: 'exists' }
     await rename(source, target)
     return { ok: true, path: target }
   } catch (err) {
     return { ok: false, error: (err as Error).message }
   }
+}
+
+/** What an explorer path resolved to: a Markdown file, or a folder strictly inside a loaded root. */
+export interface ExplorerEntry {
+  path: string
+  kind: 'file' | 'directory'
+  /** True when the folder is a loaded root, or contains one (nested roots). */
+  containsRoot: boolean
+}
+
+/** Resolves a Markdown file or a folder inside one of `roots`, resolving links on both sides. */
+export async function resolveExplorerEntry(target: unknown, roots: Iterable<string>): Promise<ExplorerEntry | null> {
+  if (typeof target !== 'string' || target.length === 0) return null
+  const rootList = [...roots]
+  const file = await resolveExplorerFile(target, rootList)
+  if (file) return { path: file, kind: 'file', containsRoot: false }
+  const directory = await resolveExplorerDirectory(target, rootList)
+  if (!directory) return null
+  const real = await realpath(directory)
+  let containsRoot = false
+  for (const root of rootList) {
+    try {
+      // Deleting `A/B` would also delete a root loaded at `A/B/C`.
+      if (isPathWithin(real, await realpath(root))) containsRoot = true
+    } catch {
+      // Ignore roots that disappeared.
+    }
+  }
+  return { path: directory, kind: 'directory', containsRoot }
+}
+
+/**
+ * Whether the explorer actually lists this folder: hidden folders (`.git`), skipped ones
+ * (`node_modules`) and folders without Markdown are never shown, so they can never be the target
+ * of an explorer delete either.
+ */
+export function isListedExplorerDirectory(directory: string, roots: Iterable<string>): boolean {
+  for (const root of roots) {
+    const rel = relative(resolve(root), resolve(directory))
+    if (!rel || rel.startsWith('..') || isAbsolute(rel)) continue
+    const parts = rel.split(/[\\/]/)
+    if (parts.every((part) => part.length > 0 && !part.startsWith('.') && !SKIPPED_DIRECTORIES.has(part))) return true
+  }
+  return false
+}
+
+async function pathExists(path: string): Promise<boolean> {
+  try {
+    await stat(path)
+    return true
+  } catch {
+    return false
+  }
+}
+
+/** `notes.md` -> `notes copy.md`, then `notes copy 2.md`, ... — the first name not taken in `directory`. */
+export async function uniqueCopyPath(directory: string, fileName: string): Promise<string> {
+  const extension = extname(fileName)
+  const stem = fileName.slice(0, fileName.length - extension.length)
+  for (let attempt = 1; attempt < 1000; attempt += 1) {
+    const candidate = join(directory, `${stem} copy${attempt === 1 ? '' : ` ${attempt}`}${extension}`)
+    if (!(await pathExists(candidate))) return candidate
+  }
+  throw new Error('No free name for the copy.')
+}
+
+/**
+ * Copies or moves Markdown files into a folder of the explorer.
+ *
+ * Copies never overwrite: a name that is taken gets a ` copy` suffix, like a duplicate in the OS
+ * file manager. Moves refuse to replace an existing file instead, since silently renaming a file
+ * the user moved would be surprising. Every file is handled independently, so one failure does
+ * not undo the others.
+ */
+export async function transferExplorerFiles(
+  sources: unknown,
+  targetDirectory: unknown,
+  mode: unknown,
+  roots: Iterable<string>
+): Promise<ExplorerTransferResult> {
+  if (!Array.isArray(sources) || (mode !== 'copy' && mode !== 'move')) return { ok: false, error: 'invalid' }
+  const rootList = [...roots]
+  const folder = await resolveExplorerDirectory(targetDirectory, rootList)
+  if (!folder) return { ok: false, error: 'forbidden' }
+  const transferMode: ExplorerTransferMode = mode
+  const moved: Array<{ from: string; to: string }> = []
+  const errors: string[] = []
+
+  for (const source of sources.slice(0, 500)) {
+    const file = await resolveExplorerFile(source, rootList)
+    if (!file) {
+      errors.push('forbidden')
+      continue
+    }
+    try {
+      if (transferMode === 'copy') {
+        const target = await uniqueCopyPath(folder, basename(file))
+        await copyFile(file, target, fsConstants.COPYFILE_EXCL)
+        moved.push({ from: file, to: target })
+        continue
+      }
+      const target = join(folder, basename(file))
+      if (resolve(dirname(file)) === resolve(folder)) continue
+      if (await pathExists(target)) {
+        errors.push('exists')
+        continue
+      }
+      try {
+        await rename(file, target)
+      } catch (err) {
+        // Across drives `rename` cannot move; copy then remove the original instead.
+        if ((err as NodeJS.ErrnoException).code !== 'EXDEV') throw err
+        await copyFile(file, target, fsConstants.COPYFILE_EXCL)
+        await unlink(file)
+      }
+      moved.push({ from: file, to: target })
+    } catch (err) {
+      errors.push((err as Error).message)
+    }
+  }
+  return { ok: true, moved, errors }
 }

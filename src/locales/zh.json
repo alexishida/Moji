@@ -6,6 +6,9 @@
   },
   "tabs": {
     "documents": "打开的文档",
+    "revealInExplorerView": "在资源管理器视图中显示",
+    "save": "保存",
+    "saveAs": "另存为…",
     "close": "关闭标签页",
     "closeThis": "关闭",
     "closeOthers": "关闭其他",
@@ -63,6 +66,30 @@
   },
   "explorer": {
     "title": "资源管理器",
+    "openInEditor": "在编辑器中打开",
+    "openWithDefaultApp": "使用默认应用打开",
+    "revealInFileExplorer": "在文件资源管理器中显示",
+    "revealInFinder": "在访达中显示",
+    "openContainingFolder": "打开所在文件夹",
+    "cut": "剪切",
+    "copy": "复制",
+    "paste": "粘贴",
+    "pasteCount": "粘贴 {{count}} 个文件",
+    "copyPath": "复制路径",
+    "copyRelativePath": "复制相对路径",
+    "duplicate": "创建副本",
+    "renameEllipsis": "重命名…",
+    "delete": "删除",
+    "deleteCount": "删除 {{count}} 项",
+    "collapseFolder": "折叠文件夹",
+    "openInTab": "已在标签页中打开",
+    "pathCopied": "已复制路径",
+    "confirmDelete": {
+      "one": "将“{{name}}”移到回收站？",
+      "many": "将 {{count}} 项移到回收站？",
+      "detail": "可以从回收站中还原。",
+      "confirm": "移到回收站"
+    },
     "newFile": "新建文件",
     "newFileIn": "在 {{name}} 中新建文件",
     "rename": "重命名",
@@ -71,6 +98,7 @@
     "fileName": "文件名",
     "errors": {
       "exists": "此处已存在同名文件。",
+      "existsInTarget": "目标位置已存在同名文件。",
       "invalidName": "请输入有效的文件名。",
       "forbidden": "此位置不在资源管理器的文件夹中。",
       "failed": "无法完成：{{error}}"

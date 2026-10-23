@@ -6,6 +6,9 @@
   },
   "tabs": {
     "documents": "開いているドキュメント",
+    "revealInExplorerView": "エクスプローラー ビューで表示",
+    "save": "保存",
+    "saveAs": "名前を付けて保存…",
     "close": "タブを閉じる",
     "closeThis": "閉じる",
     "closeOthers": "他を閉じる",
@@ -63,6 +66,30 @@
   },
   "explorer": {
     "title": "エクスプローラー",
+    "openInEditor": "エディターで開く",
+    "openWithDefaultApp": "既定のアプリで開く",
+    "revealInFileExplorer": "エクスプローラーで表示",
+    "revealInFinder": "Finder で表示",
+    "openContainingFolder": "含まれているフォルダーを開く",
+    "cut": "切り取り",
+    "copy": "コピー",
+    "paste": "貼り付け",
+    "pasteCount": "{{count}} 個のファイルを貼り付け",
+    "copyPath": "パスのコピー",
+    "copyRelativePath": "相対パスのコピー",
+    "duplicate": "複製",
+    "renameEllipsis": "名前の変更…",
+    "delete": "削除",
+    "deleteCount": "{{count}} 個の項目を削除",
+    "collapseFolder": "フォルダーを折りたたむ",
+    "openInTab": "タブで開いています",
+    "pathCopied": "パスをコピーしました",
+    "confirmDelete": {
+      "one": "「{{name}}」をごみ箱に移動しますか?",
+      "many": "{{count}} 個の項目をごみ箱に移動しますか?",
+      "detail": "ごみ箱から復元できます。",
+      "confirm": "ごみ箱に移動"
+    },
     "newFile": "新しいファイル",
     "newFileIn": "{{name}} に新しいファイル",
     "rename": "名前の変更",
@@ -71,6 +98,7 @@
     "fileName": "ファイル名",
     "errors": {
       "exists": "同じ名前のファイルがすでにあります。",
+      "existsInTarget": "移動先に同じ名前のファイルがあります。",
       "invalidName": "有効なファイル名を入力してください。",
       "forbidden": "この場所はエクスプローラーのフォルダー内にありません。",
       "failed": "完了できませんでした: {{error}}"

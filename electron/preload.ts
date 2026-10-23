@@ -11,6 +11,10 @@ import {
   type ExplorerFileResult,
   type ExplorerFolderResult,
   type ExplorerScanResult,
+  type ExplorerTransferMode,
+  type ExplorerTransferResult,
+  type ExplorerTrashPrompt,
+  type ExplorerTrashResult,
   type ExportProgress,
   type ExportRequest,
   type OpenDialogResult,
@@ -119,6 +123,16 @@ const api = {
   /** Renames a Markdown file inside an explorer folder, keeping it in the same directory. */
   explorerRenameFile: (filePath: string, name: string): Promise<ExplorerFileResult> =>
     ipcRenderer.invoke(IPC.explorerRenameFile, filePath, name),
+  /** Copies or moves Markdown files into an explorer folder (paste / drag and drop). */
+  explorerTransfer: (sources: string[], targetDirectory: string, mode: ExplorerTransferMode): Promise<ExplorerTransferResult> =>
+    ipcRenderer.invoke(IPC.explorerTransfer, sources, targetDirectory, mode),
+  /** Moves explorer files or subfolders to the OS trash after a native confirmation. */
+  explorerTrash: (targets: string[], prompt: ExplorerTrashPrompt): Promise<ExplorerTrashResult> =>
+    ipcRenderer.invoke(IPC.explorerTrash, targets, prompt),
+  /** Shows a document or explorer entry selected in the OS file manager. */
+  revealInOs: (path: string): Promise<boolean> => ipcRenderer.invoke(IPC.revealInOs, path),
+  /** Opens a document or explorer folder with the OS default application. */
+  openWithDefaultApp: (path: string): Promise<WriteResult> => ipcRenderer.invoke(IPC.openWithDefaultApp, path),
   /** Removes a folder from the explorer and returns the remaining list. */
   explorerRemoveFolder: (folderPath: string): Promise<string[]> => ipcRenderer.invoke(IPC.explorerRemoveFolder, folderPath),
   save: (filePath: string, content: string): Promise<WriteResult> => ipcRenderer.invoke(IPC.save, filePath, content),

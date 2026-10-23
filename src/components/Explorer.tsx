@@ -1,4 +1,14 @@
-import { memo, useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent, type MouseEvent as ReactMouseEvent } from 'react'
+import {
+  memo,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type DragEvent as ReactDragEvent,
+  type KeyboardEvent as ReactKeyboardEvent,
+  type MouseEvent as ReactMouseEvent
+} from 'react'
 import { useTranslation } from 'react-i18next'
 import {
   IconChevronRight,
@@ -11,22 +21,43 @@ import {
   IconRefresh,
   IconX
 } from './icons'
-import type { ExplorerNode, ExplorerScanResult } from '../../electron/shared'
+import { ContextMenu, revealInOsLabelKey, shortcutLabel, type ContextMenuItem } from './ContextMenu'
+import type { ExplorerNode, ExplorerScanResult, ExplorerTransferMode } from '../../electron/shared'
 
 /** `null` on success, otherwise an error code (`exists`, `invalid-name`, `forbidden`, or a message). */
 export type ExplorerActionResult = string | null
+
+/** Asks the explorer to do something on behalf of another part of the app (e.g. a tab menu). */
+export interface ExplorerRequest {
+  kind: 'reveal' | 'rename'
+  path: string
+  /** Increments per request so repeating the same one still triggers. */
+  id: number
+}
 
 interface ExplorerProps {
   folders: string[]
   /** Path of the active document, highlighted when it lives in a loaded folder. */
   activePath: string | null
+  /** Paths of every open document; marks which explorer files are already in a tab. */
+  openPaths: string[]
+  request: ExplorerRequest | null
+  /** Called once `request` has been carried out (or cannot be), so it is never replayed. */
+  onRequestHandled: () => void
   onAddFolder: () => void
   onRemoveFolder: (path: string) => void
-  onOpenFile: (path: string) => void
+  onOpenFile: (path: string, mode?: 'view' | 'edit') => void
   /** Creates `name` inside `directory` and opens it; resolves to an error code or `null`. */
   onCreateFile: (directory: string, name: string) => Promise<ExplorerActionResult>
   /** Renames `path` to `name` in its own folder; resolves to an error code or `null`. */
   onRenameFile: (path: string, name: string) => Promise<ExplorerActionResult>
+  /** Copies or moves files into `directory`; resolves to an error code or `null`. */
+  onTransfer: (sources: string[], directory: string, mode: ExplorerTransferMode) => Promise<ExplorerActionResult>
+  /** Moves entries to the OS trash after confirmation. Resolves to `true` when anything was removed. */
+  onDelete: (paths: string[]) => Promise<boolean>
+  onRevealInOs: (path: string) => void
+  onOpenWithDefaultApp: (path: string) => void
+  onCopyText: (text: string) => void
 }
 
 /** Inline name field: a new file being named inside `directory`, or an existing file being renamed. */
@@ -37,12 +68,25 @@ type Draft =
 interface MenuState {
   x: number
   y: number
-  kind: 'file' | 'directory' | 'root'
+  kind: 'file' | 'directory' | 'root' | 'blank'
   path: string
   name: string
 }
 
+interface Clipboard {
+  mode: ExplorerTransferMode
+  paths: string[]
+}
+
+interface FlatEntry {
+  path: string
+  kind: 'file' | 'directory' | 'root'
+  name: string
+  directory: string
+}
+
 const NEW_FILE_NAME = 'Untitled.md'
+const DRAG_MIME = 'application/x-moji-explorer'
 
 /** Windows paths compare case-insensitively; everything else exactly. */
 function pathKey(path: string): string {
@@ -58,6 +102,11 @@ function parentOf(path: string): string {
   return index > 0 ? path.slice(0, index) : path
 }
 
+function relativeTo(root: string, path: string): string {
+  if (!path.startsWith(root)) return path
+  return path.slice(root.length).replace(/^[\\/]+/, '') || folderLabel(path)
+}
+
 function collectDirectories(node: ExplorerNode, acc: string[] = []): string[] {
   for (const child of node.children ?? []) {
     if (child.kind === 'directory') {
@@ -68,11 +117,20 @@ function collectDirectories(node: ExplorerNode, acc: string[] = []): string[] {
   return acc
 }
 
-/** Folders between a loaded root and the file at `key`, root first; `null` when not listed. */
-function ancestorsOf(results: Map<string, ExplorerScanResult>, key: string): string[] | null {
-  const visit = (node: ExplorerNode, trail: string[]): string[] | null => {
+interface Located {
+  /** The entry's path exactly as the scan spells it (case may differ from the lookup key). */
+  path: string
+  name: string
+  kind: 'file' | 'directory'
+  /** Folders between a loaded root and the entry, root first. */
+  ancestors: string[]
+}
+
+/** Finds the listed entry whose path matches `key` (see `pathKey`); `null` when not listed. */
+function locate(results: Map<string, ExplorerScanResult>, key: string): Located | null {
+  const visit = (node: ExplorerNode, trail: string[]): Located | null => {
     for (const child of node.children ?? []) {
-      if (child.kind === 'file' && pathKey(child.path) === key) return trail
+      if (pathKey(child.path) === key) return { path: child.path, name: child.name, kind: child.kind, ancestors: trail }
       if (child.kind === 'directory') {
         const found = visit(child, [...trail, child.path])
         if (found) return found
@@ -86,6 +144,34 @@ function ancestorsOf(results: Map<string, ExplorerScanResult>, key: string): str
     if (found) return found
   }
   return null
+}
+
+function ancestorsOf(results: Map<string, ExplorerScanResult>, key: string): string[] | null {
+  return locate(results, key)?.ancestors ?? null
+}
+
+/** Every listed path, by kind: what selection and transfers are checked against. */
+function listedPaths(results: Map<string, ExplorerScanResult>): { files: Set<string>; directories: Set<string> } {
+  const files = new Set<string>()
+  const directories = new Set<string>()
+  const walk = (node: ExplorerNode): void => {
+    for (const child of node.children ?? []) {
+      if (child.kind === 'file') files.add(child.path)
+      else {
+        directories.add(child.path)
+        walk(child)
+      }
+    }
+  }
+  for (const result of results.values()) if (result.ok) walk(result.root)
+  return { files, directories }
+}
+
+function rootOf(folders: string[], path: string): string | undefined {
+  const key = pathKey(path)
+  return folders
+    .filter((folder) => key === pathKey(folder) || key.startsWith(pathKey(folder) + '/') || key.startsWith(pathKey(folder) + '\\'))
+    .sort((a, b) => b.length - a.length)[0]
 }
 
 interface NameInputProps {
@@ -159,61 +245,81 @@ function NameInput(props: NameInputProps): JSX.Element {
   )
 }
 
+interface TreeContext {
+  expanded: Set<string>
+  activeKey: string | null
+  openKeys: Set<string>
+  selected: Set<string>
+  focusedPath: string | null
+  cutKeys: Set<string>
+  dropTarget: string | null
+  draft: Draft | null
+  draftError: string | null
+  draftBusy: boolean
+  onRowClick: (event: ReactMouseEvent, entry: FlatEntry) => void
+  onRowDoubleClick: (entry: FlatEntry) => void
+  onContextMenu: (event: ReactMouseEvent, entry: FlatEntry) => void
+  onStartRename: (path: string, name: string) => void
+  onCommitDraft: (value: string) => void
+  onCancelDraft: () => void
+  onDraftChange: () => void
+  onDragStart: (event: ReactDragEvent, entry: FlatEntry) => void
+  onDragEnd: () => void
+  onDragOverFolder: (event: ReactDragEvent, directory: string) => void
+  onDropOnFolder: (event: ReactDragEvent, directory: string) => void
+}
+
 interface TreeProps {
   nodes: ExplorerNode[]
   depth: number
   /** Folder that owns `nodes`; a pending "new file" draft for it renders first in the list. */
   directory: string
-  expanded: Set<string>
-  activeKey: string | null
-  selectedDir: string | null
-  draft: Draft | null
-  draftError: string | null
-  draftBusy: boolean
-  onToggle: (path: string) => void
-  onOpenFile: (path: string) => void
-  onSelectDir: (path: string) => void
-  onContextMenu: (event: ReactMouseEvent, menu: Omit<MenuState, 'x' | 'y'>) => void
-  onStartRename: (path: string, name: string) => void
-  onCommitDraft: (value: string) => void
-  onCancelDraft: () => void
-  onDraftChange: () => void
+  ctx: TreeContext
 }
 
-function ExplorerTree(props: TreeProps): JSX.Element {
+function ExplorerTree({ nodes, depth, directory, ctx }: TreeProps): JSX.Element {
   const { t } = useTranslation()
-  const { draft } = props
-  const creatingHere = draft?.kind === 'create' && draft.directory === props.directory
+  const { draft } = ctx
+  const creatingHere = draft?.kind === 'create' && draft.directory === directory
   return (
     <ul className="explorer-tree" role="group">
       {creatingHere && (
         <NameInput
           initial={NEW_FILE_NAME}
-          depth={props.depth}
-          error={props.draftError}
-          busy={props.draftBusy}
-          onCommit={props.onCommitDraft}
-          onCancel={props.onCancelDraft}
-          onChange={props.onDraftChange}
+          depth={depth}
+          error={ctx.draftError}
+          busy={ctx.draftBusy}
+          onCommit={ctx.onCommitDraft}
+          onCancel={ctx.onCancelDraft}
+          onChange={ctx.onDraftChange}
         />
       )}
-      {props.nodes.map((node) => {
-        const indent = { paddingLeft: `${4 + props.depth * 12}px` }
+      {nodes.map((node) => {
+        const indent = { paddingLeft: `${4 + depth * 12}px` }
+        const key = pathKey(node.path)
+        const stateClasses = [
+          ctx.selected.has(node.path) ? 'explorer-item--selected' : '',
+          ctx.focusedPath === node.path ? 'explorer-item--focused' : '',
+          ctx.cutKeys.has(key) ? 'explorer-item--cut' : ''
+        ].join(' ')
         if (node.kind === 'directory') {
-          const open = props.expanded.has(node.path)
-          const selected = props.selectedDir === node.path
+          const open = ctx.expanded.has(node.path)
+          const entry: FlatEntry = { path: node.path, kind: 'directory', name: node.name, directory: node.path }
           return (
-            <li key={node.path} role="treeitem" aria-expanded={open}>
+            <li key={node.path} role="treeitem" aria-expanded={open} aria-selected={ctx.selected.has(node.path)}>
               <button
                 type="button"
-                className={`explorer-item explorer-item--dir ${selected ? 'explorer-item--selected' : ''}`}
+                data-explorer-path={node.path}
+                className={`explorer-item explorer-item--dir ${stateClasses} ${ctx.dropTarget === node.path ? 'explorer-item--drop' : ''}`}
                 style={indent}
                 title={node.path}
-                onClick={() => {
-                  props.onSelectDir(node.path)
-                  props.onToggle(node.path)
-                }}
-                onContextMenu={(event) => props.onContextMenu(event, { kind: 'directory', path: node.path, name: node.name })}
+                draggable
+                onClick={(event) => ctx.onRowClick(event, entry)}
+                onContextMenu={(event) => ctx.onContextMenu(event, entry)}
+                onDragStart={(event) => ctx.onDragStart(event, entry)}
+                onDragEnd={ctx.onDragEnd}
+                onDragOver={(event) => ctx.onDragOverFolder(event, node.path)}
+                onDrop={(event) => ctx.onDropOnFolder(event, node.path)}
               >
                 <span className={`explorer-item__chevron ${open ? 'explorer-item__chevron--open' : ''}`} aria-hidden="true">
                   <IconChevronRight width={14} height={14} />
@@ -222,7 +328,7 @@ function ExplorerTree(props: TreeProps): JSX.Element {
                 <span className="explorer-item__name">{node.name}</span>
               </button>
               {(open || (draft?.kind === 'create' && draft.directory === node.path)) && (
-                <ExplorerTree {...props} nodes={node.children ?? []} depth={props.depth + 1} directory={node.path} />
+                <ExplorerTree nodes={node.children ?? []} depth={depth + 1} directory={node.path} ctx={ctx} />
               )}
             </li>
           )
@@ -232,43 +338,44 @@ function ExplorerTree(props: TreeProps): JSX.Element {
             <NameInput
               key={node.path}
               initial={node.name}
-              depth={props.depth}
-              error={props.draftError}
-              busy={props.draftBusy}
-              onCommit={props.onCommitDraft}
-              onCancel={props.onCancelDraft}
-              onChange={props.onDraftChange}
+              depth={depth}
+              error={ctx.draftError}
+              busy={ctx.draftBusy}
+              onCommit={ctx.onCommitDraft}
+              onCancel={ctx.onCancelDraft}
+              onChange={ctx.onDraftChange}
             />
           )
         }
-        const active = props.activeKey === pathKey(node.path)
+        const active = ctx.activeKey === key
+        const isOpen = ctx.openKeys.has(key)
+        const entry: FlatEntry = { path: node.path, kind: 'file', name: node.name, directory }
         return (
-          <li key={node.path} role="treeitem" aria-selected={active} className="explorer-file">
+          <li key={node.path} role="treeitem" aria-selected={ctx.selected.has(node.path)} className="explorer-file">
             <button
               type="button"
-              className={`explorer-item explorer-item--file ${active ? 'explorer-item--active' : ''}`}
+              data-explorer-path={node.path}
+              className={`explorer-item explorer-item--file ${active ? 'explorer-item--active' : ''} ${stateClasses}`}
               style={indent}
               title={node.path}
-              onClick={() => {
-                props.onSelectDir(props.directory)
-                props.onOpenFile(node.path)
-              }}
-              onKeyDown={(event) => {
-                if (event.key === 'F2') {
-                  event.preventDefault()
-                  props.onStartRename(node.path, node.name)
-                }
-              }}
-              onContextMenu={(event) => props.onContextMenu(event, { kind: 'file', path: node.path, name: node.name })}
+              draggable
+              onClick={(event) => ctx.onRowClick(event, entry)}
+              onDoubleClick={() => ctx.onRowDoubleClick(entry)}
+              onContextMenu={(event) => ctx.onContextMenu(event, entry)}
+              onDragStart={(event) => ctx.onDragStart(event, entry)}
+              onDragEnd={ctx.onDragEnd}
+              onDragOver={(event) => ctx.onDragOverFolder(event, directory)}
+              onDrop={(event) => ctx.onDropOnFolder(event, directory)}
             >
               <span className="explorer-item__chevron" aria-hidden="true" />
               <IconFileText className="explorer-item__icon" width={15} height={15} />
               <span className="explorer-item__name">{node.name}</span>
+              {isOpen && !active && <span className="explorer-item__open-dot" title={t('explorer.openInTab')} aria-label={t('explorer.openInTab')} />}
             </button>
             <button
               type="button"
               className="explorer-item__action"
-              onClick={() => props.onStartRename(node.path, node.name)}
+              onClick={() => ctx.onStartRename(node.path, node.name)}
               title={t('explorer.rename')}
               aria-label={t('explorer.renameNamed', { name: node.name })}
             >
@@ -283,27 +390,50 @@ function ExplorerTree(props: TreeProps): JSX.Element {
 
 export const Explorer = memo(function Explorer(props: ExplorerProps): JSX.Element {
   const { t } = useTranslation()
-  const { folders, onOpenFile, onRemoveFolder, onCreateFile, onRenameFile } = props
+  const { folders, onOpenFile, onRemoveFolder, onCreateFile, onRenameFile, onTransfer, onDelete, onCopyText, onRequestHandled } = props
   const [results, setResults] = useState<Map<string, ExplorerScanResult>>(new Map())
   const [loading, setLoading] = useState(false)
   /** Expanded folders (roots and subfolders), keyed by path. Roots start open. */
   const [expanded, setExpanded] = useState<Set<string>>(() => new Set(folders))
   /** Folder a "New file" lands in: the last folder clicked, or the folder of the last file opened. */
   const [selectedDir, setSelectedDir] = useState<string | null>(null)
+  /** Multi-selection (Ctrl/Shift+click), used by cut/copy/delete/drag. */
+  const [selected, setSelected] = useState<Set<string>>(new Set())
+  /** Keyboard cursor in the tree. */
+  const [focusedPath, setFocusedPath] = useState<string | null>(null)
+  /** Where a Shift+click / Shift+Arrow range starts; moves only on a plain click or arrow. */
+  const [anchorPath, setAnchorPath] = useState<string | null>(null)
+  const [clipboard, setClipboard] = useState<Clipboard | null>(null)
+  const [dropTarget, setDropTarget] = useState<string | null>(null)
   const [draft, setDraft] = useState<Draft | null>(null)
   const [draftError, setDraftError] = useState<string | null>(null)
   const [draftBusy, setDraftBusy] = useState(false)
   const [menu, setMenu] = useState<MenuState | null>(null)
   const knownRoots = useRef(new Set(folders))
   const scanRequest = useRef(0)
+  const bodyRef = useRef<HTMLDivElement>(null)
 
   const rescan = useCallback(async () => {
     const request = ++scanRequest.current
     setLoading(true)
     const scanned = await Promise.all(folders.map((folder) => window.api.explorerScan(folder)))
     if (request !== scanRequest.current) return
-    setResults(new Map(folders.map((folder, index) => [folder, scanned[index]])))
+    const next = new Map(folders.map((folder, index) => [folder, scanned[index]]))
+    setResults(next)
     setLoading(false)
+    // Drop selections and clipboard entries for paths that moved, were renamed or deleted.
+    const listed = listedPaths(next)
+    const stillListed = (path: string): boolean => listed.files.has(path) || listed.directories.has(path)
+    setSelected((prev) => {
+      const kept = [...prev].filter(stillListed)
+      return kept.length === prev.size ? prev : new Set(kept)
+    })
+    setClipboard((prev) => {
+      if (!prev) return prev
+      const kept = prev.paths.filter((path) => listed.files.has(path))
+      if (kept.length === prev.paths.length) return prev
+      return kept.length > 0 ? { ...prev, paths: kept } : null
+    })
   }, [folders])
 
   useEffect(() => {
@@ -314,7 +444,7 @@ export const Explorer = memo(function Explorer(props: ExplorerProps): JSX.Elemen
       setExpanded((prev) => new Set([...prev, ...added]))
       setSelectedDir(added[added.length - 1])
     }
-    setSelectedDir((prev) => (prev && folders.some((folder) => prev === folder || prev.startsWith(folder)) ? prev : null))
+    setSelectedDir((prev) => (prev && rootOf(folders, prev) ? prev : null))
     void rescan()
   }, [folders, rescan])
 
@@ -324,25 +454,6 @@ export const Explorer = memo(function Explorer(props: ExplorerProps): JSX.Elemen
     window.addEventListener('focus', onFocus)
     return () => window.removeEventListener('focus', onFocus)
   }, [rescan])
-
-  // Dismiss the context menu on any outside interaction.
-  useEffect(() => {
-    if (!menu) return
-    const close = (): void => setMenu(null)
-    const onKey = (event: KeyboardEvent): void => {
-      if (event.key === 'Escape') setMenu(null)
-    }
-    window.addEventListener('mousedown', close)
-    window.addEventListener('resize', close)
-    window.addEventListener('blur', close)
-    window.addEventListener('keydown', onKey)
-    return () => {
-      window.removeEventListener('mousedown', close)
-      window.removeEventListener('resize', close)
-      window.removeEventListener('blur', close)
-      window.removeEventListener('keydown', onKey)
-    }
-  }, [menu])
 
   const toggle = useCallback((path: string) => {
     setExpanded((prev) => {
@@ -356,6 +467,51 @@ export const Explorer = memo(function Explorer(props: ExplorerProps): JSX.Elemen
   const collapseAll = useCallback(() => setExpanded(new Set()), [])
 
   const activeKey = useMemo(() => (props.activePath ? pathKey(props.activePath) : null), [props.activePath])
+  const openKeys = useMemo(() => new Set(props.openPaths.map(pathKey)), [props.openPaths])
+  const cutKeys = useMemo(
+    () => new Set(clipboard?.mode === 'move' ? clipboard.paths.map(pathKey) : []),
+    [clipboard]
+  )
+
+  /** Every row currently rendered, top to bottom: the order arrow keys and Shift+click follow. */
+  const flatEntries = useMemo(() => {
+    const list: FlatEntry[] = []
+    const walk = (nodes: ExplorerNode[], directory: string): void => {
+      for (const node of nodes) {
+        if (node.kind === 'directory') {
+          list.push({ path: node.path, kind: 'directory', name: node.name, directory: node.path })
+          if (expanded.has(node.path)) walk(node.children ?? [], node.path)
+        } else {
+          list.push({ path: node.path, kind: 'file', name: node.name, directory })
+        }
+      }
+    }
+    for (const folder of folders) {
+      list.push({ path: folder, kind: 'root', name: folderLabel(folder), directory: folder })
+      const result = results.get(folder)
+      if (expanded.has(folder) && result?.ok) walk(result.root.children ?? [], folder)
+    }
+    return list
+  }, [expanded, folders, results])
+
+  /** Expands, selects and scrolls to a listed entry; returns it, or `null` when it is not listed. */
+  const revealPath = useCallback((requested: string): Located | null => {
+    const found = locate(results, pathKey(requested))
+    if (!found) return null
+    const { ancestors, path } = found
+    setExpanded((prev) => (ancestors.every((p) => prev.has(p)) ? prev : new Set([...prev, ...ancestors])))
+    setSelected(new Set([path]))
+    setFocusedPath(path)
+    setAnchorPath(path)
+    setSelectedDir(ancestors[ancestors.length - 1] ?? null)
+    // Scroll after the expanded folders render.
+    window.requestAnimationFrame(() => {
+      const row = bodyRef.current?.querySelector<HTMLElement>(`[data-explorer-path="${CSS.escape(path)}"]`)
+      row?.scrollIntoView({ block: 'nearest' })
+      row?.focus({ preventScroll: true })
+    })
+    return found
+  }, [results])
 
   // Reveal the active document: open every folder between its root and the file.
   useEffect(() => {
@@ -364,13 +520,6 @@ export const Explorer = memo(function Explorer(props: ExplorerProps): JSX.Elemen
     if (!ancestors || ancestors.length === 0) return
     setExpanded((prev) => (ancestors.every((path) => prev.has(path)) ? prev : new Set([...prev, ...ancestors])))
   }, [activeKey, results])
-
-  const anyExpanded = useMemo(() => {
-    for (const result of results.values()) {
-      if (result.ok && (expanded.has(result.root.path) || collectDirectories(result.root).some((p) => expanded.has(p)))) return true
-    }
-    return false
-  }, [expanded, results])
 
   const errorText = useCallback((code: string): string => {
     if (code === 'exists') return t('explorer.errors.exists')
@@ -400,6 +549,21 @@ export const Explorer = memo(function Explorer(props: ExplorerProps): JSX.Elemen
     setDraft({ kind: 'rename', path, name })
   }, [])
 
+  // Requests from outside (tab menu "Reveal in Explorer View" / "Rename…"). Each is carried out
+  // once the folder holding it has been scanned, then handed back so it is never replayed —
+  // including after this component remounts when the explorer is shown again.
+  useEffect(() => {
+    const request = props.request
+    if (!request) return
+    const root = rootOf(folders, request.path)
+    const rootResult = root ? results.get(root) : undefined
+    // Still scanning the folder that would hold it: try again when results arrive.
+    if (root && !rootResult) return
+    const found = revealPath(request.path)
+    if (found && request.kind === 'rename' && found.kind === 'file') startRename(found.path, found.name)
+    onRequestHandled()
+  }, [folders, onRequestHandled, props.request, results, revealPath, startRename])
+
   const cancelDraft = useCallback(() => {
     setDraft(null)
     setDraftError(null)
@@ -427,31 +591,326 @@ export const Explorer = memo(function Explorer(props: ExplorerProps): JSX.Elemen
     void rescan()
   }, [cancelDraft, draft, draftBusy, errorText, onCreateFile, onRenameFile, rescan])
 
-  const openMenu = useCallback((event: ReactMouseEvent, target: Omit<MenuState, 'x' | 'y'>) => {
+  // --- Selection ----------------------------------------------------------
+  /** What an action applies to: the whole selection when `path` is part of it, else just `path`. */
+  const targetsFor = useCallback((path: string): string[] => (
+    selected.has(path) ? [...selected] : [path]
+  ), [selected])
+
+  const rangeTo = useCallback((path: string, additive: boolean): boolean => {
+    const from = flatEntries.findIndex((item) => item.path === anchorPath)
+    const to = flatEntries.findIndex((item) => item.path === path)
+    if (from < 0 || to < 0) return false
+    const [start, end] = from < to ? [from, to] : [to, from]
+    const range = flatEntries.slice(start, end + 1).filter((item) => item.kind !== 'root').map((item) => item.path)
+    setSelected((prev) => new Set(additive ? [...prev, ...range] : range))
+    setFocusedPath(path)
+    return true
+  }, [anchorPath, flatEntries])
+
+  const onRowClick = useCallback((event: ReactMouseEvent, entry: FlatEntry) => {
+    const additive = event.ctrlKey || event.metaKey
+    if (event.shiftKey && anchorPath && rangeTo(entry.path, additive)) return
+    setFocusedPath(entry.path)
+    setAnchorPath(entry.path)
+    if (additive) {
+      setSelected((prev) => {
+        const next = new Set(prev)
+        if (next.has(entry.path)) next.delete(entry.path)
+        else next.add(entry.path)
+        return next
+      })
+      return
+    }
+    setSelected(entry.kind === 'root' ? new Set() : new Set([entry.path]))
+    setSelectedDir(entry.directory)
+    if (entry.kind === 'file') onOpenFile(entry.path)
+    else toggle(entry.path)
+  }, [anchorPath, onOpenFile, rangeTo, toggle])
+
+  const onRowDoubleClick = useCallback((entry: FlatEntry) => {
+    // VS Code: single click previews, double click keeps it open for editing.
+    if (entry.kind === 'file') onOpenFile(entry.path, 'edit')
+  }, [onOpenFile])
+
+  // --- Clipboard / transfer ---------------------------------------------
+  const listed = useMemo(() => listedPaths(results), [results])
+
+  // Only files move or copy; folders in a mixed selection are skipped rather than half-copied.
+  // Checked against the scan, not the visible rows, so a selection inside a collapsed folder
+  // behaves the same for cut/copy/drag as it does for delete.
+  const filesOnly = useCallback((paths: string[]): string[] => (
+    [...new Set(paths.filter((path) => listed.files.has(path)))]
+  ), [listed])
+
+  const copyToClipboard = useCallback((paths: string[], mode: ExplorerTransferMode) => {
+    const files = filesOnly(paths)
+    if (files.length === 0) return
+    setClipboard({ mode, paths: files })
+  }, [filesOnly])
+
+  const transfer = useCallback(async (sources: string[], directory: string, mode: ExplorerTransferMode) => {
+    const error = await onTransfer(sources, directory, mode)
+    if (!error && mode === 'move') setClipboard(null)
+    setExpanded((prev) => new Set([...prev, directory]))
+    void rescan()
+  }, [onTransfer, rescan])
+
+  const paste = useCallback((directory: string) => {
+    if (!clipboard) return
+    void transfer(clipboard.paths, directory, clipboard.mode)
+  }, [clipboard, transfer])
+
+  const remove = useCallback(async (paths: string[]) => {
+    const candidates = [...new Set(paths)].filter((path) => listed.files.has(path) || listed.directories.has(path))
+    // A file inside a folder that is also being deleted goes with the folder.
+    const keys = candidates.map(pathKey)
+    const deletable = candidates.filter((path) => {
+      const key = pathKey(path)
+      return !keys.some((other) => other !== key && (key.startsWith(other + '/') || key.startsWith(other + '\\')))
+    })
+    if (deletable.length === 0) return
+    if (await onDelete(deletable)) {
+      setSelected(new Set())
+      setClipboard((prev) => (prev ? { ...prev, paths: prev.paths.filter((path) => !deletable.includes(path)) } : prev))
+      void rescan()
+    }
+  }, [listed, onDelete, rescan])
+
+  // --- Drag and drop (move; hold Ctrl/Alt to copy) -------------------------
+  const onDragStart = useCallback((event: ReactDragEvent, entry: FlatEntry) => {
+    const files = filesOnly(targetsFor(entry.path))
+    if (files.length === 0) {
+      event.preventDefault()
+      return
+    }
+    event.dataTransfer.setData(DRAG_MIME, JSON.stringify(files))
+    event.dataTransfer.effectAllowed = 'copyMove'
+  }, [filesOnly, targetsFor])
+
+  // A drag cancelled with Escape or dropped outside the tree never reaches `onDropOnFolder`.
+  const onDragEnd = useCallback(() => setDropTarget(null), [])
+
+  const onDragOverFolder = useCallback((event: ReactDragEvent, directory: string) => {
+    if (!event.dataTransfer.types.includes(DRAG_MIME)) return
     event.preventDefault()
-    setMenu({ ...target, x: event.clientX, y: event.clientY })
+    // Keep the window-level "drop a file to open it" overlay out of internal moves.
+    event.stopPropagation()
+    event.dataTransfer.dropEffect = event.ctrlKey || event.altKey ? 'copy' : 'move'
+    setDropTarget(directory)
   }, [])
 
-  const run = (action: () => void): void => {
-    setMenu(null)
-    action()
-  }
+  const onDropOnFolder = useCallback((event: ReactDragEvent, directory: string) => {
+    if (!event.dataTransfer.types.includes(DRAG_MIME)) return
+    event.preventDefault()
+    event.stopPropagation()
+    setDropTarget(null)
+    let sources: string[] = []
+    try {
+      sources = JSON.parse(event.dataTransfer.getData(DRAG_MIME)) as string[]
+    } catch {
+      return
+    }
+    const mode: ExplorerTransferMode = event.ctrlKey || event.altKey ? 'copy' : 'move'
+    const movable = sources.filter((path) => mode === 'copy' || pathKey(parentOf(path)) !== pathKey(directory))
+    if (movable.length > 0) void transfer(movable, directory, mode)
+  }, [transfer])
 
-  const treeProps = {
+  // --- Context menus -------------------------------------------------------
+  const openMenu = useCallback((event: ReactMouseEvent, entry: FlatEntry | null) => {
+    event.preventDefault()
+    event.stopPropagation()
+    if (entry && !selected.has(entry.path)) {
+      setSelected(entry.kind === 'root' ? new Set() : new Set([entry.path]))
+      setFocusedPath(entry.path)
+      setAnchorPath(entry.path)
+    }
+    setMenu(entry
+      ? { x: event.clientX, y: event.clientY, kind: entry.kind, path: entry.path, name: entry.name }
+      : { x: event.clientX, y: event.clientY, kind: 'blank', path: '', name: '' })
+  }, [selected])
+
+  const copyPath = useCallback((paths: string[], relative: boolean) => {
+    const text = paths
+      .map((path) => {
+        if (!relative) return path
+        const root = rootOf(folders, path)
+        return root ? relativeTo(root, path) : path
+      })
+      .join('\n')
+    onCopyText(text)
+  }, [folders, onCopyText])
+
+  const menuItems = useMemo((): ContextMenuItem[] => {
+    if (!menu) return []
+    const revealLabel = t(revealInOsLabelKey())
+    if (menu.kind === 'blank') {
+      return [
+        { label: t('explorer.newFile'), onSelect: () => startCreate() , disabled: folders.length === 0 },
+        { label: t('explorer.addFolder'), onSelect: props.onAddFolder },
+        'separator',
+        { label: t('explorer.refresh'), onSelect: () => void rescan(), disabled: folders.length === 0 },
+        { label: t('sidebar.collapseAll'), onSelect: collapseAll, disabled: folders.length === 0 }
+      ]
+    }
+    const targets = targetsFor(menu.path)
+    const many = targets.length > 1
+    const targetFiles = filesOnly(targets)
+    const pasteHere = menu.kind === 'file' ? parentOf(menu.path) : menu.path
+    const common: ContextMenuItem[] = [
+      { label: t('explorer.cut'), shortcut: shortcutLabel('Ctrl', 'X'), disabled: targetFiles.length === 0, onSelect: () => copyToClipboard(targets, 'move') },
+      { label: t('explorer.copy'), shortcut: shortcutLabel('Ctrl', 'C'), disabled: targetFiles.length === 0, onSelect: () => copyToClipboard(targets, 'copy') },
+      {
+        label: clipboard && clipboard.paths.length > 1 ? t('explorer.pasteCount', { count: clipboard.paths.length }) : t('explorer.paste'),
+        shortcut: shortcutLabel('Ctrl', 'V'),
+        disabled: !clipboard,
+        onSelect: () => paste(pasteHere)
+      },
+      'separator',
+      { label: t('explorer.copyPath'), shortcut: shortcutLabel('Shift', 'Alt', 'C'), onSelect: () => copyPath(targets, false) },
+      { label: t('explorer.copyRelativePath'), onSelect: () => copyPath(targets, true) }
+    ]
+
+    if (menu.kind === 'file') {
+      return [
+        { label: t('explorer.open'), onSelect: () => onOpenFile(menu.path) },
+        { label: t('explorer.openInEditor'), onSelect: () => onOpenFile(menu.path, 'edit') },
+        { label: t('explorer.openWithDefaultApp'), onSelect: () => props.onOpenWithDefaultApp(menu.path) },
+        { label: revealLabel, shortcut: shortcutLabel('Shift', 'Alt', 'R'), onSelect: () => props.onRevealInOs(menu.path) },
+        'separator',
+        { label: t('explorer.newFile'), onSelect: () => startCreate(parentOf(menu.path)) },
+        'separator',
+        ...common,
+        'separator',
+        { label: t('explorer.duplicate'), disabled: many, onSelect: () => void transfer([menu.path], parentOf(menu.path), 'copy') },
+        { label: t('explorer.renameEllipsis'), shortcut: 'F2', disabled: many, onSelect: () => startRename(menu.path, menu.name) },
+        {
+          label: many ? t('explorer.deleteCount', { count: targets.length }) : t('explorer.delete'),
+          shortcut: shortcutLabel('Delete'),
+          danger: true,
+          onSelect: () => void remove(targets)
+        }
+      ]
+    }
+
+    return [
+      { label: t('explorer.newFile'), onSelect: () => startCreate(menu.path) },
+      'separator',
+      { label: revealLabel, shortcut: shortcutLabel('Shift', 'Alt', 'R'), onSelect: () => props.onRevealInOs(menu.path) },
+      { label: t('explorer.openWithDefaultApp'), onSelect: () => props.onOpenWithDefaultApp(menu.path) },
+      'separator',
+      ...common,
+      'separator',
+      { label: t('explorer.refresh'), onSelect: () => void rescan() },
+      { label: t('explorer.collapseFolder'), disabled: !expanded.has(menu.path), onSelect: () => toggle(menu.path) },
+      'separator',
+      menu.kind === 'root'
+        ? { label: t('explorer.removeFolder'), onSelect: () => onRemoveFolder(menu.path) }
+        : {
+            label: many ? t('explorer.deleteCount', { count: targets.length }) : t('explorer.delete'),
+            shortcut: shortcutLabel('Delete'),
+            danger: true,
+            onSelect: () => void remove(targets)
+          }
+    ]
+  }, [clipboard, collapseAll, copyPath, copyToClipboard, expanded, filesOnly, folders.length, menu, onOpenFile, onRemoveFolder, paste, props, remove, rescan, startCreate, startRename, t, targetsFor, toggle, transfer])
+
+  // --- Keyboard (tree focused) ---------------------------------------------
+  const onTreeKeyDown = useCallback((event: ReactKeyboardEvent<HTMLDivElement>) => {
+    if (draft || (event.target as HTMLElement).tagName === 'INPUT') return
+    const index = flatEntries.findIndex((item) => item.path === focusedPath)
+    const current = index >= 0 ? flatEntries[index] : null
+    const primary = event.ctrlKey || event.metaKey
+    const key = event.key.toLowerCase()
+    const handled = (): void => {
+      event.preventDefault()
+      event.stopPropagation()
+    }
+    const focusRow = (entry: FlatEntry | undefined): void => {
+      if (!entry) return
+      if (event.shiftKey && anchorPath) {
+        rangeTo(entry.path, false)
+      } else {
+        setFocusedPath(entry.path)
+        setAnchorPath(entry.path)
+        setSelected(entry.kind === 'root' ? new Set() : new Set([entry.path]))
+      }
+      bodyRef.current?.querySelector<HTMLElement>(`[data-explorer-path="${CSS.escape(entry.path)}"]`)?.focus()
+    }
+
+    if (event.key === 'ArrowDown') { handled(); focusRow(flatEntries[Math.min(flatEntries.length - 1, index + 1)]); return }
+    if (event.key === 'ArrowUp') { handled(); focusRow(flatEntries[Math.max(0, index - 1)]); return }
+    if (event.key === 'Home') { handled(); focusRow(flatEntries[0]); return }
+    if (event.key === 'End') { handled(); focusRow(flatEntries[flatEntries.length - 1]); return }
+    if (!current) return
+    if (event.key === 'ArrowRight' && current.kind !== 'file') {
+      handled()
+      if (!expanded.has(current.path)) toggle(current.path)
+      else focusRow(flatEntries[index + 1])
+      return
+    }
+    if (event.key === 'ArrowLeft') {
+      handled()
+      if (current.kind !== 'file' && expanded.has(current.path)) toggle(current.path)
+      else focusRow(flatEntries.find((item) => item.path === parentOf(current.path)) ?? flatEntries.find((item) => item.path === current.directory && item.path !== current.path))
+      return
+    }
+    if (event.key === 'F2' && current.kind === 'file') { handled(); startRename(current.path, current.name); return }
+    if ((event.key === 'Delete' || (event.key === 'Backspace' && event.metaKey)) && current.kind !== 'root') {
+      handled()
+      void remove(targetsFor(current.path))
+      return
+    }
+    if (primary && !event.shiftKey && !event.altKey && key === 'c') { handled(); copyToClipboard(targetsFor(current.path), 'copy'); return }
+    if (primary && !event.shiftKey && !event.altKey && key === 'x') { handled(); copyToClipboard(targetsFor(current.path), 'move'); return }
+    if (primary && !event.shiftKey && !event.altKey && key === 'v') {
+      handled()
+      paste(current.kind === 'file' ? current.directory : current.path)
+      return
+    }
+    if (primary && key === 'a' && !event.shiftKey) {
+      handled()
+      setSelected(new Set(flatEntries.filter((item) => item.kind !== 'root').map((item) => item.path)))
+      return
+    }
+    if (event.shiftKey && event.altKey && key === 'c') { handled(); copyPath(targetsFor(current.path), false); return }
+    if (event.shiftKey && event.altKey && key === 'r') { handled(); props.onRevealInOs(current.path); return }
+    if (event.key === 'Escape' && (selected.size > 0 || clipboard)) {
+      handled()
+      setSelected(new Set())
+      setClipboard(null)
+    }
+  }, [anchorPath, clipboard, copyPath, copyToClipboard, draft, expanded, flatEntries, focusedPath, paste, props, rangeTo, remove, selected.size, startRename, targetsFor, toggle])
+
+  const anyExpanded = useMemo(() => {
+    for (const result of results.values()) {
+      if (result.ok && (expanded.has(result.root.path) || collectDirectories(result.root).some((p) => expanded.has(p)))) return true
+    }
+    return false
+  }, [expanded, results])
+
+  const ctx: TreeContext = {
     expanded,
     activeKey,
-    selectedDir,
+    openKeys,
+    selected,
+    focusedPath,
+    cutKeys,
+    dropTarget,
     draft,
     draftError,
     draftBusy,
-    onToggle: toggle,
-    onOpenFile,
-    onSelectDir: setSelectedDir,
+    onRowClick,
+    onRowDoubleClick,
     onContextMenu: openMenu,
     onStartRename: startRename,
     onCommitDraft: (value: string) => void commitDraft(value),
     onCancelDraft: cancelDraft,
-    onDraftChange: () => setDraftError(null)
+    onDraftChange: () => setDraftError(null),
+    onDragStart,
+    onDragEnd,
+    onDragOverFolder,
+    onDropOnFolder
   }
 
   return (
@@ -501,7 +960,19 @@ export const Explorer = memo(function Explorer(props: ExplorerProps): JSX.Elemen
         </div>
       </div>
 
-      <div className="sidebar__body explorer__body">
+      <div
+        ref={bodyRef}
+        className="sidebar__body explorer__body"
+        onKeyDown={onTreeKeyDown}
+        onContextMenu={(event) => openMenu(event, null)}
+        onDragLeave={(event) => {
+          if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setDropTarget(null)
+        }}
+        onMouseDown={(event) => {
+          // Clicking empty space clears the selection, as in any file tree.
+          if (event.target === event.currentTarget) setSelected(new Set())
+        }}
+      >
         {folders.length === 0 ? (
           <div className="explorer__empty">
             <p className="outline__empty">{t('explorer.empty')}</p>
@@ -511,23 +982,29 @@ export const Explorer = memo(function Explorer(props: ExplorerProps): JSX.Elemen
             </button>
           </div>
         ) : (
-          <ul className="explorer-roots" role="tree" aria-label={t('explorer.title')}>
+          <ul className="explorer-roots" role="tree" aria-label={t('explorer.title')} aria-multiselectable="true">
             {folders.map((folder) => {
               const result = results.get(folder)
               const open = expanded.has(folder)
               const creatingInRoot = draft?.kind === 'create' && draft.directory === folder
+              const rootEntry: FlatEntry = { path: folder, kind: 'root', name: folderLabel(folder), directory: folder }
               return (
                 <li key={folder} className="explorer-root" role="treeitem" aria-expanded={open}>
                   <div className="explorer-root__row">
                     <button
                       type="button"
-                      className={`explorer-item explorer-item--root ${selectedDir === folder ? 'explorer-item--selected' : ''}`}
+                      data-explorer-path={folder}
+                      className={[
+                        'explorer-item explorer-item--root',
+                        selectedDir === folder ? 'explorer-item--target' : '',
+                        focusedPath === folder ? 'explorer-item--focused' : '',
+                        dropTarget === folder ? 'explorer-item--drop' : ''
+                      ].join(' ')}
                       title={folder}
-                      onClick={() => {
-                        setSelectedDir(folder)
-                        toggle(folder)
-                      }}
-                      onContextMenu={(event) => openMenu(event, { kind: 'root', path: folder, name: folderLabel(folder) })}
+                      onClick={(event) => onRowClick(event, rootEntry)}
+                      onContextMenu={(event) => openMenu(event, rootEntry)}
+                      onDragOver={(event) => onDragOverFolder(event, folder)}
+                      onDrop={(event) => onDropOnFolder(event, folder)}
                     >
                       <span className={`explorer-item__chevron ${open ? 'explorer-item__chevron--open' : ''}`} aria-hidden="true">
                         <IconChevronRight width={14} height={14} />
@@ -562,7 +1039,7 @@ export const Explorer = memo(function Explorer(props: ExplorerProps): JSX.Elemen
                       <p className="outline__empty explorer__status explorer__status--error">{t('explorer.unavailable')}</p>
                     ) : (
                       <>
-                        <ExplorerTree {...treeProps} nodes={result.root.children ?? []} depth={0} directory={folder} />
+                        <ExplorerTree nodes={result.root.children ?? []} depth={0} directory={folder} ctx={ctx} />
                         {(result.root.children ?? []).length === 0 && !creatingInRoot && (
                           <p className="outline__empty explorer__status">{t('explorer.noMarkdown')}</p>
                         )}
@@ -580,44 +1057,13 @@ export const Explorer = memo(function Explorer(props: ExplorerProps): JSX.Elemen
       </div>
 
       {menu && (
-        <div
-          className="tab-menu"
-          role="menu"
-          style={{ left: menu.x, top: menu.y }}
-          onMouseDown={(event) => event.stopPropagation()}
-        >
-          {menu.kind === 'file' ? (
-            <>
-              <button className="tab-menu__item" type="button" role="menuitem" onClick={() => run(() => onOpenFile(menu.path))}>
-                {t('explorer.open')}
-              </button>
-              <button className="tab-menu__item" type="button" role="menuitem" onClick={() => run(() => startRename(menu.path, menu.name))}>
-                {t('explorer.rename')}
-              </button>
-              <div className="tab-menu__sep" role="separator" />
-              <button className="tab-menu__item" type="button" role="menuitem" onClick={() => run(() => startCreate(parentOf(menu.path)))}>
-                {t('explorer.newFile')}
-              </button>
-            </>
-          ) : (
-            <>
-              <button className="tab-menu__item" type="button" role="menuitem" onClick={() => run(() => startCreate(menu.path))}>
-                {t('explorer.newFile')}
-              </button>
-              <button className="tab-menu__item" type="button" role="menuitem" onClick={() => run(() => void rescan())}>
-                {t('explorer.refresh')}
-              </button>
-              {menu.kind === 'root' && (
-                <>
-                  <div className="tab-menu__sep" role="separator" />
-                  <button className="tab-menu__item" type="button" role="menuitem" onClick={() => run(() => onRemoveFolder(menu.path))}>
-                    {t('explorer.removeFolder')}
-                  </button>
-                </>
-              )}
-            </>
-          )}
-        </div>
+        <ContextMenu
+          x={menu.x}
+          y={menu.y}
+          items={menuItems}
+          label={menu.name || t('explorer.title')}
+          onClose={() => setMenu(null)}
+        />
       )}
     </aside>
   )

@@ -6,6 +6,9 @@
   },
   "tabs": {
     "documents": "開啟的文件",
+    "revealInExplorerView": "在檔案總管檢視中顯示",
+    "save": "儲存",
+    "saveAs": "另存新檔…",
     "close": "關閉分頁",
     "closeThis": "關閉",
     "closeOthers": "關閉其他分頁",
@@ -63,6 +66,30 @@
   },
   "explorer": {
     "title": "檔案總管",
+    "openInEditor": "在編輯器中開啟",
+    "openWithDefaultApp": "以預設應用程式開啟",
+    "revealInFileExplorer": "在檔案總管中顯示",
+    "revealInFinder": "在 Finder 中顯示",
+    "openContainingFolder": "開啟所在資料夾",
+    "cut": "剪下",
+    "copy": "複製",
+    "paste": "貼上",
+    "pasteCount": "貼上 {{count}} 個檔案",
+    "copyPath": "複製路徑",
+    "copyRelativePath": "複製相對路徑",
+    "duplicate": "建立複本",
+    "renameEllipsis": "重新命名…",
+    "delete": "刪除",
+    "deleteCount": "刪除 {{count}} 個項目",
+    "collapseFolder": "摺疊資料夾",
+    "openInTab": "已在分頁中開啟",
+    "pathCopied": "已複製路徑",
+    "confirmDelete": {
+      "one": "要將「{{name}}」移至資源回收筒嗎？",
+      "many": "要將 {{count}} 個項目移至資源回收筒嗎？",
+      "detail": "可以從資源回收筒還原。",
+      "confirm": "移至資源回收筒"
+    },
     "newFile": "新增檔案",
     "newFileIn": "在 {{name}} 中新增檔案",
     "rename": "重新命名",
@@ -71,6 +98,7 @@
     "fileName": "檔案名稱",
     "errors": {
       "exists": "此處已有同名檔案。",
+      "existsInTarget": "目的地已有同名檔案。",
       "invalidName": "請輸入有效的檔案名稱。",
       "forbidden": "此位置不在檔案總管的資料夾中。",
       "failed": "無法完成：{{error}}"

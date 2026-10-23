@@ -1,11 +1,26 @@
-import { memo, useEffect, useState } from 'react'
+import { memo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { IconX } from './icons'
+import { ContextMenu, revealInOsLabelKey, shortcutLabel, type ContextMenuItem } from './ContextMenu'
 
 export interface DocumentTabItem {
   id: string
   title: string
   dirty: boolean
+  /** File on disk, or `null` for an untitled document. */
+  path: string | null
+  readOnly: boolean
+  /** True when `path` lies inside a folder loaded in the explorer. */
+  inExplorer: boolean
+}
+
+/** View toggles the tab menu offers, mirroring the top-bar buttons. */
+export interface DocumentTabViewState {
+  explorerVisible: boolean
+  outlineVisible: boolean
+  canToggleOutline: boolean
+  splitView: boolean
+  canToggleSplit: boolean
 }
 
 interface DocumentTabsProps {
@@ -17,6 +32,19 @@ interface DocumentTabsProps {
   onCloseToRight: (id: string) => void
   onCloseSaved: () => void
   onCloseAll: () => void
+  view: DocumentTabViewState
+  onSave: (id: string) => void
+  onSaveAs: (id: string) => void
+  onCopyPath: (id: string, relative: boolean) => void
+  onRevealInExplorer: (id: string) => void
+  onRevealInOs: (id: string) => void
+  onOpenWithDefaultApp: (id: string) => void
+  onRename: (id: string) => void
+  onToggleExplorer: () => void
+  onToggleOutline: () => void
+  onToggleSplit: () => void
+  /** Double-click on the empty part of the strip: a new untitled document, as in VS Code. */
+  onNew: () => void
 }
 
 interface MenuState {
@@ -33,44 +61,69 @@ function DocumentTabsView({
   onCloseOthers,
   onCloseToRight,
   onCloseSaved,
-  onCloseAll
+  onCloseAll,
+  ...actions
 }: DocumentTabsProps): JSX.Element | null {
   const { t } = useTranslation()
   const [menu, setMenu] = useState<MenuState | null>(null)
 
-  // Dismiss the context menu on any outside interaction.
-  useEffect(() => {
-    if (!menu) return
-    const close = (): void => setMenu(null)
-    const onKey = (event: KeyboardEvent): void => {
-      if (event.key === 'Escape') setMenu(null)
-    }
-    window.addEventListener('mousedown', close)
-    window.addEventListener('resize', close)
-    window.addEventListener('blur', close)
-    window.addEventListener('keydown', onKey)
-    return () => {
-      window.removeEventListener('mousedown', close)
-      window.removeEventListener('resize', close)
-      window.removeEventListener('blur', close)
-      window.removeEventListener('keydown', onKey)
-    }
-  }, [menu])
-
   if (tabs.length === 0) return null
 
   const menuIndex = menu ? tabs.findIndex((tab) => tab.id === menu.id) : -1
+  const menuTab = menuIndex >= 0 ? tabs[menuIndex] : null
   const hasOthers = tabs.length > 1
   const hasRight = menuIndex >= 0 && menuIndex < tabs.length - 1
   const hasSaved = tabs.some((tab) => !tab.dirty)
 
-  const run = (action: () => void): void => {
-    setMenu(null)
-    action()
+  const items = (tab: DocumentTabItem): ContextMenuItem[] => {
+    const onDisk = tab.path !== null && !tab.readOnly
+    const { view } = actions
+    return [
+      { label: t('tabs.closeThis'), shortcut: shortcutLabel('Ctrl', 'W'), onSelect: () => onClose(tab.id) },
+      { label: t('tabs.closeOthers'), disabled: !hasOthers, onSelect: () => onCloseOthers(tab.id) },
+      { label: t('tabs.closeRight'), disabled: !hasRight, onSelect: () => onCloseToRight(tab.id) },
+      { label: t('tabs.closeSaved'), disabled: !hasSaved, onSelect: onCloseSaved },
+      { label: t('tabs.closeAll'), onSelect: onCloseAll },
+      'separator',
+      { label: t('tabs.save'), shortcut: shortcutLabel('Ctrl', 'S'), disabled: tab.readOnly, onSelect: () => actions.onSave(tab.id) },
+      { label: t('tabs.saveAs'), shortcut: shortcutLabel('Ctrl', 'Shift', 'S'), disabled: tab.readOnly, onSelect: () => actions.onSaveAs(tab.id) },
+      'separator',
+      { label: t('explorer.copyPath'), disabled: !tab.path, onSelect: () => actions.onCopyPath(tab.id, false) },
+      { label: t('explorer.copyRelativePath'), disabled: !tab.inExplorer, onSelect: () => actions.onCopyPath(tab.id, true) },
+      'separator',
+      { label: t('tabs.revealInExplorerView'), disabled: !tab.inExplorer, onSelect: () => actions.onRevealInExplorer(tab.id) },
+      { label: t(revealInOsLabelKey()), disabled: !onDisk, onSelect: () => actions.onRevealInOs(tab.id) },
+      { label: t('explorer.openWithDefaultApp'), disabled: !onDisk, onSelect: () => actions.onOpenWithDefaultApp(tab.id) },
+      { label: t('explorer.renameEllipsis'), disabled: !onDisk || !tab.inExplorer, onSelect: () => actions.onRename(tab.id) },
+      'separator',
+      {
+        label: view.explorerVisible ? t('toolbar.hideExplorer') : t('toolbar.showExplorer'),
+        shortcut: shortcutLabel('Ctrl', 'Shift', 'B'),
+        onSelect: actions.onToggleExplorer
+      },
+      {
+        label: view.outlineVisible ? t('toolbar.hideOutline') : t('toolbar.showOutline'),
+        disabled: !view.canToggleOutline,
+        onSelect: actions.onToggleOutline
+      },
+      {
+        label: view.splitView ? t('toolbar.hideLivePreview') : t('toolbar.showLivePreview'),
+        shortcut: shortcutLabel('Ctrl', '\\'),
+        disabled: !view.canToggleSplit,
+        onSelect: actions.onToggleSplit
+      }
+    ]
   }
 
   return (
-    <div className="document-tabs" role="tablist" aria-label={t('tabs.documents')}>
+    <div
+      className="document-tabs"
+      role="tablist"
+      aria-label={t('tabs.documents')}
+      onDoubleClick={(event) => {
+        if (event.target === event.currentTarget) actions.onNew()
+      }}
+    >
       {tabs.map((tab) => (
         <div
           key={tab.id}
@@ -88,7 +141,7 @@ function DocumentTabsView({
             setMenu({ id: tab.id, x: event.clientX, y: event.clientY })
           }}
         >
-          <button className="document-tab__label" type="button" onClick={() => onSelect(tab.id)} title={tab.title}>
+          <button className="document-tab__label" type="button" onClick={() => onSelect(tab.id)} title={tab.path ?? tab.title}>
             <span className="document-tab__dirty" aria-hidden="true">
               {tab.dirty ? '•' : ''}
             </span>
@@ -106,48 +159,14 @@ function DocumentTabsView({
         </div>
       ))}
 
-      {menu && (
-        <div
-          className="tab-menu"
-          role="menu"
-          style={{ left: menu.x, top: menu.y }}
-          onMouseDown={(event) => event.stopPropagation()}
-        >
-          <button className="tab-menu__item" type="button" role="menuitem" onClick={() => run(() => onClose(menu.id))}>
-            {t('tabs.closeThis')}
-          </button>
-          <button
-            className="tab-menu__item"
-            type="button"
-            role="menuitem"
-            disabled={!hasOthers}
-            onClick={() => run(() => onCloseOthers(menu.id))}
-          >
-            {t('tabs.closeOthers')}
-          </button>
-          <button
-            className="tab-menu__item"
-            type="button"
-            role="menuitem"
-            disabled={!hasRight}
-            onClick={() => run(() => onCloseToRight(menu.id))}
-          >
-            {t('tabs.closeRight')}
-          </button>
-          <div className="tab-menu__sep" role="separator" />
-          <button
-            className="tab-menu__item"
-            type="button"
-            role="menuitem"
-            disabled={!hasSaved}
-            onClick={() => run(onCloseSaved)}
-          >
-            {t('tabs.closeSaved')}
-          </button>
-          <button className="tab-menu__item" type="button" role="menuitem" onClick={() => run(onCloseAll)}>
-            {t('tabs.closeAll')}
-          </button>
-        </div>
+      {menu && menuTab && (
+        <ContextMenu
+          x={menu.x}
+          y={menu.y}
+          items={items(menuTab)}
+          label={menuTab.title}
+          onClose={() => setMenu(null)}
+        />
       )}
     </div>
   )
@@ -155,8 +174,21 @@ function DocumentTabsView({
 
 function sameTabs(previous: DocumentTabItem[], next: DocumentTabItem[]): boolean {
   return previous.length === next.length && previous.every((tab, index) => (
-    tab.id === next[index].id && tab.title === next[index].title && tab.dirty === next[index].dirty
+    tab.id === next[index].id &&
+    tab.title === next[index].title &&
+    tab.dirty === next[index].dirty &&
+    tab.path === next[index].path &&
+    tab.readOnly === next[index].readOnly &&
+    tab.inExplorer === next[index].inExplorer
   ))
+}
+
+function sameView(previous: DocumentTabViewState, next: DocumentTabViewState): boolean {
+  return previous.explorerVisible === next.explorerVisible &&
+    previous.outlineVisible === next.outlineVisible &&
+    previous.canToggleOutline === next.canToggleOutline &&
+    previous.splitView === next.splitView &&
+    previous.canToggleSplit === next.canToggleSplit
 }
 
 export const DocumentTabs = memo(DocumentTabsView, (previous, next) => (
@@ -167,5 +199,17 @@ export const DocumentTabs = memo(DocumentTabsView, (previous, next) => (
   previous.onCloseToRight === next.onCloseToRight &&
   previous.onCloseSaved === next.onCloseSaved &&
   previous.onCloseAll === next.onCloseAll &&
+  previous.onSave === next.onSave &&
+  previous.onSaveAs === next.onSaveAs &&
+  previous.onCopyPath === next.onCopyPath &&
+  previous.onRevealInExplorer === next.onRevealInExplorer &&
+  previous.onRevealInOs === next.onRevealInOs &&
+  previous.onOpenWithDefaultApp === next.onOpenWithDefaultApp &&
+  previous.onRename === next.onRename &&
+  previous.onToggleExplorer === next.onToggleExplorer &&
+  previous.onToggleOutline === next.onToggleOutline &&
+  previous.onToggleSplit === next.onToggleSplit &&
+  previous.onNew === next.onNew &&
+  sameView(previous.view, next.view) &&
   sameTabs(previous.tabs, next.tabs)
 ))

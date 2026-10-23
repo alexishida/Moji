@@ -6,6 +6,9 @@
   },
   "tabs": {
     "documents": "Open documents",
+    "revealInExplorerView": "Reveal in Explorer View",
+    "save": "Save",
+    "saveAs": "Save As…",
     "close": "Close tab",
     "closeThis": "Close",
     "closeOthers": "Close Others",
@@ -63,6 +66,30 @@
   },
   "explorer": {
     "title": "Explorer",
+    "openInEditor": "Open in Editor",
+    "openWithDefaultApp": "Open with Default App",
+    "revealInFileExplorer": "Reveal in File Explorer",
+    "revealInFinder": "Reveal in Finder",
+    "openContainingFolder": "Open Containing Folder",
+    "cut": "Cut",
+    "copy": "Copy",
+    "paste": "Paste",
+    "pasteCount": "Paste {{count}} Files",
+    "copyPath": "Copy Path",
+    "copyRelativePath": "Copy Relative Path",
+    "duplicate": "Duplicate",
+    "renameEllipsis": "Rename…",
+    "delete": "Delete",
+    "deleteCount": "Delete {{count}} Items",
+    "collapseFolder": "Collapse Folder",
+    "openInTab": "Open in a tab",
+    "pathCopied": "Path copied",
+    "confirmDelete": {
+      "one": "Move \"{{name}}\" to the trash?",
+      "many": "Move {{count}} items to the trash?",
+      "detail": "You can restore them from the trash.",
+      "confirm": "Move to Trash"
+    },
     "newFile": "New file",
     "newFileIn": "New file in {{name}}",
     "rename": "Rename",
@@ -71,6 +98,7 @@
     "fileName": "File name",
     "errors": {
       "exists": "A file with this name already exists here.",
+      "existsInTarget": "A file with that name already exists in the destination.",
       "invalidName": "Enter a valid file name.",
       "forbidden": "This location is not in an explorer folder.",
       "failed": "Could not complete: {{error}}"

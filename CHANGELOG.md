@@ -11,6 +11,12 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Explorer that lists the Markdown files (`.md`, `.markdown`) of one or more loaded folders as a collapsible tree. It is the outermost column of the window: document tabs, outline, and workspace sit to its right, and its header shares the tab strip's height. Folders are added with a new *Open Folder* button beside New / Open / Save (also on the Welcome screen and Ctrl+Shift+O), persist in settings, refresh on window focus or on demand, and can be removed individually. Clicking a file opens it in a tab, and the active document is revealed and highlighted.
 - New Markdown files can be created from the explorer (header button, per-folder button, or right-click) and are named inline before opening in the editor; existing files can be renamed inline with the pencil button, F2, or the context menu. Names that already exist are reported in place and nothing is overwritten; open tabs and recent files follow a rename.
 - The explorer is shown or hidden from a top-bar button grouped with the outline and split toggles, or with Ctrl+Shift+B, and the choice persists.
+- VS Code-style context menus in the explorer: Open, Open in Editor, Open with Default App, Reveal in File Explorer / Finder, Cut, Copy, Paste, Copy Path, Copy Relative Path, Duplicate, Rename, Delete (to the OS trash, after a native confirmation), Refresh, Collapse Folder, and Remove Folder from Explorer. Multi-selection with Ctrl/Shift+click, drag and drop to move (Ctrl/Alt to copy), keyboard navigation, and F2 / Delete / Ctrl+C / Ctrl+X / Ctrl+V / Shift+Alt+C / Shift+Alt+R shortcuts. Files already open in a tab are marked, and cut files fade until pasted.
+- Tab context menu gains Save, Save As, Copy Path, Copy Relative Path, Reveal in Explorer View, Reveal in File Explorer, Open with Default App, Rename, and toggles for the explorer, outline, and live preview. Double-clicking the empty tab strip creates a new document.
+
+### Fixed
+
+- Buttons no longer show Chromium's default amber focus ring (most visible as a stray border on the top-bar *New* button after a dialog or shortcut returned focus to it); keyboard focus now uses the app's accent ring everywhere.
 
 ## [1.0.7] - 2026-09-09
 
