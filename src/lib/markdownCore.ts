@@ -228,6 +228,136 @@ export function documentAssetBaseUrl(documentPath: string | null | undefined): s
   return `${filePathToFileUrl(normalized.slice(0, lastSlash + 1))}/`.replace(/\/+$/, '/')
 }
 
+/**
+ * Schemes a sanitized document may name in `src`, `href`, `poster` and `srcset`.
+ *
+ * `moji-asset:` is the app's own protocol. It serves images and nothing else, only from
+ * directories the user opened, and the CSP in `index.html` allows it for `img-src` alone, so
+ * naming it here cannot load anything a rendered document could not already display. It is
+ * listed because a relative reference in raw HTML is rewritten to it before sanitizing.
+ */
+export const SANITIZE_ALLOWED_URI =
+  /^(?:(?:(?:f|ht)tps?|file|mailto|tel|callto|sms|cid|xmpp|moji-asset):|[^a-z]|[a-z+.-]+(?:[^a-z+.\-:]|$))/i
+
+/**
+ * A start tag with its attributes, quoted values included.
+ *
+ * Matched whole so rewriting reaches attribute values only: raw HTML that merely *mentions*
+ * `src="photo.png"` in its text has to keep reading the way it was written. Comments start
+ * with `<!`, so they are not tags.
+ */
+const HTML_START_TAG = /<[a-z](?:[^<>"']|"[^"]*"|'[^']*')*>/gi
+
+/** One attribute, with the quoting it was written in, so `=` inside a value is not a separator. */
+const HTML_ATTRIBUTE = /(\s)([a-z][\w-]*)(\s*=\s*)(?:"([^"]*)"|'([^']*)'|([^\s"'`=<>]+))/gi
+
+/** Attributes whose value is a URL the preview has to resolve against the document. */
+const HTML_URL_ATTRIBUTES = new Set(['src', 'href', 'poster'])
+
+function isHtmlSpace(character: string): boolean {
+  return character === ' ' || character === '\t' || character === '\n' || character === '\r' || character === '\f'
+}
+
+/**
+ * Read a `srcset` value as its candidates (WHATWG "parse a srcset attribute").
+ *
+ * A URL runs up to the next whitespace, so the comma inside a `data:` fallback stays part of
+ * that URL instead of starting a new candidate.
+ */
+function parseSrcset(value: string): Array<{ url: string; descriptor: string }> {
+  const candidates: Array<{ url: string; descriptor: string }> = []
+  let index = 0
+  while (index < value.length) {
+    while (index < value.length && (isHtmlSpace(value[index]) || value[index] === ',')) index += 1
+    if (index >= value.length) break
+
+    const urlStart = index
+    while (index < value.length && !isHtmlSpace(value[index])) index += 1
+    let url = value.slice(urlStart, index)
+    if (url.endsWith(',')) {
+      // Trailing commas end the candidate before it: `a.png, b.png 2x`.
+      candidates.push({ url: url.replace(/,+$/, ''), descriptor: '' })
+      continue
+    }
+
+    const descriptorStart = index
+    let depth = 0
+    while (index < value.length) {
+      const character = value[index]
+      if (character === '(') depth += 1
+      else if (character === ')') depth = Math.max(0, depth - 1)
+      else if (character === ',' && depth === 0) break
+      index += 1
+    }
+    candidates.push({ url, descriptor: value.slice(descriptorStart, index).trim() })
+    if (index < value.length) index += 1
+  }
+  return candidates
+}
+
+function escapeHtmlAttribute(value: string): string {
+  return value.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+}
+
+/**
+ * Where one raw-HTML attribute value points, or null when it must be left as written.
+ *
+ * Same destinations as a Markdown image and a Markdown link, so both spellings of the same
+ * reference load: `file:` in the exported document, `moji-asset:` for an image inside the app
+ * window, whose CSP refuses `file:` for images and whose page URL is the app's own.
+ */
+function resolvedHtmlReference(
+  attribute: string,
+  value: string,
+  context: MarkdownRenderEnvironment
+): string | null {
+  const source = value.trim()
+  // An in-page `#anchor` belongs to this document, and `//host` to another origin: neither is
+  // a file next to the document, which is the only thing this resolves.
+  if (!source || source.startsWith('#') || source.startsWith('//')) return null
+  const resolved = resolveLocalUrl(source, context.documentPath)
+  if (!resolved?.startsWith('file:')) return null
+  // Links stay `file:` in both modes: that is the URL the preview hands to the operating
+  // system when one is clicked.
+  if (attribute === 'href' || context.assetMode !== 'app') return resolved
+  return localAssetUrl(resolved)
+}
+
+function rewriteHtmlAttribute(
+  attribute: string,
+  value: string,
+  context: MarkdownRenderEnvironment
+): string | null {
+  if (attribute !== 'srcset') {
+    return HTML_URL_ATTRIBUTES.has(attribute) ? resolvedHtmlReference(attribute, value, context) : null
+  }
+
+  let changed = false
+  const candidates = parseSrcset(value).map(({ url, descriptor }) => {
+    const resolved = resolvedHtmlReference('src', url, context)
+    if (resolved) changed = true
+    return `${resolved ?? url}${descriptor ? ` ${descriptor}` : ''}`
+  })
+  return changed ? candidates.join(', ') : null
+}
+
+function rewriteHtmlTag(tag: string, context: MarkdownRenderEnvironment): string {
+  return tag.replace(
+    HTML_ATTRIBUTE,
+    (match, space: string, name: string, equals: string, quoted: string, singleQuoted: string, bare: string) => {
+      const rewritten = rewriteHtmlAttribute(name.toLowerCase(), quoted ?? singleQuoted ?? bare ?? '', context)
+      if (rewritten === null) return match
+      return `${space}${name}${equals}"${escapeHtmlAttribute(rewritten)}"`
+    }
+  )
+}
+
+/** Resolve the file references inside raw HTML against the document, like Markdown syntax. */
+function rewriteHtmlReferences(rawHtml: string, context: MarkdownRenderEnvironment): string {
+  if (!context.documentPath || !rawHtml.includes('<')) return rawHtml
+  return rawHtml.replace(HTML_START_TAG, (tag) => rewriteHtmlTag(tag, context))
+}
+
 function createMarkdownRenderer(): MarkdownIt {
   const renderer = new MarkdownIt({
     html: true,
@@ -296,6 +426,29 @@ function createMarkdownRenderer(): MarkdownIt {
       if (resolved?.startsWith('file:')) token.attrSet('href', resolved)
     }
     return defaultLinkRenderer?.(tokens, index, options, env, self) ?? self.renderToken(tokens, index, options)
+  }
+
+  // Raw HTML reaches the preview as written, so `<img src="docs/shot.png">` used to resolve
+  // against the app's own page — or, in an export, against the temporary export directory —
+  // instead of against the document. Rewriting the token content here fixes both spellings at
+  // the one place they are still distinguishable from text.
+  const rewriteHtmlToken = (tokens: MarkdownToken[], index: number, env: MarkdownRenderEnvironment): string => {
+    const token = tokens[index]
+    const rewritten = rewriteHtmlReferences(token.content, env)
+    if (rewritten !== token.content) token.content = rewritten
+    return rewritten
+  }
+
+  const defaultHtmlBlockRenderer = renderer.renderer.rules.html_block
+  renderer.renderer.rules.html_block = (tokens, index, options, env, self): string => {
+    rewriteHtmlToken(tokens, index, env as MarkdownRenderEnvironment)
+    return defaultHtmlBlockRenderer?.(tokens, index, options, env, self) ?? tokens[index].content
+  }
+
+  const defaultHtmlInlineRenderer = renderer.renderer.rules.html_inline
+  renderer.renderer.rules.html_inline = (tokens, index, options, env, self): string => {
+    rewriteHtmlToken(tokens, index, env as MarkdownRenderEnvironment)
+    return defaultHtmlInlineRenderer?.(tokens, index, options, env, self) ?? tokens[index].content
   }
 
   return renderer
