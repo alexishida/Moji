@@ -266,7 +266,8 @@
     "updateUnsupported": "このビルドでは更新確認を利用できません。",
     "openReleases": "更新",
     "whyNameTitle": "なぜ Moji？",
-    "whyNameBody": "Moji は短く覚えやすく、文字や書くことを連想させます。この名前は、Markdown をスムーズに開き、編集し、プレビューし、エクスポートするという目的に合っています。余計な気を散らすものはありません。"
+    "whyNameBody": "Moji は短く覚えやすく、文字や書くことを連想させます。この名前は、Markdown をスムーズに開き、編集し、プレビューし、エクスポートするという目的に合っています。余計な気を散らすものはありません。",
+    "contributorsTitle": "貢献者"
   },
   "update": {
     "availableTitle": "新しいバージョンがあります",

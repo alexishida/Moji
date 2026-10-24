@@ -266,7 +266,8 @@
     "updateUnsupported": "此构建不支持检查更新。",
     "openReleases": "更新",
     "whyNameTitle": "为什么叫 Moji？",
-    "whyNameBody": "Moji 简短、易记，让人联想到文字与书写。这个名字契合它的目标：流畅地打开、编辑、预览和导出 Markdown，远离干扰。"
+    "whyNameBody": "Moji 简短、易记，让人联想到文字与书写。这个名字契合它的目标：流畅地打开、编辑、预览和导出 Markdown，远离干扰。",
+    "contributorsTitle": "贡献者"
   },
   "update": {
     "availableTitle": "有新版本可用",

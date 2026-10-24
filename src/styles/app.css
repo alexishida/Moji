@@ -1932,6 +1932,39 @@ body {
   color: var(--text-muted);
 }
 
+.about-dialog__contributors-wrap {
+  overflow-x: auto;
+  padding: var(--space-3) var(--space-4) var(--space-1);
+}
+
+.about-dialog__contributors {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-wrap: nowrap;
+  gap: var(--space-2);
+  align-items: center;
+}
+
+.about-dialog__contributors li {
+  display: flex;
+  align-items: center;
+  padding: 0;
+}
+
+.about-dialog__contributors li a {
+  white-space: nowrap;
+}
+
+.about-dialog__contributor-sep {
+  color: var(--text-muted);
+  font-size: 12px;
+  line-height: 1;
+  user-select: none;
+  padding: 0 var(--space-1);
+}
+
 .about-dialog__update {
   display: flex;
   align-items: center;

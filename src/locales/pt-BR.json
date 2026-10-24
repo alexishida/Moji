@@ -266,7 +266,8 @@
     "updateUnsupported": "A verificação de atualizações não está disponível nesta versão do pacote.",
     "openReleases": "Atualizar",
     "whyNameTitle": "Por que Moji?",
-    "whyNameBody": "Moji é curto, fácil de lembrar e remete a caracteres e escrita. O nome combina com sua proposta: abrir, editar, visualizar e exportar Markdown com fluidez — sem distrações."
+    "whyNameBody": "Moji é curto, fácil de lembrar e remete a caracteres e escrita. O nome combina com sua proposta: abrir, editar, visualizar e exportar Markdown com fluidez — sem distrações.",
+    "contributorsTitle": "Contribuidores"
   },
   "update": {
     "availableTitle": "Nova versão disponível",

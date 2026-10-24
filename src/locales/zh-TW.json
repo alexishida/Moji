@@ -266,7 +266,8 @@
     "updateUnsupported": "此版本不支援檢查更新項目。",
     "openReleases": "更新",
     "whyNameTitle": "為什麼叫 Moji？",
-    "whyNameBody": "Moji 簡短、容易記住，讓人聯想到文字與書寫。這個名稱符合其用途：順暢地開啟、編輯、預覽與匯出 Markdown，避免干擾。"
+    "whyNameBody": "Moji 簡短、容易記住，讓人聯想到文字與書寫。這個名稱符合其用途：順暢地開啟、編輯、預覽與匯出 Markdown，避免干擾。",
+    "contributorsTitle": "貢獻者"
   },
   "update": {
     "availableTitle": "有新版本可用",
