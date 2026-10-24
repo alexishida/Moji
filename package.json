@@ -29,6 +29,8 @@
   },
   "scripts": {
     "postinstall": "node scripts/install-electron-binary.cjs",
+    "prebuild": "node scripts/generate-contributors.cjs",
+    "predist": "node scripts/generate-contributors.cjs",
     "dev": "node scripts/run-electron-vite.cjs dev",
     "dev:update": "node scripts/run-electron-vite.cjs dev --mock-update",
     "build": "electron-vite build",
